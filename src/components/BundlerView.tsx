@@ -1,0 +1,261 @@
+"use client";
+import { useEffect, useMemo, useState } from "react";
+import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
+import { Eye, KeyRound, Layers, Plus, RefreshCw, Send, ShieldCheck, Trash2, Undo2, Upload, Zap } from "lucide-react";
+import type { BundleProgress, BundleWallet, SplitMode } from "@/lib/ton/bundler";
+import { DEMO_TOKENS } from "@/lib/demo";
+import { shortAddr, num } from "@/lib/format";
+import { toast } from "./Toast";
+import { CopyButton } from "./CopyButton";
+
+type Lib = typeof import("@/lib/ton/bundler");
+const loadLib = () => import("@/lib/ton/bundler");
+
+export function BundlerView() {
+  const wallet = useTonAddress();
+  const [tc] = useTonConnectUI();
+  const [wallets, setWallets] = useState<BundleWallet[]>([]);
+  const [password, setPassword] = useState("");
+  const [unlocked, setUnlocked] = useState(false);
+  const [lib, setLib] = useState<Lib>();
+  const [genCount, setGenCount] = useState(5);
+  const [importText, setImportText] = useState("");
+  const [fundTotal, setFundTotal] = useState(10);
+  const [fundMode, setFundMode] = useState<SplitMode>("random");
+  const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [jetton, setJetton] = useState("");
+  const [tradeTotal, setTradeTotal] = useState(5);
+  const [tradeMode, setTradeMode] = useState<SplitMode>("random");
+  const [stagger, setStagger] = useState(1500);
+  const [slippage, setSlippage] = useState(2);
+  const [progress, setProgress] = useState<Record<string, BundleProgress>>({});
+  const [running, setRunning] = useState(false);
+  const [seed, setSeed] = useState(0);
+
+  useEffect(() => {
+    loadLib().then((l) => {
+      setLib(l);
+      setWallets(l.loadWallets());
+    });
+  }, []);
+
+  const active = wallets.filter((w) => w.enabled);
+  const fundSplit = useMemo(() => lib?.splitAmount(fundTotal, active.length, fundMode) ?? [], [lib, fundTotal, active.length, fundMode, seed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tradeSplit = useMemo(() => lib?.splitAmount(tradeTotal, active.length, tradeMode) ?? [], [lib, tradeTotal, active.length, tradeMode, seed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const totalBal = wallets.reduce((s, w) => s + (Number.isFinite(w.balance) ? w.balance! : 0), 0);
+
+  const persist = (w: BundleWallet[]) => {
+    setWallets(w);
+    lib?.saveWallets(w);
+  };
+
+  async function unlock() {
+    if (password.length < 8) return toast.error("Use at least 8 characters");
+    if (wallets[0] && lib) {
+      try {
+        await lib.revealMnemonic(wallets[0], password);
+      } catch {
+        return toast.error("Wrong password");
+      }
+    }
+    setUnlocked(true);
+  }
+
+  async function generate() {
+    if (!lib) return;
+    const made = await lib.createWallets(genCount, password, wallets.length);
+    persist([...wallets, ...made]);
+    toast.success(`${made.length} wallets created`, "Encrypted and stored only in this browser.");
+  }
+
+  async function doImport() {
+    if (!lib) return;
+    try {
+      const w = await lib.importWallet(importText, password, `Imported ${wallets.length + 1}`);
+      persist([...wallets, w]);
+      setImportText("");
+    } catch (e) {
+      toast.error("Import failed", (e as Error).message);
+    }
+  }
+
+  async function refresh() {
+    if (!lib) return;
+    const b = await lib.fetchBalances(wallets);
+    setWallets((ws) => ws.map((w) => ({ ...w, balance: b[w.id] })));
+  }
+
+  async function fund() {
+    if (!lib) return;
+    if (!wallet) return tc.openModal();
+    const msgs = lib.fundingMessages(active, fundSplit);
+    try {
+      // 4 messages per request keeps older wallet contracts (v4) compatible
+      for (let i = 0; i < msgs.length; i += 4) {
+        await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: msgs.slice(i, i + 4) });
+      }
+      toast.success("Funding sent", `${active.length} wallets funded from ${shortAddr(wallet)}`);
+      setTimeout(refresh, 8000);
+    } catch (e) {
+      toast.error("Funding cancelled", (e as Error).message);
+    }
+  }
+
+  async function execute() {
+    if (!lib) return;
+    if (!/^[EU]Q[A-Za-z0-9_-]{46}$/.test(jetton)) return toast.error("Enter a valid jetton master address");
+    setRunning(true);
+    setProgress({});
+    await lib.runBundle({
+      side, wallets: active, amounts: tradeSplit, jetton, password, slippage: slippage / 100, staggerMs: stagger,
+      onProgress: (p) => setProgress((s) => ({ ...s, [p.walletId]: p })),
+    });
+    setRunning(false);
+    toast.success("Bundle finished", "Check each wallet's status below.");
+    setTimeout(refresh, 8000);
+  }
+
+  async function sweep() {
+    if (!lib) return;
+    if (!wallet) return tc.openModal();
+    if (!confirm(`Send all TON from ${active.length} wallets to ${shortAddr(wallet)}?`)) return;
+    setProgress({});
+    await lib.sweepAll(active, wallet, password, (p) => setProgress((s) => ({ ...s, [p.walletId]: p })));
+    setTimeout(refresh, 8000);
+  }
+
+  async function reveal(w: BundleWallet) {
+    if (!lib) return;
+    const words = await lib.revealMnemonic(w, password);
+    await navigator.clipboard?.writeText(words);
+    toast.info(`${w.label} mnemonic copied`, "Store it somewhere safe. Clipboard contents can be read by other apps.");
+  }
+
+  if (!unlocked) {
+    return (
+      <div className="mx-auto max-w-md space-y-4 pt-6">
+        <div className="card p-6">
+          <div className="grid size-11 place-items-center rounded-xl bg-brand-soft text-brand"><KeyRound className="size-5" /></div>
+          <h1 className="mt-3 text-xl font-extrabold">Multi-wallet bundler</h1>
+          <p className="mt-1 text-sm text-ink-2">
+            Trade from many TON wallets at once. Burner wallets are generated in your browser and encrypted with this password (PBKDF2 + AES-GCM). Keys never leave this device.
+          </p>
+          <input type="password" className="input mt-4" placeholder={wallets.length ? "Vault password" : "Create a vault password (8+ chars)"} value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && unlock()} />
+          <button onClick={unlock} className="btn btn-primary mt-3 w-full"><ShieldCheck className="size-4" /> {wallets.length ? `Unlock ${wallets.length} wallets` : "Create vault"}</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight">Multi-wallet bundler</h1>
+          <p className="text-sm text-ink-2">{wallets.length} wallets · {active.length} active · {num(totalBal, 3)} TON</p>
+        </div>
+        <div className="ml-auto flex gap-2">
+          <button onClick={refresh} className="btn btn-ghost"><RefreshCw className="size-4" /> Balances</button>
+          <button onClick={sweep} disabled={!active.length} className="btn btn-ghost"><Undo2 className="size-4" /> Sweep to main</button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <section className="card overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
+            <Layers className="size-4 text-ink-2" />
+            <h2 className="font-bold">Wallets</h2>
+            <div className="ml-auto flex items-center gap-2">
+              <input type="number" min={1} max={50} value={genCount} onChange={(e) => setGenCount(Math.max(1, Math.min(50, Number(e.target.value))))} className="input h-9 w-16 text-sm" />
+              <button onClick={generate} className="btn btn-primary h-9"><Plus className="size-4" /> Generate</button>
+            </div>
+          </div>
+          <div className="scroll-x">
+            <table className="w-full min-w-[620px] text-sm">
+              <thead className="text-left text-xs text-muted">
+                <tr className="border-b border-line">
+                  <th className="px-3 py-2 font-medium">On</th><th className="font-medium">Wallet</th><th className="font-medium">Address</th>
+                  <th className="text-right font-medium">TON</th><th className="text-right font-medium">Next {side}</th><th className="px-3 font-medium">Status</th><th />
+                </tr>
+              </thead>
+              <tbody className="num">
+                {wallets.map((w) => {
+                  const idx = active.indexOf(w);
+                  const p = progress[w.id];
+                  return (
+                    <tr key={w.id} className="border-b border-line/60 last:border-0">
+                      <td className="px-3 py-2"><input type="checkbox" checked={w.enabled} onChange={() => persist(wallets.map((x) => (x.id === w.id ? { ...x, enabled: !x.enabled } : x)))} className="size-4 accent-[var(--color-brand)]" /></td>
+                      <td className="font-semibold">{w.label}</td>
+                      <td><span className="font-mono text-xs">{shortAddr(w.address, 6, 6)}</span> <CopyButton value={w.address} className="ml-1 px-1.5 py-0.5" /></td>
+                      <td className="text-right">{w.balance === undefined ? "—" : Number.isFinite(w.balance) ? num(w.balance, 3) : "err"}</td>
+                      <td className="text-right text-ink-2">{idx >= 0 ? `${num(tradeSplit[idx] ?? 0, 3)} ${side === "buy" ? "TON" : "tok"}` : "—"}</td>
+                      <td className="px-3">
+                        {p && <span className={`chip ${p.status === "sent" ? "border-up/25 bg-up-soft text-up" : p.status === "error" ? "border-down/25 bg-down-soft text-down" : ""}`} title={p.error}>{p.status}</span>}
+                      </td>
+                      <td className="pr-3 text-right whitespace-nowrap">
+                        <button onClick={() => reveal(w)} className="p-1 text-muted hover:text-ink" aria-label="Copy mnemonic"><Eye className="size-4" /></button>
+                        <button onClick={() => confirm(`Delete ${w.label}? Export its mnemonic first if it holds funds.`) && persist(wallets.filter((x) => x.id !== w.id))} className="p-1 text-muted hover:text-down" aria-label="Delete"><Trash2 className="size-4" /></button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!wallets.length && <tr><td colSpan={7} className="py-10 text-center text-muted">No wallets yet — generate a set or import a mnemonic.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex gap-2 border-t border-line p-3">
+            <input className="input h-9 flex-1 font-mono text-xs" type="password" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="Import 24-word mnemonic" />
+            <button onClick={doImport} disabled={!importText} className="btn btn-ghost h-9"><Upload className="size-4" /> Import</button>
+          </div>
+        </section>
+
+        <aside className="space-y-4">
+          <section className="card p-4">
+            <h3 className="flex items-center gap-2 font-bold"><Send className="size-4" /> Fund wallets</h3>
+            <p className="mt-1 text-xs text-muted">From your connected TON wallet via TON Connect.</p>
+            <div className="mt-3 flex gap-2">
+              <input className="input num" inputMode="decimal" value={fundTotal} onChange={(e) => setFundTotal(Number(e.target.value) || 0)} />
+              <span className="self-center text-sm font-bold">TON</span>
+            </div>
+            <SplitPicker mode={fundMode} setMode={setFundMode} onShuffle={() => setSeed((s) => s + 1)} />
+            <button onClick={fund} disabled={!active.length || fundTotal <= 0} className="btn btn-ghost mt-3 w-full">{wallet ? `Send to ${active.length} wallets` : "Connect TON wallet"}</button>
+          </section>
+
+          <section className="card p-4">
+            <h3 className="flex items-center gap-2 font-bold"><Zap className="size-4" /> Bundle trade</h3>
+            <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
+              {(["buy", "sell"] as const).map((s) => (
+                <button key={s} onClick={() => setSide(s)} className={`rounded-lg py-1.5 text-sm font-bold capitalize ${side === s ? (s === "buy" ? "bg-up text-white" : "bg-down text-white") : "text-muted"}`}>{s}</button>
+              ))}
+            </div>
+            <label className="label mt-3 block">Jetton master address</label>
+            <input className="input mt-1 font-mono text-xs" value={jetton} onChange={(e) => setJetton(e.target.value.trim())} placeholder="EQ…" list="bundle-tokens" />
+            <datalist id="bundle-tokens">{DEMO_TOKENS.filter((t) => t.source === "live").map((t) => <option key={t.address} value={t.address}>{t.symbol}</option>)}</datalist>
+            <label className="label mt-3 block">Total {side === "buy" ? "TON to spend" : "tokens to sell"}</label>
+            <input className="input num mt-1" inputMode="decimal" value={tradeTotal} onChange={(e) => setTradeTotal(Number(e.target.value) || 0)} />
+            <SplitPicker mode={tradeMode} setMode={setTradeMode} onShuffle={() => setSeed((s) => s + 1)} />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="block"><span className="label">Stagger (ms)</span><input className="input num mt-1 h-9 text-sm" value={stagger} onChange={(e) => setStagger(Number(e.target.value) || 0)} /></label>
+              <label className="block"><span className="label">Slippage %</span><input className="input num mt-1 h-9 text-sm" value={slippage} onChange={(e) => setSlippage(Number(e.target.value) || 0)} /></label>
+            </div>
+            <button onClick={execute} disabled={running || !active.length || tradeTotal <= 0} className={`btn mt-4 h-11 w-full ${side === "buy" ? "btn-up" : "btn-down"}`}>
+              {running ? "Executing…" : `${side === "buy" ? "Buy" : "Sell"} from ${active.length} wallets`}
+            </button>
+            <p className="mt-2 text-[11px] text-muted">Each wallet signs its own STON.fi swap locally (platform referral fee applies). Keep ~0.3 TON per wallet for gas.</p>
+          </section>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function SplitPicker({ mode, setMode, onShuffle }: { mode: SplitMode; setMode: (m: SplitMode) => void; onShuffle: () => void }) {
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <div className="seg flex-1">
+        {(["equal", "random", "weighted"] as SplitMode[]).map((m) => <button key={m} data-on={mode === m} onClick={() => setMode(m)} className="flex-1 capitalize">{m}</button>)}
+      </div>
+      {mode === "random" && <button onClick={onShuffle} className="btn btn-ghost h-8 w-8 px-0" aria-label="Reshuffle"><RefreshCw className="size-3.5" /></button>}
+    </div>
+  );
+}

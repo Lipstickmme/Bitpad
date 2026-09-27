@@ -1,0 +1,5 @@
+{
+  "projects": [
+    { "name": "BitpadFactory", "path": "./bitpad_factory.tact", "output": "./build" }
+  ]
+}
