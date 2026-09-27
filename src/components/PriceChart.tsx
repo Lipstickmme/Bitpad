@@ -2,24 +2,26 @@
 import { useEffect, useRef, useState } from "react";
 import { CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, createChart, type IChartApi, type ISeriesApi, type UTCTimestamp } from "lightweight-charts";
 import { LineChart } from "lucide-react";
-import type { BitpadToken, Candle } from "@/lib/types";
-import { TIMEFRAMES, type Timeframe } from "@/lib/demo";
+import type { MarketToken, Candle } from "@/lib/types";
+import { TIMEFRAMES, type Timeframe } from "@/lib/timeframes";
 import { price, usd, pct } from "@/lib/format";
 
 const UP = "#0f9d58";
 const DOWN = "#d93a3a";
 
-export function PriceChart({ token, onPrice }: { token: BitpadToken; onPrice?: (p: number) => void }) {
+export function PriceChart({ token, onPrice }: { token: MarketToken; onPrice?: (p: number) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const candleS = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volS = useRef<ISeriesApi<"Histogram"> | null>(null);
   const data = useRef<Candle[]>([]);
-  const [tf, setTf] = useState<Timeframe>("1m");
+  const [tf, setTf] = useState<Timeframe>("15m");
+  const [source, setSource] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [mode, setMode] = useState<"price" | "mcap">("price");
   const [legend, setLegend] = useState<Candle | null>(null);
 
-  const scale = mode === "mcap" ? token.totalSupply : 1;
+  const scale = mode === "mcap" && token.totalSupply ? token.totalSupply : 1;
   const fmt = (v: number) => (mode === "mcap" ? usd(v, { compact: true }) : price(v));
 
   // create chart once
@@ -50,44 +52,33 @@ export function PriceChart({ token, onPrice }: { token: BitpadToken; onPrice?: (
     candleS.current?.applyOptions({ priceFormat: { type: "custom", formatter: (v: number) => fmt(v), minMove: mode === "mcap" ? 1 : 1e-10 } });
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // load + live ticks
+  // load real candles, then poll for updates
   useEffect(() => {
     let alive = true;
-    const push = () => {
+    const push = (fit: boolean) => {
       candleS.current?.setData(data.current.map((d) => ({ time: d.time as UTCTimestamp, open: d.open * scale, high: d.high * scale, low: d.low * scale, close: d.close * scale })));
       volS.current?.setData(data.current.map((d) => ({ time: d.time as UTCTimestamp, value: d.volume, color: d.close >= d.open ? "rgba(15,157,88,.35)" : "rgba(217,58,58,.35)" })));
+      if (fit) chart.current?.timeScale().fitContent();
     };
-    fetch(`/api/token/${token.address}?tf=${tf}`)
-      .then((r) => r.json())
-      .then((d: { candles: Candle[] }) => {
-        if (!alive) return;
-        data.current = d.candles;
-        push();
-        chart.current?.timeScale().fitContent();
-        setLegend(d.candles[d.candles.length - 1]);
-      });
-
-    // Demo tokens get a simulated tape; live tokens would subscribe to the indexer stream here.
-    const step = TIMEFRAMES[tf];
-    const timer = setInterval(() => {
-      const arr = data.current;
-      const last = arr[arr.length - 1];
-      if (!last) return;
-      const drift = (Math.random() - 0.495) * 0.0025;
-      const px = last.close * (1 + drift);
-      const now = Math.floor(Date.now() / 1000 / step) * step;
-      const vol = Math.random() * (token.volume24h / (86400 / step)) * 0.15;
-      if (now > last.time) {
-        arr.push({ time: now, open: last.close, high: Math.max(last.close, px), low: Math.min(last.close, px), close: px, volume: vol });
-      } else {
-        Object.assign(last, { close: px, high: Math.max(last.high, px), low: Math.min(last.low, px), volume: last.volume + vol });
-      }
-      const c = arr[arr.length - 1];
-      candleS.current?.update({ time: c.time as UTCTimestamp, open: c.open * scale, high: c.high * scale, low: c.low * scale, close: c.close * scale });
-      volS.current?.update({ time: c.time as UTCTimestamp, value: c.volume, color: c.close >= c.open ? "rgba(15,157,88,.35)" : "rgba(217,58,58,.35)" });
-      setLegend({ ...c });
-      onPrice?.(c.close);
-    }, 2000);
+    const load = (fit: boolean) =>
+      fetch(`/api/token/${token.address}/candles?tf=${tf}`)
+        .then((r) => r.json())
+        .then((d: { candles?: Candle[]; source?: string | null }) => {
+          if (!alive) return;
+          setLoaded(true);
+          setSource(d.source ?? null);
+          const candles = d.candles ?? [];
+          // dedupe by time (lightweight-charts requires strictly ascending)
+          data.current = [...new Map(candles.map((c) => [c.time, c])).values()].sort((a, b) => a.time - b.time);
+          push(fit);
+          const last = data.current[data.current.length - 1];
+          setLegend(last ?? null);
+          if (last) onPrice?.(last.close);
+        })
+        .catch(() => alive && setLoaded(true));
+    setLoaded(false);
+    load(true);
+    const timer = setInterval(() => load(false), 15_000);
     return () => {
       alive = false;
       clearInterval(timer);
@@ -100,8 +91,8 @@ export function PriceChart({ token, onPrice }: { token: BitpadToken; onPrice?: (
     <div className="card overflow-hidden">
       <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <LineChart className="size-4 text-ink-2" />
-        <h3 className="font-bold">Live market</h3>
-        <span className="ml-auto text-xs text-muted">STON.fi</span>
+        <h3 className="text-sm font-semibold">Live market</h3>
+        <span className="ml-auto text-xs text-muted">{source ? `${token.dex ?? "DEX"} · via ${source}` : loaded ? "No chart data" : "Loading…"}</span>
       </div>
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
         <div className="seg">
@@ -111,7 +102,7 @@ export function PriceChart({ token, onPrice }: { token: BitpadToken; onPrice?: (
         </div>
         <div className="seg ml-auto">
           <button data-on={mode === "price"} onClick={() => setMode("price")}>Price</button>
-          <button data-on={mode === "mcap"} onClick={() => setMode("mcap")}>Market cap</button>
+          <button data-on={mode === "mcap"} onClick={() => setMode("mcap")} disabled={!token.totalSupply}>Market cap</button>
         </div>
       </div>
       {legend && (
@@ -125,7 +116,14 @@ export function PriceChart({ token, onPrice }: { token: BitpadToken; onPrice?: (
           <span className="text-muted">Vol <span className="text-ink">{usd(legend.volume, { compact: true })}</span></span>
         </div>
       )}
-      <div ref={box} className="h-[360px] w-full sm:h-[440px]" />
+      <div className="relative">
+        <div ref={box} className="h-[360px] w-full sm:h-[440px]" />
+        {loaded && !legend && (
+          <div className="absolute inset-0 grid place-items-center bg-surface/70 text-sm text-muted">
+            No price history yet — the chart fills in once the pool has trades.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

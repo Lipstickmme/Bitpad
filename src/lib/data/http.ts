@@ -24,3 +24,29 @@ export async function safe<T>(p: Promise<T>, fallback: T, label: string): Promis
     return { value: fallback, ok: false };
   }
 }
+
+/** In-process TTL memo for SDK calls that bypass Next's fetch cache. */
+const memoStore = new Map<string, { at: number; p: Promise<unknown> }>();
+export function memo<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const hit = memoStore.get(key);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.p as Promise<T>;
+  const p = fn().catch((e) => {
+    memoStore.delete(key);
+    throw e;
+  });
+  memoStore.set(key, { at: Date.now(), p });
+  return p;
+}
+
+/** First source that resolves with a usable value wins. */
+export async function firstOf<T>(label: string, sources: [string, () => Promise<T>][], usable: (v: T) => boolean = (v) => v != null): Promise<{ value: T | null; source: string | null }> {
+  for (const [name, fn] of sources) {
+    try {
+      const v = await fn();
+      if (usable(v)) return { value: v, source: name };
+    } catch (err) {
+      if (process.env.NODE_ENV !== "production") console.warn(`[data] ${label} via ${name} failed:`, (err as Error).message);
+    }
+  }
+  return { value: null, source: null };
+}

@@ -10,6 +10,8 @@ contract BitpadFactory with Ownable {
     feeWallet: Address;
     launchFee: Int as coins;
     launches: Int as uint64 = 0;
+    /// launch index → jetton minter; lets any indexer enumerate launches with get-methods only
+    minters: map<Int as uint64, Address>;
 
     init(owner: Address, feeWallet: Address, launchFee: Int) {
         self.owner = owner;
@@ -41,6 +43,7 @@ contract BitpadFactory with Ownable {
             data: init.data,
             body: MintAll{ queryId: msg.queryId, amount: msg.supply, receiver: ctx.sender }.toCell()
         });
+        self.minters.set(self.launches, minter);
         emit(Launched{ index: self.launches, minter: minter, creator: ctx.sender, supply: msg.supply, pair: msg.pair }.toCell());
         self.launches += 1;
     }
@@ -57,6 +60,10 @@ contract BitpadFactory with Ownable {
 
     get fun launch_count(): Int {
         return self.launches;
+    }
+
+    get fun minter(index: Int): Address? {
+        return self.minters.get(index);
     }
 
     get fun launch_fee(): Int {

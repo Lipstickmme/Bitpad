@@ -1,15 +1,11 @@
 import Link from "next/link";
 
-export function Logo({ size = 32, withText = true }: { size?: number; withText?: boolean }) {
+export function Logo({ size = 28, withText = true }: { size?: number; withText?: boolean }) {
   return (
     <Link href="/" className="flex items-center gap-2.5" aria-label="Bitpad home">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/logo.svg" width={size} height={size} alt="" className="rounded-lg" />
-      {withText && (
-        <span className="text-[1.15rem] font-extrabold tracking-tight">
-          Bit<span className="text-brand">pad</span>
-        </span>
-      )}
+      <img src="/brand/logo.svg" width={size} height={size} alt="" className="rounded-md" />
+      {withText && <span className="text-[1.05rem] font-semibold tracking-tight">Bitpad</span>}
     </Link>
   );
 }

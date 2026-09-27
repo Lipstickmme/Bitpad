@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import { Eye, KeyRound, Layers, Plus, RefreshCw, Send, ShieldCheck, Trash2, Undo2, Upload, Zap } from "lucide-react";
 import type { BundleProgress, BundleWallet, SplitMode } from "@/lib/ton/bundler";
-import { DEMO_TOKENS } from "@/lib/demo";
 import { shortAddr, num } from "@/lib/format";
 import { toast } from "./Toast";
 import { CopyButton } from "./CopyButton";
@@ -136,7 +135,7 @@ export function BundlerView() {
       <div className="mx-auto max-w-md space-y-4 pt-6">
         <div className="card p-6">
           <div className="grid size-11 place-items-center rounded-xl bg-brand-soft text-brand"><KeyRound className="size-5" /></div>
-          <h1 className="mt-3 text-xl font-extrabold">Multi-wallet bundler</h1>
+          <h1 className="mt-3 text-xl font-semibold">Multi-wallet bundler</h1>
           <p className="mt-1 text-sm text-ink-2">
             Trade from many TON wallets at once. Burner wallets are generated in your browser and encrypted with this password (PBKDF2 + AES-GCM). Keys never leave this device.
           </p>
@@ -151,7 +150,7 @@ export function BundlerView() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Multi-wallet bundler</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Multi-wallet bundler</h1>
           <p className="text-sm text-ink-2">{wallets.length} wallets · {active.length} active · {num(totalBal, 3)} TON</p>
         </div>
         <div className="ml-auto flex gap-2">
@@ -164,7 +163,7 @@ export function BundlerView() {
         <section className="card overflow-hidden">
           <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
             <Layers className="size-4 text-ink-2" />
-            <h2 className="font-bold">Wallets</h2>
+            <h2 className="text-sm font-semibold">Wallets</h2>
             <div className="ml-auto flex items-center gap-2">
               <input type="number" min={1} max={50} value={genCount} onChange={(e) => setGenCount(Math.max(1, Math.min(50, Number(e.target.value))))} className="input h-9 w-16 text-sm" />
               <button onClick={generate} className="btn btn-primary h-9"><Plus className="size-4" /> Generate</button>
@@ -211,7 +210,7 @@ export function BundlerView() {
 
         <aside className="space-y-4">
           <section className="card p-4">
-            <h3 className="flex items-center gap-2 font-bold"><Send className="size-4" /> Fund wallets</h3>
+            <h3 className="flex items-center gap-2 text-sm font-semibold"><Send className="size-4" /> Fund wallets</h3>
             <p className="mt-1 text-xs text-muted">From your connected TON wallet via TON Connect.</p>
             <div className="mt-3 flex gap-2">
               <input className="input num" inputMode="decimal" value={fundTotal} onChange={(e) => setFundTotal(Number(e.target.value) || 0)} />
@@ -222,15 +221,14 @@ export function BundlerView() {
           </section>
 
           <section className="card p-4">
-            <h3 className="flex items-center gap-2 font-bold"><Zap className="size-4" /> Bundle trade</h3>
+            <h3 className="flex items-center gap-2 text-sm font-semibold"><Zap className="size-4" /> Bundle trade</h3>
             <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
               {(["buy", "sell"] as const).map((s) => (
                 <button key={s} onClick={() => setSide(s)} className={`rounded-lg py-1.5 text-sm font-bold capitalize ${side === s ? (s === "buy" ? "bg-up text-white" : "bg-down text-white") : "text-muted"}`}>{s}</button>
               ))}
             </div>
             <label className="label mt-3 block">Jetton master address</label>
-            <input className="input mt-1 font-mono text-xs" value={jetton} onChange={(e) => setJetton(e.target.value.trim())} placeholder="EQ…" list="bundle-tokens" />
-            <datalist id="bundle-tokens">{DEMO_TOKENS.filter((t) => t.source === "live").map((t) => <option key={t.address} value={t.address}>{t.symbol}</option>)}</datalist>
+            <input className="input mt-1 font-mono text-xs" value={jetton} onChange={(e) => setJetton(e.target.value.trim())} placeholder="EQ… (copy CA from any token page)" />
             <label className="label mt-3 block">Total {side === "buy" ? "TON to spend" : "tokens to sell"}</label>
             <input className="input num mt-1" inputMode="decimal" value={tradeTotal} onChange={(e) => setTradeTotal(Number(e.target.value) || 0)} />
             <SplitPicker mode={tradeMode} setMode={setTradeMode} onShuffle={() => setSeed((s) => s + 1)} />

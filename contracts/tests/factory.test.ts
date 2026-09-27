@@ -27,6 +27,8 @@ test("launch deploys a jetton, mints full supply to creator and pays the fee", a
   assert.ok((await feeWallet.getBalance()) - feeBefore >= toNano("0.99"), "launch fee forwarded");
 
   const minterAddr = await factory.getMinterAddress(0n, content, creator.address, null);
+  assert.equal((await factory.getMinter(0n))?.toString(), minterAddr.toString(), "registry stores the minter");
+  assert.equal(await factory.getMinter(1n), null);
   const minter = chain.openContract(BitpadJetton.fromAddress(minterAddr));
   const data = await minter.getGetJettonData();
   assert.equal(data.totalSupply, supply);

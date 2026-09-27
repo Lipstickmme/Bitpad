@@ -42,6 +42,8 @@ export interface BuyParams {
   jetton: string;
   amount: number;
   payWith?: PayWith;
+  /** Resolved pay asset (from /api/quote); overrides env lookup */
+  payAsset?: { address: string; decimals: number };
   slippage?: number;
 }
 
@@ -53,10 +55,10 @@ export async function buildBuyTx(params: BuyParams): Promise<{ message: TcMessag
 /** Raw sender arguments — used by the multi-wallet bundler, which signs locally. */
 export async function buildBuyArgs(params: BuyParams) {
   const payWith = params.payWith ?? "TON";
-  const info = payAssetInfo(payWith);
+  const info = params.payAsset ?? payAssetInfo(payWith);
   if (!info) throw new Error(`${payWith} jetton address is not configured`);
   const offerAddress = info.address;
-  const offerUnits = payWith === "TON" ? toNano(params.amount.toFixed(9)) : BigInt(Math.floor(params.amount * 10 ** info.decimals));
+  const offerUnits = info.address === TON_ASSETS.TON ? toNano(params.amount.toFixed(9)) : BigInt(Math.floor(params.amount * 10 ** info.decimals));
   const sim = await api.simulateSwap({
     offerAddress,
     askAddress: params.jetton,
@@ -81,7 +83,7 @@ export async function buildBuyArgs(params: BuyParams) {
     getSwapJettonToJettonTxParams(p: object): Promise<SenderArguments>;
   };
   const tx =
-    payWith === "TON"
+    offerAddress === TON_ASSETS.TON
       ? await r.getSwapTonToJettonTxParams({ ...common, proxyTon, askJettonAddress: params.jetton })
       : await r.getSwapJettonToJettonTxParams({ ...common, offerJettonAddress: offerAddress, askJettonAddress: params.jetton });
 

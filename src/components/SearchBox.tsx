@@ -1,9 +1,10 @@
 "use client";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { DEMO_TOKENS, DEMO_EMOJI } from "@/lib/demo";
-import { usd, pct } from "@/lib/format";
+import { useEffect, useRef, useState } from "react";
+import { price } from "@/lib/format";
+
+interface Hit { address: string; symbol: string; name: string; image?: string; priceUsd: number | null }
 
 export function SearchBox() {
   const [open, setOpen] = useState(false);
@@ -24,9 +25,20 @@ export function SearchBox() {
   }, []);
   useEffect(() => { if (open) setTimeout(() => input.current?.focus(), 10); }, [open]);
 
-  const results = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    return DEMO_TOKENS.filter((t) => !s || t.symbol.toLowerCase().includes(s) || t.name.toLowerCase().includes(s) || t.pair.symbol.toLowerCase().includes(s) || t.address.toLowerCase() === s).slice(0, 8);
+  const [results, setResults] = useState<Hit[]>([]);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const term = q.trim();
+    if (!term) return setResults([]);
+    setBusy(true);
+    const t = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(term)}`)
+        .then((r) => r.json())
+        .then((d) => setResults(d.results ?? []))
+        .catch(() => setResults([]))
+        .finally(() => setBusy(false));
+    }, 250);
+    return () => clearTimeout(t);
   }, [q]);
 
   const go = (addr: string) => { setOpen(false); setQ(""); router.push(`/token/${addr}`); };
@@ -43,20 +55,24 @@ export function SearchBox() {
           <div className="card w-full max-w-lg overflow-hidden shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 border-b border-line px-4">
               <Search className="size-4 text-muted" />
-              <input ref={input} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && results[0] && go(results[0].address)} placeholder="Token, pair asset or contract address" className="h-12 flex-1 bg-transparent text-sm outline-none" />
+              <input ref={input} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                if (/^(EQ|UQ|0:)/.test(q.trim())) go(q.trim());
+                else if (results[0]) go(results[0].address);
+              }} placeholder="TON token name, ticker or contract address" className="h-12 flex-1 bg-transparent text-sm outline-none" />
             </div>
             <ul className="max-h-[50vh] overflow-y-auto p-1.5">
               {results.map((t) => (
                 <li key={t.address}>
                   <button onClick={() => go(t.address)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-surface-2">
-                    <span className="grid size-8 place-items-center rounded-full bg-surface-2 text-base">{DEMO_EMOJI[t.symbol]}</span>
-                    <span className="flex-1"><span className="font-semibold">${t.symbol}</span> <span className="text-xs text-muted">/ {t.pair.symbol}</span></span>
-                    <span className="num text-sm">{usd(t.marketCap, { compact: true })}</span>
-                    <span className={`num w-16 text-right text-xs font-semibold ${t.change24h >= 0 ? "text-up" : "text-down"}`}>{pct(t.change24h)}</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {t.image ? <img src={t.image} alt="" className="size-8 rounded-full" /> : <span className="grid size-8 place-items-center rounded-full bg-surface-2 text-xs font-bold">{t.symbol.slice(0, 2)}</span>}
+                    <span className="min-w-0 flex-1"><span className="font-semibold">{t.symbol}</span> <span className="truncate text-xs text-muted">{t.name}</span></span>
+                    <span className="num text-sm">{t.priceUsd != null ? price(t.priceUsd) : "—"}</span>
                   </button>
                 </li>
               ))}
-              {!results.length && <li className="px-3 py-6 text-center text-sm text-muted">No matches</li>}
+              {!results.length && <li className="px-3 py-6 text-center text-sm text-muted">{!q.trim() ? "Search every token on STON.fi, or paste a jetton address" : busy ? "Searching…" : "No matches"}</li>}
             </ul>
           </div>
         </div>

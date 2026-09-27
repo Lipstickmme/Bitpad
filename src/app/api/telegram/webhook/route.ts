@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getTokens } from "@/lib/market";
+import { getBitpadTokens, getTonMarket, getToken, searchTokens } from "@/lib/market";
 import { config } from "@/lib/config";
 import { price, pct, usd } from "@/lib/format";
 
@@ -23,11 +23,17 @@ export async function POST(req: NextRequest) {
   if (cmd.startsWith("/start")) {
     text = "<b>Bitpad</b> — launch tokens paired with stocks, gold and TON jettons. Liquidity is live from block one.\n\n/trending — top movers\n/price SYMBOL — token price";
   } else if (cmd.startsWith("/trending")) {
-    const top = (await getTokens()).sort((a, b) => b.volume24h - a.volume24h).slice(0, 8);
-    text = "<b>🔥 Trending on Bitpad</b>\n" + top.map((t, i) => `${i + 1}. <b>$${t.symbol}</b> / ${t.pair.symbol} · ${usd(t.marketCap, { compact: true })} · ${pct(t.change24h)}`).join("\n");
+    const [bp, ton] = await Promise.all([getBitpadTokens(), getTonMarket()]);
+    const list = [...bp.tokens, ...ton.tokens].sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0)).slice(0, 8);
+    text = list.length
+      ? "<b>🔥 Trending on TON</b>\n" + list.map((t, i) => `${i + 1}. <b>$${t.symbol}</b> / ${t.pair.symbol} · ${t.marketCap ?? t.fdv ? usd((t.marketCap ?? t.fdv)!, { compact: true }) : "—"} · ${t.change24h != null ? pct(t.change24h) : "—"}`).join("\n")
+      : "Market data is unavailable right now.";
   } else if (cmd.startsWith("/price") && arg) {
-    const t = (await getTokens()).find((x) => x.symbol.toLowerCase() === arg.replace("$", "").toLowerCase());
-    text = t ? `<b>$${t.symbol}</b> ${price(t.priceUsd)} (${pct(t.change24h)})\nMC ${usd(t.marketCap, { compact: true })} · Vol ${usd(t.volume24h, { compact: true })}\nPaired with ${t.pair.symbol}` : `No token ${arg}`;
+    const hit = (await searchTokens(arg.replace("$", "")).catch(() => []))[0];
+    const t = hit ? await getToken(hit.address) : undefined;
+    text = t
+      ? `<b>$${t.symbol}</b> ${t.priceUsd != null ? price(t.priceUsd) : "—"}${t.change24h != null ? ` (${pct(t.change24h)})` : ""}\nMC ${t.marketCap != null ? usd(t.marketCap, { compact: true }) : "—"} · Vol ${t.volume24h != null ? usd(t.volume24h, { compact: true }) : "—"}\n${config.appUrl}/token/${t.address}`
+      : `No TON token matches ${arg}`;
   } else {
     return NextResponse.json({ ok: true });
   }

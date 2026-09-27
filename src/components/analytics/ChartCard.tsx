@@ -3,7 +3,7 @@ export function ChartCard({ title, sub, right, children, className = "" }: { tit
     <section className={`card flex min-w-0 flex-col p-4 ${className}`}>
       <div className="mb-3 flex flex-wrap items-start gap-2">
         <div className="min-w-0">
-          <h3 className="font-bold">{title}</h3>
+          <h3 className="text-sm font-semibold">{title}</h3>
           {sub && <p className="text-xs text-muted">{sub}</p>}
         </div>
         {right && <div className="ml-auto">{right}</div>}

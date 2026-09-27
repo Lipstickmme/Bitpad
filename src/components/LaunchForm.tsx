@@ -30,10 +30,10 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
   const poolTokens = (supply * poolPct) / 100;
   const startPrice = pairUsd / poolTokens;
   const startMcap = startPrice * supply;
-  const pairUnits = pairUsd / pair.priceUsd;
+  const pairUnits = pair.priceUsd ? pairUsd / pair.priceUsd : null;
   const pairAddress = customJetton || pair.tonAddress;
   const onChainPair = !!pairAddress;
-  const valid = f.name.trim().length >= 2 && /^[A-Z0-9]{2,10}$/.test(f.symbol) && supply > 0 && pairUsd > 0;
+  const valid = f.name.trim().length >= 2 && /^[A-Z0-9]{2,10}$/.test(f.symbol) && supply > 0 && pairUsd > 0 && pairUnits != null;
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setF((s) => ({ ...s, [k]: k === "symbol" ? e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") : e.target.value }));
@@ -42,7 +42,7 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
     haptic("medium");
     if (!wallet) return tc.openModal();
     if (!config.factoryAddress) {
-      toast.info("Preview mode", "Set NEXT_PUBLIC_BITPAD_FACTORY to the deployed BitpadFactory address to launch on-chain. Everything else on this page is live.");
+      toast.info("Factory not deployed", "Deploy BitpadFactory (npm run deploy:factory) and set NEXT_PUBLIC_BITPAD_FACTORY to launch on-chain.");
       return;
     }
     try {
@@ -73,7 +73,7 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
         jetton,
         jettonUnits: BigInt(Math.floor(poolTokens)) * 10n ** 9n,
         pairAddress: pairAddress!,
-        pairUnits: BigInt(Math.floor(pairUnits * 10 ** decimals)),
+        pairUnits: BigInt(Math.floor(pairUnits! * 10 ** decimals)),
       });
       await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages });
       setStep("done");
@@ -90,12 +90,12 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Launch a token</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Launch a token</h1>
           <p className="text-sm text-ink-2">Pick what backs your pool, add liquidity, go live. No bonding curve, no graduation — the pool is the market.</p>
         </div>
 
         <section className="card p-5">
-          <h2 className="font-bold">1 · Token details</h2>
+          <h2 className="text-sm font-semibold">1 · Token details</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Field label="Name"><input className="input" value={f.name} onChange={set("name")} placeholder="S&P Cat" maxLength={32} /></Field>
             <Field label="Ticker"><input className="input font-mono" value={f.symbol} onChange={set("symbol")} placeholder="SPYCAT" maxLength={10} /></Field>
@@ -107,7 +107,7 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
         </section>
 
         <section className="card p-5">
-          <h2 className="font-bold">2 · Pair with</h2>
+          <h2 className="text-sm font-semibold">2 · Pair with</h2>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <div className="seg">
               {KINDS.map((k) => <button key={k} data-on={kind === k} onClick={() => setKind(k)}>{PAIR_KIND_LABEL[k]}</button>)}
@@ -126,7 +126,7 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
                   <div className="truncate text-xs text-muted">{a.name}{a.dividendYield ? ` · ${a.dividendYield}% div` : ""}</div>
                 </div>
                 <div className="text-right">
-                  <div className="num text-xs font-semibold">{price(a.priceUsd)}</div>
+                  <div className="num text-xs font-semibold">{a.priceUsd != null ? price(a.priceUsd) : "—"}</div>
                   <Change value={a.change24h} className="text-[11px]" />
                 </div>
               </button>
@@ -144,7 +144,7 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
         </section>
 
         <section className="card p-5">
-          <h2 className="font-bold">3 · Liquidity</h2>
+          <h2 className="text-sm font-semibold">3 · Liquidity</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Total supply"><input className="input num" inputMode="numeric" value={supply} onChange={(e) => setSupply(Number(e.target.value.replace(/\D/g, "")) || 0)} /></Field>
             <Field label={`${pair.symbol} to deposit (USD value)`}><input className="input num" inputMode="decimal" value={pairUsd} onChange={(e) => setPairUsd(Number(e.target.value.replace(/[^0-9.]/g, "")) || 0)} /></Field>
@@ -173,7 +173,7 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
           <dl className="num mt-4 space-y-2 text-sm">
             <Row k="Starting price" v={price(startPrice)} />
             <Row k="Starting market cap" v={usd(startMcap, { compact: true })} />
-            <Row k="Pool" v={`${num(poolTokens, 0)} ${f.symbol || "TOKEN"} + ${pairUnits.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${pair.symbol}`} />
+            <Row k="Pool" v={`${num(poolTokens, 0)} ${f.symbol || "TOKEN"} + ${pairUnits != null ? pairUnits.toLocaleString("en-US", { maximumFractionDigits: 4 }) : "?"} ${pair.symbol}`} />
             <Row k="Pool depth" v={usd(pairUsd * 2, { compact: true })} />
             <Row k="LP tokens" v="Sent to creator" />
           </dl>
@@ -186,7 +186,7 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
             <Rocket className="size-4" />
             {!wallet ? "Connect TON wallet" : step === "deploying" ? "Deploying jetton…" : step === "seeding" ? "Seeding pool…" : step === "done" ? "Launched ✓" : "Launch & add liquidity"}
           </button>
-          {!valid && <p className="mt-2 text-center text-xs text-muted">Name, a 2–10 character ticker and liquidity are required.</p>}
+          {!valid && <p className="mt-2 text-center text-xs text-muted">{pairUnits == null ? `No live price for ${pair.symbol} right now.` : "Name, a 2–10 character ticker and liquidity are required."}</p>}
         </div>
         <div className="card p-4 text-xs text-ink-2">
           <div className="mb-1 font-bold text-ink">Why direct liquidity?</div>

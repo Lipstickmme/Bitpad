@@ -7,8 +7,8 @@ import { Footer } from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: { default: "Bitpad — the TON launchpad for paired tokens", template: "%s · Bitpad" },
-  description: "Launch tokens paired with stocks, commodities and jettons. Liquidity goes straight into the pool — trade from block one. Cross-chain analytics, multi-wallet bundles and an AI copilot.",
-  icons: { icon: "/logo.svg" },
+  description: "Launch tokens paired with stocks, commodities and jettons. Liquidity goes straight into the pool — trade from block one. Cross-chain analytics and multi-wallet bundles.",
+  icons: { icon: "/brand/logo.svg" },
 };
 
 export const viewport: Viewport = { themeColor: "#f5f7fa", width: "device-width", initialScale: 1 };

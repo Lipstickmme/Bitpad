@@ -10,10 +10,11 @@
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "contracts:build": "tact --config contracts/tact.config.json",
-    "test": "npm run contracts:build && tsx --test contracts/tests/*.test.ts tests/*.test.ts"
+    "test": "npm run contracts:build && tsx --test contracts/tests/factory.test.ts tests/*.test.ts",
+    "deploy:factory": "npm run contracts:build && tsx scripts/deploy-factory.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.128.0",
+    "@dedust/sdk": "^0.8.7",
     "@ston-fi/api": "^0.32.0",
     "@ston-fi/sdk": "^2.7.0",
     "@ton/core": "^0.63.1",

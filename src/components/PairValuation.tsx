@@ -1,21 +1,24 @@
-import { Landmark } from "lucide-react";
-import type { BitpadToken } from "@/lib/types";
+import { ExternalLink, Landmark } from "lucide-react";
+import type { MarketToken } from "@/lib/types";
 import { price, usd } from "@/lib/format";
 import { CHAINS } from "@/lib/chains";
+import { jupSwapUrl } from "@/lib/data/jupiter";
 import { AssetDot, Change, PairBadge } from "./ui";
 
-/** Valuation of the paired asset and what it means for the token's pool. */
-export function PairValuation({ token }: { token: BitpadToken }) {
+/** Live valuation of the paired asset (price, 24h, dividends) and what it means for the pool. */
+export function PairValuation({ token }: { token: MarketToken }) {
   const a = token.pair;
-  const reserveUnits = token.pairReserveUsd / a.priceUsd;
-  const divYear = token.pairReserveUsd * ((a.dividendYield ?? 0) / 100);
-  const backingPer1m = (token.pairReserveUsd / token.totalSupply) * 1_000_000;
+  // For a 50/50 AMM pool, half the liquidity sits in the paired asset
+  const reserveUsd = token.liquidityUsd != null ? token.liquidityUsd / 2 : null;
+  const reserveUnits = reserveUsd != null && a.priceUsd ? reserveUsd / a.priceUsd : null;
+  const divYear = reserveUsd != null && a.dividendYield ? reserveUsd * (a.dividendYield / 100) : null;
+  const backingPer1m = reserveUsd != null && token.totalSupply ? (reserveUsd / token.totalSupply) * 1_000_000 : null;
 
   return (
     <div className="card p-4">
       <div className="flex items-center gap-2">
         <Landmark className="size-4 text-ink-2" />
-        <h3 className="font-bold">Paired asset</h3>
+        <h3 className="text-sm font-semibold">Paired asset</h3>
         <span className="ml-auto"><PairBadge asset={a} /></span>
       </div>
       <div className="mt-3 flex items-center gap-3">
@@ -25,21 +28,33 @@ export function PairValuation({ token }: { token: BitpadToken }) {
           <div className="text-xs text-muted">{a.sector ?? a.kind} · native on {CHAINS[a.chain].name}</div>
         </div>
         <div className="ml-auto text-right">
-          <div className="num font-bold">{price(a.priceUsd)}</div>
+          <div className="num font-bold">{a.priceUsd != null ? price(a.priceUsd) : "—"}</div>
           <Change value={a.change24h} className="text-xs" />
         </div>
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
-        <Cell k="Pool reserve" v={`${usd(token.pairReserveUsd, { compact: true })}`} sub={`${reserveUnits.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${a.symbol}`} />
-        <Cell k="Backing / 1M tokens" v={usd(backingPer1m)} />
-        {a.underlyingMarketCap ? <Cell k="Underlying mkt cap" v={usd(a.underlyingMarketCap, { compact: true })} /> : null}
-        {a.kind === "stock" && <Cell k="Dividend yield" v={a.dividendYield ? `${a.dividendYield.toFixed(2)}%` : "None"} sub={a.exDividend ? `Ex-div ${a.exDividend}` : undefined} />}
-        {a.kind === "stock" && divYear > 0 && <Cell k="Pool dividends / yr (est.)" v={usd(divYear, { compact: true })} sub="Streamed to LP & flywheel" />}
+        <Cell k="Pool reserve" v={reserveUsd != null ? usd(reserveUsd, { compact: true }) : "—"} sub={reserveUnits != null ? `${reserveUnits.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${a.symbol}` : undefined} />
+        <Cell k="Backing / 1M tokens" v={backingPer1m != null ? usd(backingPer1m) : "—"} />
+        {a.kind === "stock" && (
+          <Cell
+            k="Dividend yield (TTM)"
+            v={a.dividendYield == null ? "—" : a.dividendYield > 0 ? `${a.dividendYield.toFixed(2)}%` : "None"}
+            sub={a.lastDividend ? `Last $${a.lastDividend.amount.toFixed(3)} · ${new Date(a.lastDividend.date * 1000).toLocaleDateString()}` : undefined}
+          />
+        )}
+        {a.kind === "stock" && divYear != null && divYear > 0 && <Cell k="Pool-reserve dividends / yr" v={usd(divYear, { compact: true })} sub="at current yield" />}
       </dl>
-      <p className="mt-3 text-[11px] leading-relaxed text-muted">
-        Liquidity sits in a {token.symbol}/{a.symbol} pool from launch — no bonding curve. Price reflects both {token.symbol} demand and the {a.symbol} price, so the
-        pool is partly backed by a real-world asset.
-      </p>
+      {a.priceSource && <p className="mt-2 text-[11px] text-muted">Price via {a.priceSource}{a.kind === "stock" ? " · dividends via Yahoo Finance" : ""}</p>}
+      {a.solanaMint && (
+        <a href={jupSwapUrl(a.solanaMint)} target="_blank" rel="noreferrer" className="btn btn-ghost mt-3 w-full text-xs">
+          Buy {a.symbol} on Solana (Jupiter) <ExternalLink className="size-3.5" />
+        </a>
+      )}
+      {a.tonAddress && a.symbol !== "TON" && (
+        <a href={`https://app.ston.fi/swap?ft=TON&tt=${a.tonAddress}`} target="_blank" rel="noreferrer" className="btn btn-ghost mt-2 w-full text-xs">
+          Buy {a.symbol} on TON (STON.fi) <ExternalLink className="size-3.5" />
+        </a>
+      )}
     </div>
   );
 }

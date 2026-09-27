@@ -11,6 +11,8 @@ export const config = {
   toncenterKey: process.env.NEXT_PUBLIC_TONCENTER_API_KEY ?? "",
   gramJetton: process.env.NEXT_PUBLIC_GRAM_JETTON ?? "",
   usdcJetton: process.env.NEXT_PUBLIC_USDC_JETTON ?? "",
+  /** $BITL jetton master — shows the $BITL tab when set */
+  bitlJetton: process.env.NEXT_PUBLIC_BITL_JETTON ?? "",
   /**
    * How platform fees are distributed. Business decision — adjust freely.
    * Shares must sum to 100.

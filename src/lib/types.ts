@@ -15,53 +15,61 @@ export interface PairAsset {
   kind: PairKind;
   /** Chain the asset natively lives on */
   chain: ChainId;
-  /** Tokenized issuer / venue label shown as a badge (XSTOCKS, PYTH, STON.FI…) */
+  /** Issuer / venue label shown as a badge (XSTOCKS, GOLD, NATIVE…) */
   badge: string;
   color: string;
-  priceUsd: number;
-  change24h: number;
-  /** Jetton master on TON when the asset can be paired on-chain today */
+  image?: string;
+  /** Live values — null when no source answered */
+  priceUsd: number | null;
+  change24h: number | null;
+  priceSource?: string;
+  /** Jetton master on TON, resolved live from STON.fi's asset list */
   tonAddress?: string;
-  /** Pyth Hermes symbol, used for live pricing of stocks & commodities */
+  /** Solana mint (e.g. xStocks), resolved live from Jupiter */
+  solanaMint?: string;
+  /** Price source ids */
   pythSymbol?: string;
-  /** Annual dividend / yield in % (stocks, ETFs, yield-bearing assets) */
-  dividendYield?: number;
-  /** Next ex-dividend date (ISO) */
-  exDividend?: string;
-  /** Market capitalisation of the underlying asset */
-  underlyingMarketCap?: number;
+  pythType?: "equity" | "metal" | "crypto" | "commodities";
+  yahoo?: string;
+  coingecko?: string;
+  /** Trailing-12-month dividend yield in % (from Yahoo dividend events) */
+  dividendYield?: number | null;
+  lastDividend?: { amount: number; date: number };
+  dividendsPerYear?: number;
   sector?: string;
 }
 
-export type LaunchStatus = "new" | "live" | "trending" | "graduated";
-
-export interface BitpadToken {
+export interface MarketToken {
   address: string;
   symbol: string;
   name: string;
   image?: string;
-  description: string;
-  creator: string;
-  createdAt: number;
+  description?: string;
+  decimals: number;
+  totalSupply: number | null;
+  holders: number | null;
+  /** The asset the main pool is paired against (Bitpad pair, or the pool's quote token) */
   pair: PairAsset;
-  priceUsd: number;
-  marketCap: number;
-  fdv: number;
-  liquidityUsd: number;
-  volume24h: number;
-  change24h: number;
-  holders: number;
-  txns24h: number;
-  buys24h: number;
-  sells24h: number;
-  totalSupply: number;
-  /** Share of the pool denominated in the paired asset (USD) */
-  pairReserveUsd: number;
-  status: LaunchStatus;
-  spark: number[];
+  poolAddress?: string;
+  /** Whether this token is the base or quote asset of `poolAddress` */
+  poolSide?: "base" | "quote";
+  dex?: string;
+  priceUsd: number | null;
+  marketCap: number | null;
+  fdv: number | null;
+  liquidityUsd: number | null;
+  volume24h: number | null;
+  change24h: number | null;
+  /** Real % changes over 5m/1h/6h/24h, used to draw card sparklines */
+  changes?: { m5: number; h1: number; h6: number; h24: number };
+  buys24h: number | null;
+  sells24h: number | null;
+  createdAt?: number;
+  /** Launched through the Bitpad factory */
+  bitpad?: { index: number; creator?: string };
   socials?: { telegram?: string; x?: string; website?: string };
-  /** "demo" = seeded preview data, "live" = pulled from chain / indexer */
-  source: "demo" | "live";
+  /** Which APIs supplied this record */
+  sources: string[];
 }
 
 export interface Candle {
@@ -88,7 +96,7 @@ export interface Trade {
 export interface Holder {
   address: string;
   label?: string;
-  share: number;
+  share: number | null;
   amount: number;
 }
 
@@ -111,7 +119,8 @@ export interface LaunchpadStat {
   topGainer?: { symbol: string; change: number };
   buySellRatio: number;
   fees24h?: number;
-  source: "live" | "demo";
+  /** "live" = measured now; "partial" = protocol volume only; "unavailable" = no source answered */
+  source: "live" | "partial" | "unavailable";
 }
 
 export interface ChainStat {
@@ -121,7 +130,7 @@ export interface ChainStat {
   newPools24h: number;
   fomo: number; // 0–100
   buySellRatio: number;
-  source: "live" | "demo";
+  source: "live" | "unavailable";
 }
 
 export interface TrendingPool {
@@ -161,6 +170,7 @@ export interface AnalyticsSnapshot {
   pairTypes: PairTypeStat[];
   history: { date: string; [launchpad: string]: number | string }[];
   sources: { name: string; ok: boolean }[];
+  bitpad: { launches: number; factory: string | null };
 }
 
 export interface RouteQuote {
@@ -178,6 +188,8 @@ export interface RouteQuote {
   etaSeconds: number;
   best?: boolean;
   live: boolean;
+  /** Pre-built TON Connect messages when the route can execute directly */
+  executable?: boolean;
   note?: string;
   deepLink?: string;
 }

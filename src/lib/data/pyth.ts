@@ -1,48 +1,50 @@
 import { getJson } from "./http";
-import type { PairAsset } from "../types";
 
+/** Pyth Hermes — free, no key. Equities, metals, FX and crypto price feeds. */
 const HERMES = "https://hermes.pyth.network";
-
-const TYPE: Record<PairAsset["kind"], string> = {
-  stock: "equity",
-  commodity: "metal",
-  crypto: "crypto",
-  jetton: "crypto",
-};
 
 interface Feed {
   id: string;
-  attributes: { symbol: string; base?: string; quote_currency?: string };
+  attributes: { symbol: string; base?: string; quote_currency?: string; asset_type?: string };
 }
 
-/** Find the Pyth feed id for a symbol (e.g. AAPL → Equity.US.AAPL/USD). Cached for a day. */
-async function feedId(asset: PairAsset): Promise<string | undefined> {
-  if (!asset.pythSymbol) return undefined;
-  const type = asset.symbol === "WTI" ? "commodities" : TYPE[asset.kind];
-  const feeds = await getJson<Feed[]>(
-    `${HERMES}/v2/price_feeds?query=${encodeURIComponent(asset.pythSymbol)}&asset_type=${type}`,
-    { revalidate: 86_400 },
-  );
-  const want = asset.pythSymbol.toUpperCase();
-  const exact = feeds.find((f) => (f.attributes.base ?? "").toUpperCase() === want && (f.attributes.quote_currency ?? "USD") === "USD");
-  return (exact ?? feeds.find((f) => f.attributes.symbol.toUpperCase().includes(`${want}/USD`)))?.id;
+export interface PythWant {
+  key: string;
+  symbol: string; // e.g. AAPL, XAU, BTC
+  type: "equity" | "metal" | "crypto" | "commodities";
 }
 
-/** Live USD prices keyed by asset symbol. Assets without a feed are omitted. */
-export async function pythPrices(assets: PairAsset[]): Promise<Record<string, number>> {
-  const ids = await Promise.all(assets.map((a) => feedId(a).catch(() => undefined)));
-  const pairs = assets.map((a, i) => [a.symbol, ids[i]] as const).filter(([, id]) => !!id) as [string, string][];
+async function feedId(w: PythWant): Promise<string | undefined> {
+  const feeds = await getJson<Feed[]>(`${HERMES}/v2/price_feeds?query=${encodeURIComponent(w.symbol)}&asset_type=${w.type}`, { revalidate: 86_400 });
+  const want = w.symbol.toUpperCase();
+  const usd = feeds.filter((f) => (f.attributes.quote_currency ?? "USD") === "USD");
+  // Prefer the regular-hours US equity feed / exact base match
+  const exact = usd.filter((f) => (f.attributes.base ?? "").toUpperCase() === want);
+  const pick = exact.find((f) => !/\.(PRE|POST|ON)$/i.test(f.attributes.symbol)) ?? exact[0] ?? usd.find((f) => f.attributes.symbol.toUpperCase().includes(`${want}/USD`));
+  return pick?.id.replace(/^0x/, "");
+}
+
+type Parsed = { parsed: { id: string; price: { price: string; expo: number; publish_time: number } }[] };
+const toMap = (r: Parsed) => new Map(r.parsed.map((p) => [p.id.replace(/^0x/, ""), Number(p.price.price) * 10 ** p.price.expo]));
+
+/** Live prices + real 24h change (compares with the Hermes price 24h ago). */
+export async function pythQuotes(wants: PythWant[]): Promise<Record<string, { price: number; change24h: number | null }>> {
+  const ids = await Promise.all(wants.map((w) => feedId(w).catch(() => undefined)));
+  const pairs = wants.map((w, i) => [w.key, ids[i]] as const).filter((p): p is readonly [string, string] => !!p[1]);
   if (!pairs.length) return {};
   const qs = pairs.map(([, id]) => `ids[]=${id}`).join("&");
-  const res = await getJson<{ parsed: { id: string; price: { price: string; expo: number } }[] }>(
-    `${HERMES}/v2/updates/price/latest?${qs}&parsed=true`,
-    { revalidate: 30 },
-  );
-  const byId = new Map(res.parsed.map((p) => [p.id.replace(/^0x/, ""), Number(p.price.price) * 10 ** p.price.expo]));
-  const out: Record<string, number> = {};
-  for (const [sym, id] of pairs) {
-    const v = byId.get(id.replace(/^0x/, ""));
-    if (v && Number.isFinite(v)) out[sym] = v;
+  const [now, then] = await Promise.all([
+    getJson<Parsed>(`${HERMES}/v2/updates/price/latest?${qs}&parsed=true`, { revalidate: 30 }),
+    getJson<Parsed>(`${HERMES}/v2/updates/price/${Math.floor(Date.now() / 1000 / 300) * 300 - 86_400}?${qs}&parsed=true`, { revalidate: 300 }).catch(() => null),
+  ]);
+  const cur = toMap(now);
+  const old = then ? toMap(then) : new Map<string, number>();
+  const out: Record<string, { price: number; change24h: number | null }> = {};
+  for (const [key, id] of pairs) {
+    const p = cur.get(id);
+    if (!p || !Number.isFinite(p)) continue;
+    const o = old.get(id);
+    out[key] = { price: p, change24h: o ? ((p - o) / o) * 100 : null };
   }
   return out;
 }

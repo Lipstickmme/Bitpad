@@ -1,0 +1,14 @@
+/*
+ * ── Brand tokens ─────────────────────────────────────────────────────────
+ * The only file to edit to re-skin Bitpad (plus the logo files in
+ * public/brand/). Values below are placeholders until the official Bitlievers
+ * palette is supplied.
+ */
+@theme {
+  --color-brand: #f7931a;          /* primary accent (links, active states, highlights) */
+  --color-brand-ink: #b8650a;      /* accent text on light backgrounds */
+  --color-brand-soft: #fff4e6;     /* accent tint (selected rows, chips) */
+  --color-action: #111315;         /* primary buttons */
+  --color-action-hover: #2a2d31;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}

@@ -1,14 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, createHmac } from "node:crypto";
-import Module from "node:module";
-
-// `server-only` throws outside React Server Components; stub it for unit tests.
-const origLoad = (Module as unknown as { _load: (...a: unknown[]) => unknown })._load;
-(Module as unknown as { _load: (...a: unknown[]) => unknown })._load = function (req: unknown, ...rest: unknown[]) {
-  if (req === "server-only") return {};
-  return origLoad.call(this, req, ...rest);
-};
+import "./stub-server-only";
 
 const BOT = "123456:TEST_TOKEN";
 

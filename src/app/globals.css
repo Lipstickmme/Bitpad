@@ -1,27 +1,24 @@
 @import "tailwindcss";
+@import "../brand.css";
 
 /* Bitpad light theme — swap these tokens to re-skin the whole app. */
 @theme {
-  --color-bg: #f5f7fa;
+  --color-bg: #f7f7f5;
   --color-surface: #ffffff;
-  --color-surface-2: #f0f3f7;
-  --color-line: #e3e8ef;
-  --color-line-strong: #cfd7e2;
-  --color-ink: #0c1726;
-  --color-ink-2: #4a5a6e;
-  --color-muted: #8492a6;
-  --color-brand: #1463ff;
-  --color-brand-ink: #0b3fa8;
-  --color-brand-soft: #e8f0ff;
-  --color-up: #0f9d58;
+  --color-surface-2: #f3f3f0;
+  --color-line: #e7e6e1;
+  --color-line-strong: #d6d4cd;
+  --color-ink: #16181b;
+  --color-ink-2: #53565c;
+  --color-muted: #8b8d92;
+  --color-up: #16a34a;
   --color-up-soft: #e6f6ee;
-  --color-down: #d93a3a;
+  --color-down: #dc2626;
   --color-down-soft: #fdecec;
   --color-warn: #c98500;
   --color-warn-soft: #fff5dc;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --radius-card: 14px;
+  --radius-card: 10px;
 }
 
 html,
@@ -48,11 +45,11 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 0.875rem;
-  height: 2.5rem;
-  padding: 0 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  height: 2.25rem;
+  padding: 0 0.875rem;
   transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
   white-space: nowrap;
 }
@@ -61,11 +58,11 @@ body {
   cursor: not-allowed;
 }
 .btn-primary {
-  background: var(--color-brand);
+  background: var(--color-action);
   color: #fff;
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-brand-ink);
+  background: var(--color-action-hover);
 }
 .btn-ghost {
   background: var(--color-surface);
@@ -89,11 +86,11 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  border-radius: 6px;
-  padding: 0.125rem 0.45rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  border-radius: 5px;
+  padding: 0.0625rem 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   background: var(--color-surface-2);
   color: var(--color-ink-2);
@@ -104,14 +101,14 @@ body {
   display: inline-flex;
   gap: 2px;
   padding: 3px;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--color-surface-2);
 }
 .seg > button {
-  border-radius: 8px;
-  padding: 0.3rem 0.65rem;
-  font-size: 0.8rem;
-  font-weight: 600;
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 500;
   color: var(--color-muted);
 }
 .seg > button[data-on="true"] {
@@ -122,8 +119,8 @@ body {
 
 .input {
   width: 100%;
-  height: 2.75rem;
-  border-radius: 10px;
+  height: 2.5rem;
+  border-radius: 8px;
   border: 1px solid var(--color-line);
   background: var(--color-surface);
   padding: 0 0.85rem;
@@ -137,7 +134,7 @@ body {
 
 .label {
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-ink-2);
 }
 

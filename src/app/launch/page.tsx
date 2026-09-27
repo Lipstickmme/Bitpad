@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getPairAssets } from "@/lib/market";
+import { getPairAssets } from "@/lib/prices";
 import { LaunchForm } from "@/components/LaunchForm";
 
 export const metadata: Metadata = { title: "Launch a token" };

@@ -1,99 +1,109 @@
 # Bitpad
 
-The lightweight TON launchpad for **paired tokens**. Launch a jetton paired with a stock (SPYx, NVDAx…),
-a commodity (XAUt), a TON jetton (TON, USDT, $GRAM) or a cross-chain asset — and put the liquidity
-**straight into a STON.fi pool**. No bonding curve, no graduation: the pool is the market from block one.
+The lightweight TON launchpad for **paired tokens**. Launch a jetton paired with TON, USDT, $GRAM, gold or a
+tokenized stock, and put the liquidity **straight into a STON.fi pool** — no bonding curve, no graduation.
+Telegram-native trading terminal with live charts, trades, holders, route comparison with platform fees,
+cross-chain launchpad analytics and a multi-wallet bundler.
 
-Built as a light-mode, Telegram-native trading terminal: live charts, trade history, route aggregation with
-platform fees, cross-chain launchpad analytics, a multi-wallet bundler and an AI trading copilot.
+**No sample data anywhere.** Every number comes from a free public API or the chain. When every source for a
+value fails, the UI shows "—" or an explicit "unavailable" message instead of inventing it.
 
-## Features
+## What works right away (no deploy, no keys)
 
-| Area | What you get | Where |
+| Feature | Works with | Notes |
 | --- | --- | --- |
-| **Markets** | Token grid (StonkFun-style cards), pair-type filters, live stock/commodity ticker (Pyth) | `/` |
-| **Token page** | Candlestick chart (1m–1D, price/market-cap toggle), trade history, holders, paired-asset valuation + dividend yield, pool backing | `/token/[address]` |
-| **Trading** | Buy/sell with TON, USDT, $GRAM or USDC; compares STON.fi, DeDust, split and Omniston/cross-chain routes; signs via TON Connect | `TradePanel` |
-| **Launch** | 3-step wizard: details → pair asset → liquidity. Deploys a jetton via `BitpadFactory`, then seeds a STON.fi v2 pool with both sides in one request | `/launch` |
-| **Analytics** | Launchpad & DEX comparison (pump.fun, letsBONK, StonkFun, Pons, Four.meme, Clanker/Zora, Blum, STON.fi, DeDust, Uniswap, PumpSwap, Raydium, Aerodrome, PancakeSwap): volume, wins vs losses, avg/median return, FOMO index per chain, 14-day DEX volume, TON/ETH/SOL/stable/stock pair performance, cross-chain trending pools | `/analytics` |
-| **Bundler** | Generate/import W5 burner wallets (encrypted in-browser), fund them in one TON Connect request, buy/sell from all at once with equal/random/weighted splits and staggering, sweep back | `/bundler` |
-| **Portfolio** | TON + jetton holdings (TonAPI), allocation, Bitpad positions & dividend exposure, linked Solana/EVM wallets | `/portfolio` |
-| **AI Copilot** | Claude-powered agent with tools over markets, analytics and the router; stages trades for you to sign — never executes | `/copilot` |
-| **Revenue** | Swap fee (STON.fi referral, up to 1%), launch fee, configurable fee split | `/revenue` |
-| **Auth** | Telegram Mini App (initData, auto sign-in), Telegram Login Widget, TON Connect, Solana (Phantom etc.), EVM (MetaMask etc.) | header |
-| **Telegram bot** | `/start`, `/trending`, `/price SYMBOL` with an "Open Bitpad" Mini App button | `/api/telegram/webhook` |
+| TON markets list | GeckoTerminal → STON.fi | top pools by volume, filter by pair type |
+| Any TON token page | TonAPI / toncenter / STON.fi (meta), GeckoTerminal / DexScreener (pools) | open `/token/<jetton address>` or search |
+| Candlestick chart | GeckoTerminal OHLCV → TonAPI price history | refreshes every 15s |
+| Trade history | GeckoTerminal trades → STON.fi operations | refreshes every 15s |
+| Holders | TonAPI → toncenter v3 | |
+| **Buy / sell any TON jetton** | STON.fi v2 + DeDust v2 via TON Connect | real quotes; pay with TON, USDT, $GRAM, USDC |
+| Platform fee on trades | STON.fi referral / DeDust fee transfer | needs `NEXT_PUBLIC_FEE_WALLET` |
+| Stock / gold / crypto prices | Pyth → Yahoo → Jupiter / CoinGecko | real 24h change |
+| Dividend yield (TTM) | Yahoo Finance dividend history | |
+| Analytics dashboard | GeckoTerminal (→ DexScreener) + DefiLlama | volume, wins/losses, FOMO, 14-day history |
+| Multi-wallet bundler | TON Connect + toncenter | generate/fund/buy/sell/sweep |
+| Portfolio | TonAPI + Solana & EVM public RPCs | TON jettons, SOL, ETH/Base, BNB |
+| Search | STON.fi asset list | name, ticker or address |
+| Revenue page | TonAPI events on the fee wallet | shows TON actually received |
+| Login | TON Connect, Solana, EVM | Telegram needs a bot token (below) |
 
-## Stack
+## What needs setup
 
-Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · `@tonconnect/ui-react` · `@ton/ton` / `@ton/core` ·
-`@ston-fi/sdk` + `@ston-fi/api` · lightweight-charts · Recharts · Zustand · `@anthropic-ai/sdk` · Tact contracts
+| Item | Why | How |
+| --- | --- | --- |
+| **Deploy `BitpadFactory`** | Launching tokens + the "Bitpad launches" list | [`contracts/README.md`](contracts/README.md) → `npm run deploy:factory`, then set `NEXT_PUBLIC_BITPAD_FACTORY` |
+| Fee wallet | Collect swap + launch fees | `NEXT_PUBLIC_FEE_WALLET`, `NEXT_PUBLIC_SWAP_FEE_BPS` |
+| Telegram bot | Telegram login, Mini App, `/trending` `/price` bot | @BotFather → `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_TELEGRAM_BOT`; `/setdomain`; set webhook (below) |
+| Public URL | TON Connect manifest, jetton metadata URIs | `NEXT_PUBLIC_APP_URL` (must be HTTPS in production) |
+| $BITL tab | Link the flagship token | `NEXT_PUBLIC_BITL_JETTON` |
+| Brand | Bitlievers logo + colors | replace `public/brand/logo.svg`, `public/icon-180.png`; edit `src/brand.css` |
+
+Optional free keys that lift rate limits: `TONCENTER_API_KEY` (+ `NEXT_PUBLIC_TONCENTER_API_KEY`) from @tonapibot,
+`TONAPI_KEY` from tonconsole.com. Everything works without them at lower throughput.
+
+## Free data sources & fallback chains
+
+| Data | Primary | Fallbacks |
+| --- | --- | --- |
+| TON market list | GeckoTerminal top + trending pools | STON.fi `/pools` + `/assets` |
+| Jetton metadata | TonAPI `/jettons/{addr}` | toncenter v3 `/jetton/masters` → STON.fi asset |
+| Token pools / price / volume | GeckoTerminal `/tokens/{addr}/pools` | DexScreener `/tokens/v1/ton/{addr}` → STON.fi price |
+| Candles | GeckoTerminal OHLCV | TonAPI `/rates/chart` |
+| Trades | GeckoTerminal pool trades | STON.fi operations API |
+| Holders | TonAPI `/jettons/{addr}/holders` | toncenter v3 `/jetton/wallets` |
+| Bitpad launches | Factory get-methods via toncenter | — (on-chain) |
+| Launch market data | DexScreener (30 tokens/call) | GeckoTerminal `/tokens/multi` → STON.fi |
+| Stocks | Pyth Hermes | Yahoo Finance chart → Jupiter (xStock token price) |
+| Dividends | Yahoo Finance dividend events | — |
+| Gold / silver / oil | Pyth | CoinGecko → Yahoo futures |
+| Crypto majors | Pyth | CoinGecko |
+| TON jetton prices | STON.fi | TonAPI rates → CoinGecko |
+| Asset resolution | STON.fi asset list (TON jettons), Jupiter (Solana xStock mints) | — |
+| Swap quotes | STON.fi simulator | DeDust on-chain `get_estimated_swap_out` |
+| Launchpad / DEX volume & fees | DefiLlama | sampled pool volume |
+| Wins / losses / FOMO | GeckoTerminal new + trending pools | DexScreener boosted tokens |
+| Balances | TonAPI | Solana & EVM public RPCs (publicnode) |
+
+All free, no signup. Hosts the server needs to reach: `api.geckoterminal.com`, `api.dexscreener.com`, `api.ston.fi`,
+`tonapi.io`, `toncenter.com`, `hermes.pyth.network`, `query1.finance.yahoo.com`, `api.coingecko.com`,
+`lite-api.jup.ag`, `api.llama.fi`, `api.mainnet-beta.solana.com`, `*.publicnode.com`, `api.telegram.org`.
 
 ## Getting started
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in what you need (all optional for a local preview)
-npm run dev                  # http://localhost:3000
-npm test                     # compiles contracts + runs sandbox & unit tests
+cp .env.example .env.local
+npm run dev          # http://localhost:3000
+npm test             # contracts (sandbox) + auth + parser tests
 npm run build
 ```
 
-### Configuration (`.env.example`)
+### Telegram Mini App & bot
 
-| Variable | Needed for |
-| --- | --- |
-| `NEXT_PUBLIC_APP_URL` | TON Connect manifest, jetton metadata URIs, Telegram buttons |
-| `NEXT_PUBLIC_FEE_WALLET`, `NEXT_PUBLIC_SWAP_FEE_BPS`, `NEXT_PUBLIC_LAUNCH_FEE_TON` | Platform revenue |
-| `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_TELEGRAM_BOT`, `SESSION_SECRET` | Telegram login & Mini App |
-| `NEXT_PUBLIC_BITPAD_FACTORY` | On-chain launches (without it `/launch` runs in preview mode) |
-| `NEXT_PUBLIC_GRAM_JETTON`, `NEXT_PUBLIC_USDC_JETTON` | Paying with $GRAM / USDC on TON |
-| `NEXT_PUBLIC_TONCENTER_API_KEY`, `TONAPI_KEY` | Higher RPC / indexer rate limits |
-| `ANTHROPIC_API_KEY` | AI Copilot |
+1. @BotFather → create bot → `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_TELEGRAM_BOT`.
+2. `/newapp` (or Bot Settings → Menu Button) → `NEXT_PUBLIC_APP_URL`. `/setdomain` for the web login widget.
+3. `curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook?url=$APP_URL/api/telegram/webhook&secret_token=$TELEGRAM_WEBHOOK_SECRET"`
 
-### Telegram Mini App
+## Limits worth knowing
 
-1. Create a bot with @BotFather, set `TELEGRAM_BOT_TOKEN` / `NEXT_PUBLIC_TELEGRAM_BOT`.
-2. `/newapp` (or bot settings → Menu button) → point it at `NEXT_PUBLIC_APP_URL`.
-3. `/setdomain` to your domain for the Login Widget.
-4. Register the webhook:
-   `curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook?url=$APP_URL/api/telegram/webhook&secret_token=$TELEGRAM_WEBHOOK_SECRET"`
+- **Cross-chain buys**: trades execute on TON. For stock pairs whose asset lives on Solana (xStocks), the token page
+  links to Jupiter with the real mint. A Bitpad pool can only be seeded against a paired asset that exists as a TON jetton
+  (TON, USDT, $GRAM, bridged XAUt, etc.); the launch form tells you when it doesn't.
+- **Free tiers are rate-limited** (GeckoTerminal ≈30/min, toncenter/TonAPI ≈1 rps keyless). Responses are cached
+  (15s–10min); add the free keys above for real traffic.
+- **Yahoo Finance** is an unofficial endpoint; Pyth and Jupiter cover stock prices if it changes.
 
-### Contracts
-
-See [`contracts/README.md`](contracts/README.md). `npm run contracts:build` compiles the Tact factory and
-jetton; `contracts/tests` runs launch → mint → transfer and fee/permission checks in `@ton/sandbox`.
-**Not audited** — test on testnet and audit before mainnet.
-
-## Data sources & what is live
-
-| Data | Source | Fallback |
-| --- | --- | --- |
-| Stock / commodity / crypto prices | Pyth Hermes | reference prices in `src/lib/assets.ts` |
-| Launchpad & DEX volume, fees | DefiLlama | seeded preview numbers |
-| Wins/losses, returns, FOMO, trending pools | GeckoTerminal (new + trending pools per chain) | seeded preview numbers |
-| Swap quotes | STON.fi simulator (with referral fee) | depth-based estimate |
-| Portfolio | TonAPI | — |
-| **Bitpad token listings, candles, trades, holders** | **seeded preview data** (`src/lib/demo.ts`) | — |
-
-Anything not live is labelled **Preview** in the UI. The Bitpad listings are placeholders until a launch indexer
-(watching `BitpadFactory`'s `Launched` events and STON.fi pools) is connected — `src/lib/market.ts#getTokens`
-is the single place to plug it in. Pons Family, StonkFun and Sender don't expose public APIs, so they show
-preview numbers unless GeckoTerminal attributes pools to them.
-
-## Branding
-
-`public/logo.svg` is a **placeholder mark** — bitlievers.xyz wasn't reachable from the build environment. Drop the
-official Bitlievers logo in at the same path (and regenerate `public/icon-180.png`). Colors are tokens at the top of
-`src/app/globals.css`.
-
-## Project layout
+## Layout
 
 ```
-contracts/            Tact factory + TEP-74 jetton, sandbox tests
-src/app/              pages + API routes (markets, token, quote, analytics, agent, auth, portfolio, telegram)
-src/components/       UI (TokenCard, PriceChart, TradePanel, LaunchForm, BundlerView, analytics/…)
-src/lib/              config, asset catalog, venues, analytics aggregator, routing, auth, agent
-src/lib/data/         GeckoTerminal, DefiLlama, Pyth, TonAPI adapters
-src/lib/ton/          TON Connect tx builders: swap, liquidity, launch, multi-wallet bundler
-tests/                unit tests (Telegram auth, launch encoding ↔ contract ABI)
+contracts/            Tact factory + jetton, sandbox tests
+scripts/              deploy-factory.ts
+src/brand.css         brand tokens (colors / font) — the one file to re-skin
+src/app/              pages + API routes
+src/components/       UI
+src/lib/data/         adapters: gecko, dexscreener, stonfi, tonapi, toncenter, pyth, yahoo, coingecko, jupiter, llama, rpc
+src/lib/              market (tokens, candles, trades, holders), prices, launches (factory indexer), analytics, routing, fees, auth
+src/lib/ton/          TON Connect builders: STON.fi swap, DeDust swap, pool seeding, launch, multi-wallet bundler
+tests/                unit tests with API fixtures
 ```

@@ -19,8 +19,10 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
   const [venueKind, setVenueKind] = useState<"launchpads" | "dexes">("launchpads");
   const [quote, setQuote] = useState<"all" | "ton" | "eth" | "sol" | "stable" | "stock">("all");
 
-  const venues = (venueKind === "launchpads" ? data.launchpads : data.dexes).filter((v) => chain === "all" || v.chain === chain);
-  const chains = data.chains;
+  const allVenues = (venueKind === "launchpads" ? data.launchpads : data.dexes).filter((v) => chain === "all" || v.chain === chain);
+  const venues = allVenues.filter((v) => v.source !== "unavailable");
+  const sampledVenues = venues.filter((v) => v.wins + v.losses > 0);
+  const chains = data.chains.filter((c) => c.source === "live");
   const totalVol = chains.reduce((s, c) => s + c.volume24h, 0);
   const tonVol = chains.find((c) => c.chain === "ton")?.volume24h ?? 0;
   const hottest = [...chains].sort((a, b) => b.fomo - a.fomo)[0];
@@ -36,7 +38,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Traders&apos; heaven</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Market analytics</h1>
           <p className="text-sm text-ink-2">Every launchpad and DEX, side by side — where the volume, the wins and the FOMO are right now.</p>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -61,15 +63,15 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi icon={<Activity className="size-4" />} label="Tracked DEX volume · 24h" value={usd(totalVol, { compact: true })} sub={`${chains.length} chains`} />
-        <Kpi icon={<Globe2 className="size-4" />} label="TON share of volume" value={`${totalVol ? ((100 * tonVol) / totalVol).toFixed(2) : "0"}%`} sub={usd(tonVol, { compact: true })} />
+        <Kpi icon={<Activity className="size-4" />} label="Tracked DEX volume · 24h" value={totalVol ? usd(totalVol, { compact: true }) : "—"} sub={`${chains.length} chains reporting`} />
+        <Kpi icon={<Globe2 className="size-4" />} label="TON share of volume" value={totalVol ? `${((100 * tonVol) / totalVol).toFixed(2)}%` : "—"} sub={tonVol ? usd(tonVol, { compact: true }) : undefined} />
         <Kpi icon={<Flame className="size-4" />} label="Hottest chain (FOMO)" value={hottest ? CHAINS[hottest.chain].name : "—"} sub={hottest ? `score ${hottest.fomo}/100` : ""} />
         <Kpi icon={<Trophy className="size-4" />} label="Best launchpad win rate" value={bestLp ? bestLp.name : "—"} sub={bestLp ? `${winRate(bestLp).toFixed(0)}% of sampled tokens up 24h` : ""} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard title="FOMO index by chain" sub="Buy/sell pressure, 1h momentum & volume acceleration (0–100)">
-          <div className="h-[240px]">
+          {!chains.length ? <Empty>No chain data — GeckoTerminal and DefiLlama unavailable.</Empty> : <div className="h-[240px]">
             <ResponsiveContainer>
               <BarChart data={chains.map((c) => ({ name: CHAINS[c.chain].short, fomo: c.fomo, ratio: c.buySellRatio }))} layout="vertical" margin={{ left: 0, right: 24 }} barCategoryGap={8}>
                 <CartesianGrid horizontal={false} stroke={GRID} />
@@ -79,11 +81,12 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
                 <Bar dataKey="fomo" radius={[0, 4, 4, 0]} fill={SERIES[0]} label={{ position: "right", fontSize: 11, fill: "#4a5a6e" }} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </div>}
+
         </ChartCard>
 
         <ChartCard className="lg:col-span-2" title={`24h volume · ${venueKind}`} sub="Protocol volume (DefiLlama), sampled pools where unavailable">
-          <div className="h-[240px]">
+          {!venues.length ? <Empty>No volume data for these venues right now.</Empty> : <div className="h-[240px]">
             <ResponsiveContainer>
               <BarChart data={[...venues].sort((a, b) => b.volume24h - a.volume24h)} margin={{ left: 8, right: 8 }} barCategoryGap="22%">
                 <CartesianGrid vertical={false} stroke={GRID} />
@@ -98,15 +101,16 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </div>}
+
         </ChartCard>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard title="Wins vs losses" sub="Sampled new & trending tokens: up vs down over 24h">
-          <div className="h-[280px]">
+          {!sampledVenues.length ? <Empty>No sampled pools right now (GeckoTerminal / DexScreener).</Empty> : <div className="h-[280px]">
             <ResponsiveContainer>
-              <BarChart data={venues.map((v) => ({ name: v.name, wins: v.wins, losses: v.losses, rate: winRate(v) }))} layout="vertical" stackOffset="expand" margin={{ left: 0, right: 16 }} barCategoryGap={6}>
+              <BarChart data={sampledVenues.map((v) => ({ name: v.name, wins: v.wins, losses: v.losses, rate: winRate(v) }))} layout="vertical" stackOffset="expand" margin={{ left: 0, right: 16 }} barCategoryGap={6}>
                 <CartesianGrid horizontal={false} stroke={GRID} />
                 <XAxis type="number" {...AXIS} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
                 <YAxis type="category" dataKey="name" width={96} {...AXIS} tick={{ fontSize: 11 }} />
@@ -119,14 +123,15 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
                 <Bar dataKey="losses" stackId="a" fill={DOWN} stroke="#fff" strokeWidth={2} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-          <Legend items={[{ label: "Up 24h", color: UP }, { label: "Down 24h", color: DOWN }]} />
+          </div>}
+
+          {!!sampledVenues.length && <Legend items={[{ label: "Up 24h", color: UP }, { label: "Down 24h", color: DOWN }]} />}
         </ChartCard>
 
         <ChartCard title="Average 24h return" sub="Mean return of sampled tokens, per venue">
-          <div className="h-[280px]">
+          {!sampledVenues.length ? <Empty>No sampled pools right now.</Empty> : <div className="h-[280px]">
             <ResponsiveContainer>
-              <BarChart data={venues.map((v) => ({ name: v.name, avg: v.avgReturn24h, med: v.medianReturn24h }))} margin={{ left: 0, right: 8 }} barCategoryGap="25%">
+              <BarChart data={sampledVenues.map((v) => ({ name: v.name, avg: v.avgReturn24h, med: v.medianReturn24h }))} margin={{ left: 0, right: 8 }} barCategoryGap="25%">
                 <CartesianGrid vertical={false} stroke={GRID} />
                 <XAxis dataKey="name" {...AXIS} interval={0} tick={{ fontSize: 10 }} />
                 <YAxis {...AXIS} tickFormatter={(v) => `${v}%`} width={44} />
@@ -136,17 +141,18 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
                   return p ? <TipBox title={p.name} rows={[{ label: "Average", value: pct(p.avg) }, { label: "Median", value: pct(p.med) }]} /> : null;
                 }} />
                 <Bar dataKey="avg" radius={4}>
-                  {venues.map((v) => <Cell key={v.id} fill={v.avgReturn24h >= 0 ? UP : DOWN} />)}
+                  {sampledVenues.map((v) => <Cell key={v.id} fill={v.avgReturn24h >= 0 ? UP : DOWN} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </div>}
+
         </ChartCard>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard className="lg:col-span-2" title="DEX volume · 14 days" sub="Daily volume per protocol">
-          <div className="h-[280px]">
+          {!data.history.length ? <Empty>DefiLlama history unavailable right now.</Empty> : <div className="h-[280px]">
             <ResponsiveContainer>
               <LineChart data={data.history} margin={{ left: 0, right: 12 }}>
                 <CartesianGrid vertical={false} stroke={GRID} />
@@ -156,8 +162,8 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
                 {histKeys.map((k, i) => <Line key={k} dataKey={k} stroke={SERIES[i % SERIES.length]} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }} />)}
               </LineChart>
             </ResponsiveContainer>
-          </div>
-          <Legend items={histKeys.map((k, i) => ({ label: k, color: SERIES[i % SERIES.length] }))} />
+          </div>}
+          {!!data.history.length && <Legend items={histKeys.map((k, i) => ({ label: k, color: SERIES[i % SERIES.length] }))} />}
         </ChartCard>
 
         <ChartCard title="Pair types" sub="Which quote asset is winning today">
@@ -185,7 +191,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
       </div>
 
       <ChartCard title={`${venueKind === "launchpads" ? "Launchpad" : "DEX"} comparison`} sub="Full table — sort by what matters to you">
-        <CompareTable rows={venues} />
+        <CompareTable rows={allVenues} />
       </ChartCard>
 
       <ChartCard
@@ -232,11 +238,15 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
   );
 }
 
+function Empty({ children }: { children: React.ReactNode }) {
+  return <div className="grid h-[240px] place-items-center rounded-lg bg-surface-2/60 text-center text-sm text-muted">{children}</div>;
+}
+
 function Kpi({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
   return (
     <div className="card p-4">
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted">{icon}{label}</div>
-      <div className="num mt-1 truncate text-2xl font-extrabold tracking-tight">{value}</div>
+      <div className="num mt-1 truncate text-xl font-semibold tracking-tight">{value}</div>
       {sub && <div className="mt-0.5 truncate text-xs text-ink-2">{sub}</div>}
     </div>
   );
@@ -278,12 +288,12 @@ function CompareTable({ rows }: { rows: LaunchpadStat[] }) {
               <td className="py-2.5 font-semibold"><span className="mr-2 inline-block size-2.5 rounded-sm align-middle" style={{ background: r.color }} />{r.name}</td>
               <td className="text-ink-2">{CHAINS[r.chain].short}</td>
               <td className="text-xs text-ink-2">{r.mechanism}</td>
-              <td className="text-right">{usd(r.volume24h, { compact: true })}</td>
-              <td className={`text-right ${r.volumeChange >= 0 ? "text-up" : "text-down"}`}>{pct(r.volumeChange)}</td>
+              <td className="text-right">{r.source === "unavailable" ? "—" : usd(r.volume24h, { compact: true })}</td>
+              <td className={`text-right ${r.volumeChange >= 0 ? "text-up" : "text-down"}`}>{r.source === "unavailable" || !r.volumeChange ? "—" : pct(r.volumeChange)}</td>
               <td className="text-right">{r.kind === "launchpad" ? num(r.launches24h, 0) : "—"}</td>
-              <td className="text-right">{winRate(r).toFixed(0)}% <span className="text-xs text-muted">({r.wins}/{r.wins + r.losses})</span></td>
-              <td className={`text-right font-semibold ${r.avgReturn24h >= 0 ? "text-up" : "text-down"}`}>{pct(r.avgReturn24h)}</td>
-              <td className="text-right">{r.buySellRatio.toFixed(2)}</td>
+              <td className="text-right">{r.wins + r.losses ? <>{winRate(r).toFixed(0)}% <span className="text-xs text-muted">({r.wins}/{r.wins + r.losses})</span></> : "—"}</td>
+              <td className={`text-right font-semibold ${r.avgReturn24h >= 0 ? "text-up" : "text-down"}`}>{r.wins + r.losses ? pct(r.avgReturn24h) : "—"}</td>
+              <td className="text-right">{r.wins + r.losses ? r.buySellRatio.toFixed(2) : "—"}</td>
               <td className="text-right text-xs">{r.topGainer ? <>{r.topGainer.symbol} <span className="text-up">{pct(r.topGainer.change, 0)}</span></> : "—"}</td>
               <td className="pl-3"><SourceTag source={r.source} /></td>
             </tr>
