@@ -39,7 +39,8 @@ value fails, the UI shows "—" or an explicit "unavailable" message instead of 
 | $BITL tab | Link the flagship token | `NEXT_PUBLIC_BITL_JETTON` |
 | Brand | Bitlievers logo + colors | replace `public/brand/logo.svg`, `public/icon-180.png`; edit `src/brand.css` |
 
-Optional free keys that lift rate limits: `TONCENTER_API_KEY` (+ `NEXT_PUBLIC_TONCENTER_API_KEY`) from @tonapibot,
+Optional free keys that lift rate limits (server-only, never exposed to the browser — client RPC goes through
+the `/api/ton-rpc` proxy): `TONCENTER_API_KEY` from @tonapibot,
 `TONAPI_KEY` from tonconsole.com. Everything works without them at lower throughput.
 
 ## Free data sources & fallback chains

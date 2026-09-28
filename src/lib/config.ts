@@ -8,7 +8,6 @@ export const config = {
   launchFeeTon: Number(process.env.NEXT_PUBLIC_LAUNCH_FEE_TON ?? 1),
   telegramBot: process.env.NEXT_PUBLIC_TELEGRAM_BOT ?? "",
   factoryAddress: process.env.NEXT_PUBLIC_BITPAD_FACTORY ?? "",
-  toncenterKey: process.env.NEXT_PUBLIC_TONCENTER_API_KEY ?? "",
   gramJetton: process.env.NEXT_PUBLIC_GRAM_JETTON ?? "",
   usdcJetton: process.env.NEXT_PUBLIC_USDC_JETTON ?? "",
   /** $BITL jetton master — shows the $BITL tab when set */

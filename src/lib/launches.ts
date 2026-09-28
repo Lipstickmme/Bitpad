@@ -21,7 +21,7 @@ let client: TonClient | undefined;
 function tc() {
   client ??= new TonClient({
     endpoint: config.network === "testnet" ? "https://testnet.toncenter.com/api/v2/jsonRPC" : "https://toncenter.com/api/v2/jsonRPC",
-    apiKey: process.env.TONCENTER_API_KEY || config.toncenterKey || undefined,
+    apiKey: process.env.TONCENTER_API_KEY || undefined,
   });
   return client;
 }
