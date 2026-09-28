@@ -4,7 +4,6 @@ import { getFeeRevenue } from "@/lib/fees";
 import { getFactoryConfig } from "@/lib/launches";
 import { getPairAssets } from "@/lib/prices";
 import { ago, num, shortAddr, usd } from "@/lib/format";
-import { SERIES } from "@/lib/venues";
 
 export const metadata: Metadata = { title: "Revenue & fees" };
 export const dynamic = "force-dynamic";
@@ -28,21 +27,13 @@ export default async function RevenuePage() {
       </div>
 
       <section className="card p-5">
-        <h2 className="font-semibold">Fee split</h2>
-        <p className="text-xs text-muted">Configured in <code>src/lib/config.ts</code> — distribution is done from the fee wallet.</p>
-        <div className="mt-4 flex h-3 overflow-hidden rounded-full">
-          {config.feeSplit.map((f, i) => <div key={f.label} style={{ width: `${f.share}%`, background: SERIES[i] }} className="border-r-2 border-surface last:border-0" />)}
+        <h2 className="text-sm font-semibold">How fees are shared — on-chain</h2>
+        <p className="mt-1 text-xs text-muted">Enforced by each token&apos;s BitpadPool contract; nothing is distributed off-chain.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Split title="Protocol fee" value={factory ? `${factory.protocolFeeBps / 100}%` : "—"} body="Every trade. Accrues in the pool; ClaimFees sends it to the fee wallet." />
+          <Split title="Creator fee" value={factory ? `${factory.creatorFeeBps / 100}%` : "—"} body={`Every trade. Split ${100 - config.referral.referrerShareOfCreatorFee}/${config.referral.referrerShareOfCreatorFee} between the creator and the referral link used.`} />
+          <Split title="Referral links" value={`max ${config.referral.maxLinksPerToken}`} body="Per token, assigned by the creator. Every buy must come through a link (or the creator's own). Referrers claim their share any time." />
         </div>
-        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-          {config.feeSplit.map((f, i) => (
-            <li key={f.label} className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2">
-              <span className="size-2.5 rounded-sm" style={{ background: SERIES[i] }} />
-              <span className="flex-1 text-sm">{f.label}</span>
-              <span className="num text-sm font-semibold">{f.share}%</span>
-              {rev.configured && <span className="num w-24 text-right text-xs text-muted">{num((rev.received7d * f.share) / 100, 2)} TON/7d</span>}
-            </li>
-          ))}
-        </ul>
       </section>
 
       <section className="card overflow-hidden">
@@ -66,6 +57,15 @@ export default async function RevenuePage() {
           </table>
         )}
       </section>
+    </div>
+  );
+}
+
+function Split({ title, value, body }: { title: string; value: string; body: string }) {
+  return (
+    <div className="rounded-lg bg-surface-2 p-3">
+      <div className="flex items-baseline justify-between"><span className="text-sm font-medium">{title}</span><span className="num text-sm font-semibold">{value}</span></div>
+      <p className="mt-1 text-xs text-ink-2">{body}</p>
     </div>
   );
 }

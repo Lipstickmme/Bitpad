@@ -105,18 +105,48 @@ message(0x42504c50) PoolInit {
 }
 
 /// Buy the token with TON. Attach amountIn + BUY_GAS.
+/// `referrer` is the referral link used: the creator or one of the token's
+/// registered referrers. Buys without a valid link are refunded.
 message(0x42504c51) BuyTon {
     queryId: Int as uint64;
     amountIn: Int as coins;
     minOut: Int as coins;
     recipient: Address?;           // null = sender (bundler sets it per leg)
+    referrer: Address;
 }
 
 /// forward_payload of a jetton transfer to the pool: sell the token, or buy
 /// with the pair jetton. Invalid/failed swaps are refunded in full.
+/// Buys need a valid `referrer`; on sells it is optional (no/invalid link →
+/// the creator keeps the whole creator fee).
 message(0x42504c52) SwapIntent {
     minOut: Int as coins;
     recipient: Address?;
+    referrer: Address?;
+}
+
+// ── Referral links (per token, managed by its creator) ─────────────────────
+/// Creator only. At most MAX_REFERRERS active links per token.
+message(0x42504c55) AddReferrer {
+    queryId: Int as uint64;
+    referrer: Address;
+}
+/// Creator only. The link stops working for new trades; fees it already
+/// earned stay claimable by the referrer.
+message(0x42504c56) RemoveReferrer {
+    queryId: Int as uint64;
+    referrer: Address;
+}
+/// Referrer pulls their accrued share (jetton pools: attach 0.1 TON).
+message(0x42504c57) ClaimReferral {
+    queryId: Int as uint64;
+}
+
+struct ReferrerInfo {
+    active: Bool;
+    accrued: Int as coins;         // unclaimed, in the pair asset
+    earned: Int as coins;          // lifetime, in the pair asset
+    volume: Int as coins;          // pair-asset volume traded through this link
 }
 
 message(0x42504c53) ClaimFees {
@@ -144,6 +174,8 @@ struct PoolData {
     reservePair: Int;
     protocolFeesAccrued: Int;
     creatorFeesAccrued: Int;
+    referralFeesAccrued: Int;      // total unclaimed across all referrers
+    activeReferrers: Int;
     protocolFeeBps: Int;
     creatorFeeBps: Int;
     tradingOpen: Bool;
@@ -161,6 +193,7 @@ struct BundleLeg {
 message(0x42504c60) BundleBuy {
     queryId: Int as uint64;
     pool: Address;
+    referrer: Address;             // referral link used for every leg
     count: Int as uint8;
     legs: map<Int as uint8, BundleLeg>;
 }

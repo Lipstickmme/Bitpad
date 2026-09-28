@@ -33,13 +33,23 @@ test("jetton launch, buy and sell bodies decode", async () => {
   assert.equal(fp.loadBit(), true);
   assert.equal(loadLaunchWithJetton(fp.loadRef().beginParse()).creatorBps, 500n);
 
-  const b = loadBuyTon(Cell.fromBase64(buildPoolBuyTx(USER, toNano("1"), 123n, USER).payload!).beginParse());
+  const REF = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
+  const b = loadBuyTon(Cell.fromBase64(buildPoolBuyTx(USER, toNano("1"), 123n, REF, USER).payload!).beginParse());
   assert.equal(b.amountIn, toNano("1"));
   assert.equal(b.minOut, 123n);
   assert.equal(b.recipient?.toString(), USER);
+  assert.equal(b.referrer.toString(), REF);
 
-  const s = loadTokenTransfer(Cell.fromBase64(buildPoolSwapTx({ pool: USER, userJettonWallet: USER, user: USER, amount: 99n, minOut: 7n }).payload!).beginParse());
+  const s = loadTokenTransfer(Cell.fromBase64(buildPoolSwapTx({ pool: USER, userJettonWallet: USER, user: USER, amount: 99n, minOut: 7n, referrer: REF }).payload!).beginParse());
   assert.equal(s.amount, 99n);
   s.forwardPayload.loadBit();
-  assert.equal(loadSwapIntent(s.forwardPayload.loadRef().beginParse()).minOut, 7n);
+  const si = loadSwapIntent(s.forwardPayload.loadRef().beginParse());
+  assert.equal(si.minOut, 7n);
+  assert.equal(si.referrer?.toString(), REF);
+
+  const { buildReferrerTx, buildClaimReferralTx } = await import("../src/lib/ton/launch");
+  const { loadAddReferrer, loadRemoveReferrer, loadClaimReferral } = await import("../contracts/build/BitpadFactory_BitpadPool");
+  assert.equal(loadAddReferrer(Cell.fromBase64(buildReferrerTx(USER, REF).payload!).beginParse()).referrer.toString(), REF);
+  assert.equal(loadRemoveReferrer(Cell.fromBase64(buildReferrerTx(USER, REF, true).payload!).beginParse()).referrer.toString(), REF);
+  assert.equal(loadClaimReferral(Cell.fromBase64(buildClaimReferralTx(USER).payload!).beginParse()).queryId, 0n);
 });

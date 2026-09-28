@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { captureReferral } from "@/lib/referral";
 import { ArrowLeft, ExternalLink, Globe, Rocket } from "lucide-react";
 import type { MarketToken } from "@/lib/types";
 import { price, usd, num, shortAddr } from "@/lib/format";
@@ -14,6 +15,10 @@ import { TelegramIcon, XIcon } from "./Brand";
 
 export function TokenView({ token }: { token: MarketToken }) {
   const [live, setLive] = useState<number | null>(token.priceUsd);
+  // Remember the referral link this visitor arrived through (?ref=…) for this token's trades
+  useEffect(() => {
+    if (token.bitpad) captureReferral(token.address);
+  }, [token.address, token.bitpad]);
   const px = live ?? token.priceUsd;
   const mcap = px != null && token.totalSupply ? px * token.totalSupply : token.marketCap ?? token.fdv;
   const dexUrl = token.dex?.includes("dedust") ? `https://dedust.io/swap/TON/${token.address}` : `https://app.ston.fi/swap?ft=TON&tt=${token.address}`;

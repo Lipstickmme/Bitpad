@@ -37,18 +37,8 @@ export const config = {
   /** Fee on STON.fi / DeDust routes, in basis points (max 100 = 1%, STON.fi's referral cap).
    *  Bitpad pools charge the fees set in the factory contract instead. */
   swapFeeBps: 50,
-  /** $BITL jetton master — shows the $BITL tab when set */
-  bitlJetton: "",
-  /**
-   * How platform fees are distributed. Business decision — adjust freely.
-   * Shares must sum to 100.
-   */
-  feeSplit: [
-    { label: "$BITL buyback & holder rewards", share: 40 },
-    { label: "Token creators", share: 30 },
-    { label: "Treasury & development", share: 20 },
-    { label: "Referrers", share: 10 },
-  ],
+  /** Referral model enforced by BitpadPool (see contracts/pool.tact) */
+  referral: { maxLinksPerToken: 20, referrerShareOfCreatorFee: 50 },
   links: {
     telegram: "https://t.me/bitlievers",
     x: "https://x.com/bitlievers",

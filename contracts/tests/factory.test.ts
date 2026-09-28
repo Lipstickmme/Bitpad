@@ -46,8 +46,8 @@ const balanceOf = async (c: Chain, minter: SandboxContract<BitpadJetton>, owner:
     return 0n; // wallet not deployed
   }
 };
-const intent = (minOut: bigint, recipient: Address | null = null) =>
-  beginCell().storeBit(1).storeRef(beginCell().store(storeSwapIntent({ $$type: "SwapIntent", minOut, recipient })).endCell()).endCell().beginParse();
+const intent = (minOut: bigint, referrer: Address | null = null, recipient: Address | null = null) =>
+  beginCell().storeBit(1).storeRef(beginCell().store(storeSwapIntent({ $$type: "SwapIntent", minOut, recipient, referrer })).endCell()).endCell().beginParse();
 const emptyPayload = () => beginCell().storeBit(0).endCell().beginParse();
 const failed = (r: { transactions: { description: { type: string; computePhase?: { type: string; success?: boolean } } }[] }) =>
   r.transactions.some((t) => t.description.type === "generic" && t.description.computePhase?.type === "vm" && !t.description.computePhase.success);
@@ -100,7 +100,7 @@ describe("TON-paired launch", () => {
     const c = await setup();
     const { minter, pool } = await launchTon(c);
     const quote = await pool.getQuoteBuy(toNano("1"));
-    await pool.send(c.alice.getSender(), { value: toNano("1.1") }, { $$type: "BuyTon", queryId: 2n, amountIn: toNano("1"), minOut: quote, recipient: null });
+    await pool.send(c.alice.getSender(), { value: toNano("1.1") }, { $$type: "BuyTon", queryId: 2n, amountIn: toNano("1"), minOut: quote, recipient: null, referrer: c.creator.address });
     assert.equal(await balanceOf(c, minter, c.alice.address), quote);
     const pd = await pool.getPoolData();
     assert.equal(pd.protocolFeesAccrued, toNano("0.005"));
@@ -116,7 +116,7 @@ describe("TON-paired launch", () => {
     const before = await pool.getPoolData();
     const aliceBefore = await c.alice.getBalance();
     const quote = await pool.getQuoteBuy(toNano("1"));
-    await pool.send(c.alice.getSender(), { value: toNano("1.1") }, { $$type: "BuyTon", queryId: 2n, amountIn: toNano("1"), minOut: quote + 1n, recipient: null });
+    await pool.send(c.alice.getSender(), { value: toNano("1.1") }, { $$type: "BuyTon", queryId: 2n, amountIn: toNano("1"), minOut: quote + 1n, recipient: null, referrer: c.creator.address });
     assert.equal(await balanceOf(c, minter, c.alice.address), 0n);
     assert.deepEqual((await pool.getPoolData()).reservePair, before.reservePair);
     assert.ok(aliceBefore - (await c.alice.getBalance()) < toNano("0.05"), "only gas spent");
@@ -125,7 +125,7 @@ describe("TON-paired launch", () => {
   test("sell for TON with SwapIntent; bad payload and slippage are refunded", async () => {
     const c = await setup();
     const { minter, pool } = await launchTon(c);
-    await pool.send(c.alice.getSender(), { value: toNano("2.2") }, { $$type: "BuyTon", queryId: 2n, amountIn: toNano("2"), minOut: 0n, recipient: null });
+    await pool.send(c.alice.getSender(), { value: toNano("2.2") }, { $$type: "BuyTon", queryId: 2n, amountIn: toNano("2"), minOut: 0n, recipient: null, referrer: c.creator.address });
     const held = await balanceOf(c, minter, c.alice.address);
 
     // bad payload → tokens come back
@@ -150,7 +150,7 @@ describe("TON-paired launch", () => {
   test("ClaimFees pays protocol → fee wallet and creator → creator", async () => {
     const c = await setup();
     const { pool } = await launchTon(c);
-    await pool.send(c.alice.getSender(), { value: toNano("10.2") }, { $$type: "BuyTon", queryId: 2n, amountIn: toNano("10"), minOut: 0n, recipient: null });
+    await pool.send(c.alice.getSender(), { value: toNano("10.2") }, { $$type: "BuyTon", queryId: 2n, amountIn: toNano("10"), minOut: 0n, recipient: null, referrer: c.creator.address });
     const fee0 = await c.feeWallet.getBalance();
     const cr0 = await c.creator.getBalance();
     await pool.send(c.bob.getSender(), { value: toNano("0.1") }, { $$type: "ClaimFees", queryId: 3n });
@@ -182,6 +182,9 @@ describe("invariants", () => {
     const c = await setup();
     const { minter, pool } = await launchTon(c, "20");
     const traders = await Promise.all([0, 1, 2, 3].map((i) => c.chain.treasury(`t${i}`)));
+    const refs = await Promise.all([0, 1].map((i) => c.chain.treasury(`r${i}`)));
+    for (const r of refs) await pool.send(c.creator.getSender(), { value: toNano("0.05") }, { $$type: "AddReferrer", queryId: 0n, referrer: r.address });
+    const links = [c.creator.address, ...refs.map((r) => r.address)];
     let seed = 42;
     const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
     let k0: bigint | null = null;
@@ -190,19 +193,116 @@ describe("invariants", () => {
       const held = await balanceOf(c, minter, t.address);
       if (held > 0n && rnd() < 0.45) {
         const amt = (held * BigInt(1 + Math.floor(rnd() * 99))) / 100n;
-        await sendJetton(c, minter, t, pool.address, amt, toNano("0.15"), intent(0n));
+        await sendJetton(c, minter, t, pool.address, amt, toNano("0.15"), intent(0n, rnd() < 0.3 ? null : links[Math.floor(rnd() * links.length)]));
       } else {
         const amt = toNano((0.1 + rnd() * 5).toFixed(3));
-        await pool.send(t.getSender(), { value: amt + toNano("0.12") }, { $$type: "BuyTon", queryId: BigInt(i), amountIn: amt, minOut: 0n, recipient: null });
+        await pool.send(t.getSender(), { value: amt + toNano("0.12") }, { $$type: "BuyTon", queryId: BigInt(i), amountIn: amt, minOut: 0n, recipient: null, referrer: links[Math.floor(rnd() * links.length)] });
       }
       const pd = await pool.getPoolData();
       const ton = (await c.chain.getContract(pool.address)).balance;
-      assert.ok(ton >= pd.reservePair + pd.protocolFeesAccrued + pd.creatorFeesAccrued, `solvent after trade ${i}`);
+      assert.ok(ton >= pd.reservePair + pd.protocolFeesAccrued + pd.creatorFeesAccrued + pd.referralFeesAccrued, `solvent after trade ${i}`);
       assert.equal(await balanceOf(c, minter, pool.address), pd.reserveToken, `token books match after trade ${i}`);
       const k = pd.reservePair * pd.reserveToken;
       if (k0 !== null) assert.ok(k >= k0, "x·y never decreases (fees can only deepen the pool)");
       k0 = k;
     }
+  });
+});
+
+describe("referral links", () => {
+  test("buys require a valid link; creator fee is split 50/50 with the referrer", async () => {
+    const c = await setup();
+    const { minter, pool } = await launchTon(c);
+    const ref = await c.chain.treasury("ref");
+    const buy = (referrer: Address, amount = "1") =>
+      pool.send(c.alice.getSender(), { value: toNano(amount) + toNano("0.12") }, { $$type: "BuyTon", queryId: 1n, amountIn: toNano(amount), minOut: 0n, recipient: null, referrer });
+
+    await buy(ref.address); // not registered yet → refunded
+    assert.equal(await balanceOf(c, minter, c.alice.address), 0n, "unregistered link is refused");
+    assert.equal(await pool.getIsReferrer(ref.address), false);
+    assert.equal(await pool.getIsReferrer(c.creator.address), true, "creator's own link always works");
+
+    await pool.send(c.creator.getSender(), { value: toNano("0.05") }, { $$type: "AddReferrer", queryId: 0n, referrer: ref.address });
+    assert.equal(await pool.getIsReferrer(ref.address), true);
+
+    await buy(ref.address, "10");
+    assert.ok((await balanceOf(c, minter, c.alice.address)) > 0n);
+    const pd = await pool.getPoolData();
+    // creator fee = 0.5% of 10 TON = 0.05 → 0.025 each
+    assert.equal(pd.creatorFeesAccrued, toNano("0.025"));
+    assert.equal(pd.referralFeesAccrued, toNano("0.025"));
+    assert.equal(pd.protocolFeesAccrued, toNano("0.05"), "protocol fee unaffected");
+    const info = await pool.getReferrer(ref.address);
+    assert.equal(info?.accrued, toNano("0.025"));
+    assert.equal(info?.volume, toNano("10"));
+
+    // creator's own link → creator keeps 100%
+    await buy(c.creator.address, "10");
+    assert.equal((await pool.getPoolData()).creatorFeesAccrued, toNano("0.075"));
+
+    // referrer claims
+    const r0 = await ref.getBalance();
+    await pool.send(ref.getSender(), { value: toNano("0.05") }, { $$type: "ClaimReferral", queryId: 1n });
+    assert.ok((await ref.getBalance()) - r0 > toNano("0.02"), "referrer paid");
+    assert.equal((await pool.getReferrer(ref.address))?.accrued, 0n);
+    assert.equal((await pool.getPoolData()).referralFeesAccrued, 0n);
+    assert.ok(failed(await pool.send(ref.getSender(), { value: toNano("0.05") }, { $$type: "ClaimReferral", queryId: 2n })), "nothing left to claim");
+  });
+
+  test("sells: link optional — split when valid, creator keeps it otherwise", async () => {
+    const c = await setup();
+    const { minter, pool } = await launchTon(c);
+    const ref = await c.chain.treasury("ref");
+    await pool.send(c.creator.getSender(), { value: toNano("0.05") }, { $$type: "AddReferrer", queryId: 0n, referrer: ref.address });
+    await pool.send(c.alice.getSender(), { value: toNano("5.2") }, { $$type: "BuyTon", queryId: 1n, amountIn: toNano("5"), minOut: 0n, recipient: null, referrer: c.creator.address });
+    const held = await balanceOf(c, minter, c.alice.address);
+
+    const cr0 = (await pool.getPoolData()).creatorFeesAccrued;
+    await sendJetton(c, minter, c.alice, pool.address, held / 2n, toNano("0.15"), intent(0n)); // no link
+    const pd1 = await pool.getPoolData();
+    assert.equal(pd1.referralFeesAccrued, 0n);
+    assert.ok(pd1.creatorFeesAccrued > cr0, "creator keeps the full creator fee on unlinked sells");
+
+    await sendJetton(c, minter, c.alice, pool.address, held / 4n, toNano("0.15"), intent(0n, ref.address));
+    const pd2 = await pool.getPoolData();
+    assert.ok(pd2.referralFeesAccrued > 0n, "linked sell pays the referrer");
+    const creatorGain = pd2.creatorFeesAccrued - pd1.creatorFeesAccrued;
+    assert.ok(creatorGain - pd2.referralFeesAccrued <= 1n && creatorGain >= pd2.referralFeesAccrued, "50/50 split (odd nanoton to the creator)");
+  });
+
+  test("only the creator manages links; max 20; removed links stop working but keep earnings", async () => {
+    const c = await setup();
+    const { minter, pool } = await launchTon(c);
+    const refs = await Promise.all(Array.from({ length: 21 }, (_, i) => c.chain.treasury(`ref${i}`)));
+    const add = (who: typeof c.creator, a: Address) => pool.send(who.getSender(), { value: toNano("0.05") }, { $$type: "AddReferrer", queryId: 0n, referrer: a });
+
+    assert.ok(failed(await add(c.alice, refs[0].address)), "non-creator can't add");
+    assert.ok(failed(await add(c.creator, c.creator.address)), "creator can't add itself");
+    for (let i = 0; i < 20; i++) assert.ok(!failed(await add(c.creator, refs[i].address)), `add #${i + 1}`);
+    assert.ok(failed(await add(c.creator, refs[20].address)), "21st link refused");
+    assert.ok(failed(await add(c.creator, refs[0].address)), "duplicate refused");
+    assert.equal((await pool.getPoolData()).activeReferrers, 20n);
+    assert.equal((await pool.getReferrers()).size, 20);
+
+    // earn, then get removed
+    await pool.send(c.alice.getSender(), { value: toNano("2.2") }, { $$type: "BuyTon", queryId: 1n, amountIn: toNano("2"), minOut: 0n, recipient: null, referrer: refs[0].address });
+    const earned = (await pool.getReferrer(refs[0].address))!.accrued;
+    assert.ok(earned > 0n);
+    assert.ok(failed(await pool.send(c.alice.getSender(), { value: toNano("0.05") }, { $$type: "RemoveReferrer", queryId: 0n, referrer: refs[0].address })), "non-creator can't remove");
+    await pool.send(c.creator.getSender(), { value: toNano("0.05") }, { $$type: "RemoveReferrer", queryId: 0n, referrer: refs[0].address });
+    assert.equal(await pool.getIsReferrer(refs[0].address), false);
+    assert.equal((await pool.getPoolData()).activeReferrers, 19n);
+
+    const bal = await balanceOf(c, minter, c.bob.address);
+    await pool.send(c.bob.getSender(), { value: toNano("1.2") }, { $$type: "BuyTon", queryId: 2n, amountIn: toNano("1"), minOut: 0n, recipient: null, referrer: refs[0].address });
+    assert.equal(await balanceOf(c, minter, c.bob.address), bal, "removed link refused");
+
+    // freed slot can be reused
+    assert.ok(!failed(await add(c.creator, refs[20].address)));
+    // removed referrer still claims what it earned
+    const r0 = await refs[0].getBalance();
+    await pool.send(refs[0].getSender(), { value: toNano("0.05") }, { $$type: "ClaimReferral", queryId: 1n });
+    assert.ok((await refs[0].getBalance()) - r0 > earned - toNano("0.02"));
   });
 });
 
@@ -244,7 +344,11 @@ describe("jetton-paired launch", () => {
 
     // Buy with USDX
     const q = await pool.getQuoteBuy(100n * 10n ** 6n);
+    // no link → refunded
+    const before = await balanceOf(c, usdx, c.alice.address);
     await sendJetton(c, usdx, c.alice, pool.address, 100n * 10n ** 6n, toNano("0.15"), intent(q));
+    assert.equal(await balanceOf(c, usdx, c.alice.address), before, "buy without a referral link is refunded");
+    await sendJetton(c, usdx, c.alice, pool.address, 100n * 10n ** 6n, toNano("0.15"), intent(q, c.creator.address));
     assert.equal(await balanceOf(c, token, c.alice.address), q);
 
     // Sell back for USDX
@@ -288,7 +392,7 @@ describe("bundler", () => {
 
     const w2Before = await w[2].getBalance();
     const r = await bundler.send(c.bob.getSender(), { value: toNano("6") + 3n * toNano("0.12") + toNano("0.1") }, {
-      $$type: "BundleBuy", queryId: 9n, pool: pool.address, count: 3n, legs: dict as unknown as never,
+      $$type: "BundleBuy", queryId: 9n, pool: pool.address, referrer: c.creator.address, count: 3n, legs: dict as unknown as never,
     });
     assert.ok(!failed(r), "bundle transaction succeeded");
     assert.ok((await balanceOf(c, minter, w[0].address)) > 0n);
@@ -306,8 +410,8 @@ describe("bundler", () => {
     const { dictValueParserBundleLeg } = await import("../build/BitpadBundler_BitpadBundler");
     const dict = Dictionary.empty(Dictionary.Keys.Uint(8), dictValueParserBundleLeg());
     dict.set(0, { $$type: "BundleLeg", recipient: c.alice.address, amount: toNano("5"), minOut: 0n });
-    assert.ok(failed(await bundler.send(c.bob.getSender(), { value: toNano("1") }, { $$type: "BundleBuy", queryId: 1n, pool: pool.address, count: 1n, legs: dict as unknown as never })));
-    assert.ok(failed(await bundler.send(c.bob.getSender(), { value: toNano("10") }, { $$type: "BundleBuy", queryId: 1n, pool: pool.address, count: 2n, legs: dict as unknown as never })));
+    assert.ok(failed(await bundler.send(c.bob.getSender(), { value: toNano("1") }, { $$type: "BundleBuy", queryId: 1n, pool: pool.address, referrer: c.creator.address, count: 1n, legs: dict as unknown as never })));
+    assert.ok(failed(await bundler.send(c.bob.getSender(), { value: toNano("10") }, { $$type: "BundleBuy", queryId: 1n, pool: pool.address, referrer: c.creator.address, count: 2n, legs: dict as unknown as never })));
   });
 });
 

@@ -9,8 +9,14 @@ import "./jetton";
 //  • Liquidity is seeded once by the factory and is LOCKED: there are no LP
 //    tokens and no withdraw path. Nobody can pull the pool.
 //  • Fees are charged in the PAIR asset on every trade (buy: on input, sell:
-//    on output) and accrue in the pool until anyone calls ClaimFees, which
-//    pays the protocol share to the fee wallet and the creator share to the creator.
+//    on output): a protocol fee (→ fee wallet) and a creator fee.
+//  • Referral links: the creator registers up to MAX_REFERRERS wallets. Every
+//    buy must come through a link (the creator's own address or a registered
+//    referrer). The creator fee on a trade is split 50/50 between the creator
+//    and the referrer whose link was used. Sells may name a link; without a
+//    valid one the creator keeps the whole creator fee.
+//  • Fees accrue in the pool; ClaimFees pays protocol + creator, and each
+//    referrer pulls their own share with ClaimReferral.
 //  • Any swap that can't be honoured (slippage, bad payload, pool not open)
 //    is refunded in full.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -19,6 +25,8 @@ const POOL_STORAGE: Int = ton("0.05");  // TON the pool always keeps for rent
 const BUY_GAS: Int = ton("0.1");        // attach to BuyTon on top of amountIn
 const JETTON_OUT_GAS: Int = ton("0.1"); // min forward TON for jetton-in swaps
 const BPS: Int = 10000;
+const MAX_REFERRERS: Int = 20;          // referral links per token
+const REFERRER_SHARE_BPS: Int = 5000;   // referrer's share of the creator fee
 
 struct Quote {
     out: Int;
@@ -46,6 +54,10 @@ contract BitpadPool {
     pairSeeded: Bool = false;
     protocolAcc: Int as coins = 0;
     creatorAcc: Int as coins = 0;
+
+    referrers: map<Address, ReferrerInfo>;
+    activeReferrers: Int as uint8 = 0;
+    referralAcc: Int as coins = 0;         // Σ unclaimed referrer shares
 
     init(factory: Address, index: Int, tokenMaster: Address) {
         self.factory = factory;
@@ -100,12 +112,12 @@ contract BitpadPool {
         require(self.pairMaster == null, "Not a TON pool");
         require(msg.amountIn > 0 && ctx.value >= msg.amountIn + BUY_GAS, "Insufficient value");
         let q: Quote = self.quoteBuy(msg.amountIn);
-        if (!self.tradingOpen() || q.out == 0 || q.out < msg.minOut) {
+        if (!self.tradingOpen() || !self.isValidReferrer(msg.referrer) || q.out == 0 || q.out < msg.minOut) {
             // full refund (minus this transaction's compute fee)
             send(SendParameters{ to: to, value: 0, mode: SendRemainingValue, bounce: false, body: "Bitpad: swap refunded".asComment() });
             return;
         }
-        self.applyBuy(q);
+        self.applyBuy(q, msg.referrer, msg.amountIn);
         emit(Swapped{ buy: true, trader: to, amountIn: msg.amountIn, amountOut: q.out, reserveToken: self.reserveToken, reservePair: self.reservePair }.toCell());
         nativeReserve(self.tonTracked(), ReserveAtMost);
         send(SendParameters{
@@ -159,7 +171,7 @@ contract BitpadPool {
         self.reserveToken += msg.amount;
         self.reservePair -= q.net;
         self.protocolAcc += q.protocolFee;
-        self.creatorAcc += q.creatorFee;
+        self.creditCreatorFee(q.creatorFee, intent!!.referrer, q.net);
         emit(Swapped{ buy: false, trader: to, amountIn: msg.amount, amountOut: q.out, reserveToken: self.reserveToken, reservePair: self.reservePair }.toCell());
         nativeReserve(self.tonTracked(), ReserveAtMost);
         if (self.pairMaster == null) {
@@ -174,12 +186,16 @@ contract BitpadPool {
         let ctx: Context = context();
         let intent: SwapIntent? = self.parseIntent(msg.forwardPayload);
         let q: Quote = self.quoteBuy(msg.amount);
-        if (intent == null || !self.tradingOpen() || ctx.value < JETTON_OUT_GAS || q.out == 0 || q.out < intent!!.minOut) {
+        let ok: Bool = intent != null && self.tradingOpen() && ctx.value >= JETTON_OUT_GAS && q.out > 0;
+        if (ok) {
+            ok = q.out >= intent!!.minOut && intent!!.referrer != null && self.isValidReferrer(intent!!.referrer!!);
+        }
+        if (!ok) {
             self.refundJetton(self.pairWallet!!, msg);
             return;
         }
         let to: Address = intent!!.recipient != null ? intent!!.recipient!! : msg.from;
-        self.applyBuy(q);
+        self.applyBuy(q, intent!!.referrer!!, msg.amount);
         emit(Swapped{ buy: true, trader: to, amountIn: msg.amount, amountOut: q.out, reserveToken: self.reserveToken, reservePair: self.reservePair }.toCell());
         nativeReserve(self.tonTracked(), ReserveAtMost);
         send(SendParameters{ to: self.tokenWallet, value: 0, mode: SendRemainingBalance, bounce: true, body: jettonTransfer(msg.queryId, q.out, to, to, 0) });
@@ -205,6 +221,51 @@ contract BitpadPool {
         }
     }
 
+    // ── Referral links ─────────────────────────────────────────────────────
+
+    receive(msg: AddReferrer) {
+        require(self.initialized && sender() == self.creator!!, "Only the creator");
+        require(msg.referrer != self.creator!!, "Creator already has a link");
+        let r: ReferrerInfo? = self.referrers.get(msg.referrer);
+        require(r == null || !r!!.active, "Already a referrer");
+        require(self.activeReferrers < MAX_REFERRERS, "All referral links are taken");
+        self.activeReferrers += 1;
+        self.referrers.set(msg.referrer, r == null
+            ? ReferrerInfo{ active: true, accrued: 0, earned: 0, volume: 0 }
+            : ReferrerInfo{ active: true, accrued: r!!.accrued, earned: r!!.earned, volume: r!!.volume });
+        self.replyExcess();
+    }
+
+    receive(msg: RemoveReferrer) {
+        require(self.initialized && sender() == self.creator!!, "Only the creator");
+        let r: ReferrerInfo? = self.referrers.get(msg.referrer);
+        require(r != null && r!!.active, "Not an active referrer");
+        self.activeReferrers -= 1;
+        // earned fees stay claimable
+        self.referrers.set(msg.referrer, ReferrerInfo{ active: false, accrued: r!!.accrued, earned: r!!.earned, volume: r!!.volume });
+        self.replyExcess();
+    }
+
+    receive(msg: ClaimReferral) {
+        let r: ReferrerInfo? = self.referrers.get(sender());
+        require(r != null && r!!.accrued > 0, "Nothing to claim");
+        let amount: Int = r!!.accrued;
+        self.referralAcc -= amount;
+        self.referrers.set(sender(), ReferrerInfo{ active: r!!.active, accrued: 0, earned: r!!.earned, volume: r!!.volume });
+        if (self.pairMaster == null) {
+            // payout + whatever gas the caller attached that wasn't used
+            send(SendParameters{ to: sender(), value: amount, mode: SendRemainingValue, bounce: false, body: "Bitpad referral fees".asComment() });
+        } else {
+            require(context().value >= ton("0.1"), "Attach 0.1 TON for the jetton transfer");
+            send(SendParameters{ to: self.pairWallet!!, value: 0, mode: SendRemainingValue, bounce: true, body: jettonTransfer(msg.queryId, amount, sender(), sender(), 0) });
+        }
+    }
+
+    /// Return unused gas to the caller without touching tracked balances.
+    fun replyExcess() {
+        send(SendParameters{ to: sender(), value: 0, mode: SendRemainingValue | SendIgnoreErrors, bounce: false });
+    }
+
     /// If one of our own jetton transfers bounces, the jettons never left:
     /// restore the reserve so accounting stays exact.
     bounced(msg: bounced<TokenTransfer>) {
@@ -224,16 +285,47 @@ contract BitpadPool {
     /// TON the pool must keep: rent + (for TON pools) reserve and unclaimed fees.
     fun tonTracked(): Int {
         if (self.pairMaster == null) {
-            return self.reservePair + self.protocolAcc + self.creatorAcc + POOL_STORAGE;
+            return self.reservePair + self.protocolAcc + self.creatorAcc + self.referralAcc + POOL_STORAGE;
         }
         return POOL_STORAGE;
     }
 
-    fun applyBuy(q: Quote) {
+    fun applyBuy(q: Quote, referrer: Address, amountIn: Int) {
         self.reservePair += q.net;
         self.reserveToken -= q.out;
         self.protocolAcc += q.protocolFee;
-        self.creatorAcc += q.creatorFee;
+        self.creditCreatorFee(q.creatorFee, referrer, amountIn);
+    }
+
+    fun isValidReferrer(a: Address): Bool {
+        if (a == self.creator!!) {
+            return true;
+        }
+        let r: ReferrerInfo? = self.referrers.get(a);
+        return r != null && r!!.active;
+    }
+
+    /// Split the creator fee 50/50 with the referrer whose link was used.
+    /// Creator's own link, no link, or an inactive link → creator keeps it all.
+    fun creditCreatorFee(fee: Int, referrer: Address?, volume: Int) {
+        if (referrer == null || referrer!! == self.creator!!) {
+            self.creatorAcc += fee;
+            return;
+        }
+        let r: ReferrerInfo? = self.referrers.get(referrer!!);
+        if (r == null || !r!!.active) {
+            self.creatorAcc += fee;
+            return;
+        }
+        let share: Int = fee * REFERRER_SHARE_BPS / BPS;
+        self.creatorAcc += fee - share;
+        self.referralAcc += share;
+        self.referrers.set(referrer!!, ReferrerInfo{
+            active: true,
+            accrued: r!!.accrued + share,
+            earned: r!!.earned + share,
+            volume: r!!.volume + volume
+        });
     }
 
     fun quoteBuy(amountIn: Int): Quote {
@@ -286,6 +378,8 @@ contract BitpadPool {
             reservePair: self.reservePair,
             protocolFeesAccrued: self.protocolAcc,
             creatorFeesAccrued: self.creatorAcc,
+            referralFeesAccrued: self.referralAcc,
+            activeReferrers: self.activeReferrers,
             protocolFeeBps: self.protocolFeeBps,
             creatorFeeBps: self.creatorFeeBps,
             tradingOpen: self.tradingOpen()
@@ -297,6 +391,20 @@ contract BitpadPool {
     get fun price(): Int {
         if (self.reserveToken == 0) { return 0; }
         return self.reservePair * 1000000000 / self.reserveToken;
+    }
+
+    get fun referrer(a: Address): ReferrerInfo? {
+        return self.referrers.get(a);
+    }
+
+    /// Can `a` be used as a referral link for buys right now?
+    get fun is_referrer(a: Address): Bool {
+        return self.initialized && self.isValidReferrer(a);
+    }
+
+    /// All referral links (active and removed) with their stats.
+    get fun referrers(): map<Address, ReferrerInfo> {
+        return self.referrers;
     }
 
     get fun quote_buy(amountIn: Int): Int {

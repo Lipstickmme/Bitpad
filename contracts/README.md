@@ -1,7 +1,7 @@
 # Bitpad contracts
 
 Four Tact contracts, all in this folder, compiled with Tact 1.6 (`npm run contracts:build`) and tested
-in `@ton/sandbox` (`npm test`: 13 contract tests + an invariant test over 40 random trades).
+in `@ton/sandbox` (`npm test`: 16 contract tests incl. an invariant test over 40 random trades through referral links).
 
 | Contract | File | Deployed by | Purpose |
 | --- | --- | --- | --- |
@@ -75,7 +75,28 @@ issuer passes them on) would accrue to whoever holds that jetton, here the pool,
 feed id, minimum liquidity, enabled flag. The factory discovers and stores its own wallet for that jetton.
 Only registered, enabled jettons can be used as pairs, which prevents launches against fake USDT or scam jettons.
 
-## 3. Multichain: what's possible
+## 3. Referral links (revenue sharing)
+
+Every token has up to **20 referral links**, assigned by its creator. A link is simply a referrer's wallet
+address: `https://<site>/token/<token>?ref=<referrer wallet>`.
+
+| Rule | Enforced by |
+| --- | --- |
+| Every **buy** must name a link: the creator's own address or an active registered referrer. Otherwise it's refunded in full. | `BuyTon.referrer`, `SwapIntent.referrer` on pair-jetton buys |
+| The **creator fee** on each trade is split **50% creator / 50% the referrer whose link was used** (an odd nanoton goes to the creator). | `creditCreatorFee` |
+| Buying through the creator's own link → the creator keeps 100% of the creator fee. | same |
+| **Sells** don't need a link. With a valid link the split applies; without one the creator keeps the whole creator fee. | `SwapIntent.referrer` (optional) |
+| The **protocol fee** is unaffected and goes to the fee wallet. | `ClaimFees` |
+| Only the creator adds/removes links, max 20 active. A removed link stops working immediately; what it already earned stays claimable, and the freed slot can be reassigned. | `AddReferrer`, `RemoveReferrer` |
+| Referrers pull their share whenever they like; unused gas is returned with the payout. | `ClaimReferral` |
+| Per-link stats on-chain: unclaimed, lifetime earned, volume brought in. | `referrer(addr)`, `referrers()` |
+
+Why sells carry the link instead of the pool remembering each buyer's referrer: storing every buyer on-chain
+would grow the pool's storage without bound, and TON caps contract storage, so a popular token could eventually
+freeze its pool. The app remembers the link a user arrived through (per token) and attaches it to their trades
+automatically.
+
+## 4. Multichain: what's possible
 
 TON contracts can only hold TON-chain assets. Three consequences:
 
@@ -88,9 +109,9 @@ TON contracts can only hold TON-chain assets. Three consequences:
    contracts (Solidity + Uniswap-style pool, or an Anchor program). The token would be a different asset on each
    chain unless bridged. Not part of this codebase.
 
-## 4. The bundler
+## 5. The bundler
 
-`BundleBuy {pool, count, legs: map<uint8, {recipient, amount, minOut}>}` sends one `BuyTon` per leg to the pool
+`BundleBuy {pool, referrer, count, legs: map<uint8, {recipient, amount, minOut}>}` sends one `BuyTon` per leg (all through the same referral link) to the pool
 with `recipient` set, so tokens land **directly in each wallet**, all from one signed transaction in the same
 block. A leg whose `minOut` can't be met is refunded by the pool **to that leg's wallet**. The rest still executes.
 There's an optional bundler fee (`feeBps`) to the fee wallet.
@@ -98,7 +119,7 @@ There's an optional bundler fee (`feeBps`) to the fee wallet.
 What a contract **can't** do is sell from many wallets: each wallet must sign its own jetton transfer. The app's
 multi-wallet signer (`src/lib/ton/bundler.ts`) handles sells, funding and sweeping client-side.
 
-## 5. Function reference
+## 6. Function reference
 
 ### BitpadFactory
 | Message / getter | Who | What it does |
@@ -118,9 +139,12 @@ multi-wallet signer (`src/lib/ton/bundler.ts`) handles sells, funding and sweepi
 ### BitpadPool
 | Message / getter | Who | What it does |
 | --- | --- | --- |
-| `BuyTon {queryId, amountIn, minOut, recipient?}` | anyone | Buy with TON; attach `amountIn + 0.1 TON`. Slippage → full refund. |
-| jetton transfer + `SwapIntent {minOut, recipient?}` | anyone | Send TOKEN = sell; send PAIR jetton = buy. `forward_ton_amount ≥ 0.1 TON`. Bad payload / slippage → jettons returned. |
+| `BuyTon {queryId, amountIn, minOut, recipient?, referrer}` | anyone | Buy with TON; attach `amountIn + 0.1 TON`. Invalid link or slippage → full refund. |
+| jetton transfer + `SwapIntent {minOut, recipient?, referrer?}` | anyone | Send TOKEN = sell (link optional); send PAIR jetton = buy (link required). `forward_ton_amount ≥ 0.1 TON`. Bad payload / link / slippage → jettons returned. |
 | `ClaimFees {queryId}` | anyone | Pays accrued protocol fees → fee wallet, creator fees → creator (jetton pools: attach 0.2 TON). |
+| `AddReferrer {queryId, referrer}` / `RemoveReferrer {…}` | creator | Manage referral links (max 20 active). |
+| `ClaimReferral {queryId}` | referrer | Pays the caller's accrued share (jetton pools: attach 0.1 TON). |
+| `is_referrer(addr)`, `referrer(addr)`, `referrers()` | getter | Is a link usable for buys; per-link stats; all links. |
 | `PoolInit`, `TakeWalletAddress` | factory / pair master | Setup; rejected from anyone else, and only once. |
 | `pool_data()` | getter | Reserves, fees accrued, fee rates, pair, wallets, `tradingOpen`. |
 | `price()` | getter | Raw pair units per 1 whole token. |
@@ -134,11 +158,11 @@ forever. `bitpad_info()` returns creator, launch index and pair.
 ### BitpadBundler
 | Message / getter | Who | What it does |
 | --- | --- | --- |
-| `BundleBuy {queryId, pool, count ≤ 100, legs}` | anyone | Attach `Σamount + 0.12 TON × legs + fee`. |
+| `BundleBuy {queryId, pool, referrer, count ≤ 100, legs}` | anyone | Attach `Σamount + 0.12 TON × legs + fee`. |
 | `SetFeeWallet`, `Withdraw` | owner | Admin; `Withdraw` also recovers TON from a leg that bounced (e.g. wrong pool address). |
 | `fee_bps()` | getter | Bundler fee. |
 
-## 6. Security properties (tested)
+## 7. Security properties (tested)
 
 - **Liquidity is locked.** No LP tokens and no code path that removes reserves except trades.
 - **Supply is fixed.** The minter mints once, only when the factory tells it to; re-mint attempts fail.
@@ -148,6 +172,9 @@ forever. `bitpad_info()` returns creator, launch index and pair.
   or a closed pool are returned via the same wallet.
 - **Solvency.** After every trade the pool's TON balance ≥ reserve + unclaimed fees, its token wallet equals
   `reserveToken`, and `x·y` never decreases (40-trade randomized test).
+- **Referral accounting.** Unregistered, removed or missing links can't be used to buy; only the creator manages
+  links, capped at 20; the split is exact (50/50, odd nanoton to the creator); unclaimed referral shares are part
+  of the pool's solvency check; a referrer can only claim their own balance.
 - **Owner powers are limited:** fees and pairs for *future* launches, fee wallet, withdrawing stray factory TON.
   The owner cannot touch pools, reserves, tokens or accrued fees.
 
@@ -160,22 +187,23 @@ forever. `bitpad_info()` returns creator, launch index and pair.
   refund picks it up.
 - **Rent.** Each pool keeps 0.05 TON for storage, enough for many years at current rates. Anyone can top up with a plain transfer.
 
-## 7. Gas (measured in sandbox)
+## 8. Gas (measured in sandbox)
 
 | Action | Network fees | You attach (excess refunded) |
 | --- | --- | --- |
-| Deploy factory | ~0.016 TON | 0.3 TON |
-| Launch, TON pair | ~0.013 TON | launch fee + liquidity + 0.6 TON |
-| Launch, jetton pair | ~0.020 TON | launch fee + 0.75 TON (as forward TON) + liquidity in jettons |
-| Buy with TON | ~0.004 TON | amount + 0.12 TON |
-| Sell | ~0.0044 TON | 0.25 TON (0.15 forward) |
-| Claim fees | ~0.0013 TON | 0.1 TON |
+| Deploy factory | ~0.019 TON | 0.3 TON |
+| Launch, TON pair | ~0.014 TON | launch fee + liquidity + 0.6 TON |
+| Launch, jetton pair | ~0.022 TON | launch fee + 0.75 TON (as forward TON) + liquidity in jettons |
+| Buy with TON (via link) | ~0.0044 TON | amount + 0.12 TON |
+| Sell (via link) | ~0.005 TON | 0.25 TON (0.15 forward) |
+| Add a referral link | ~0.0013 TON | 0.05 TON |
+| Claim fees / claim referral share | ~0.0013 TON | 0.1 / 0.05 TON |
 | Register a pair (`AddPair`) | ~0.003 TON | 0.15 TON |
-| Bundle buy, 5 / 20 wallets | ~0.021 / ~0.083 TON | Σ amounts + 0.12 TON per leg |
+| Bundle buy, 5 / 20 wallets | ~0.024 / ~0.092 TON | Σ amounts + 0.12 TON per leg |
 
 Regenerate with `npm run contracts:gas`.
 
-## 8. Deploying to mainnet
+## 9. Deploying to mainnet
 
 **Prerequisites:** a deployer wallet (W5 by default; set `WALLET_VERSION=v4` for v4) holding ~1 TON; a separate
 fee wallet (a hardware or multisig wallet is recommended); a free toncenter API key from @tonapibot.

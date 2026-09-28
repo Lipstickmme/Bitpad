@@ -13,6 +13,9 @@ export const OP = {
   BuyTon: 0x42504c51,
   SwapIntent: 0x42504c52,
   ClaimFees: 0x42504c53,
+  AddReferrer: 0x42504c55,
+  RemoveReferrer: 0x42504c56,
+  ClaimReferral: 0x42504c57,
   JettonTransfer: 0x0f8a7ea5,
 } as const;
 
@@ -88,18 +91,35 @@ export function buildJettonLaunchTx(p: LaunchParams & { creatorPairWallet: strin
   return { address: p.creatorPairWallet, amount: (fwd + toNano("0.1")).toString(), payload: body.toBoc().toString("base64") };
 }
 
-/** Buy from a TON-paired Bitpad pool. */
-export function buildPoolBuyTx(pool: string, amountIn: bigint, minOut: bigint, recipient?: string): TcMessage {
-  const b = beginCell().storeUint(OP.BuyTon, 32).storeUint(BigInt(Date.now()), 64).storeCoins(amountIn).storeCoins(minOut).storeAddress(recipient ? Address.parse(recipient) : null).endCell();
+/**
+ * Buy from a TON-paired Bitpad pool. `referrer` is the referral link used —
+ * the creator's address or one of the token's registered referrers; the pool
+ * refunds buys without a valid link.
+ */
+export function buildPoolBuyTx(pool: string, amountIn: bigint, minOut: bigint, referrer: string, recipient?: string): TcMessage {
+  const b = beginCell()
+    .storeUint(OP.BuyTon, 32)
+    .storeUint(BigInt(Date.now()), 64)
+    .storeCoins(amountIn)
+    .storeCoins(minOut)
+    .storeAddress(recipient ? Address.parse(recipient) : null)
+    .storeAddress(Address.parse(referrer))
+    .endCell();
   return { address: pool, amount: (amountIn + BUY_GAS).toString(), payload: b.toBoc().toString("base64") };
 }
 
 /**
  * Sell to a Bitpad pool (or buy with its pair jetton): a jetton transfer of
  * `amount` from `userJettonWallet` to the pool carrying SwapIntent.
+ * `referrer` is required for pair-jetton buys, optional for sells.
  */
-export function buildPoolSwapTx(p: { pool: string; userJettonWallet: string; user: string; amount: bigint; minOut: bigint }): TcMessage {
-  const intent = beginCell().storeUint(OP.SwapIntent, 32).storeCoins(p.minOut).storeAddress(null).endCell();
+export function buildPoolSwapTx(p: { pool: string; userJettonWallet: string; user: string; amount: bigint; minOut: bigint; referrer?: string }): TcMessage {
+  const intent = beginCell()
+    .storeUint(OP.SwapIntent, 32)
+    .storeCoins(p.minOut)
+    .storeAddress(null)
+    .storeAddress(p.referrer ? Address.parse(p.referrer) : null)
+    .endCell();
   const body = beginCell()
     .storeUint(OP.JettonTransfer, 32)
     .storeUint(BigInt(Date.now()), 64)
@@ -112,4 +132,16 @@ export function buildPoolSwapTx(p: { pool: string; userJettonWallet: string; use
     .storeRef(intent)
     .endCell();
   return { address: p.userJettonWallet, amount: (SWAP_FWD + toNano("0.1")).toString(), payload: body.toBoc().toString("base64") };
+}
+
+/** Creator only: register / remove a referral link (max 20 active per token). */
+export function buildReferrerTx(pool: string, referrer: string, remove = false): TcMessage {
+  const b = beginCell().storeUint(remove ? OP.RemoveReferrer : OP.AddReferrer, 32).storeUint(0, 64).storeAddress(Address.parse(referrer)).endCell();
+  return { address: pool, amount: toNano("0.05").toString(), payload: b.toBoc().toString("base64") };
+}
+
+/** Referrer pulls their accrued share (0.1 TON covers jetton pools; unused gas is returned). */
+export function buildClaimReferralTx(pool: string): TcMessage {
+  const b = beginCell().storeUint(OP.ClaimReferral, 32).storeUint(0, 64).endCell();
+  return { address: pool, amount: toNano("0.1").toString(), payload: b.toBoc().toString("base64") };
 }

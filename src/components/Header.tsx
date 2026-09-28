@@ -10,7 +10,6 @@ import { config } from "@/lib/config";
 
 const NAV = [
   { href: "/", label: "Markets" },
-  ...(config.bitlJetton ? [{ href: `/token/${config.bitlJetton}`, label: "$BITL" }] : []),
   { href: "/analytics", label: "Analytics" },
   { href: "/bundler", label: "Bundler" },
   { href: "/portfolio", label: "Portfolio" },

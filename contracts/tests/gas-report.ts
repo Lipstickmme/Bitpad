@@ -21,12 +21,15 @@ const fees = (r: { transactions: Tx[] }) =>
   row("Launch (TON pair)", fees(await factory.send(creator.getSender(), { value: toNano("12") }, { $$type: "Launch", queryId: 1n, supply: 10n ** 18n, creatorBps: 1000n, pairAmount: toNano("10"), content })));
   const pool = chain.openContract(BitpadPool.fromAddress((await factory.getPool(0n))!));
   const minter = chain.openContract(BitpadJetton.fromAddress((await factory.getMinter(0n))!));
-  row("Buy with TON", fees(await pool.send(alice.getSender(), { value: toNano("1.12") }, { $$type: "BuyTon", queryId: 1n, amountIn: toNano("1"), minOut: 0n, recipient: null })));
+  const ref = await chain.treasury("ref");
+  row("Add referral link (creator)", fees(await pool.send(creator.getSender(), { value: toNano("0.05") }, { $$type: "AddReferrer", queryId: 0n, referrer: ref.address })));
+  row("Buy with TON (via referral link)", fees(await pool.send(alice.getSender(), { value: toNano("1.12") }, { $$type: "BuyTon", queryId: 1n, amountIn: toNano("1"), minOut: 0n, recipient: null, referrer: ref.address })));
   const w = chain.openContract(BitpadJettonWallet.fromAddress(await minter.getGetWalletAddress(alice.address)));
   const bal = (await w.getGetWalletData()).balance;
-  const payload = beginCell().storeBit(1).storeRef(beginCell().store(storeSwapIntent({ $$type: "SwapIntent", minOut: 0n, recipient: null })).endCell()).endCell().beginParse();
-  row("Sell for TON", fees(await w.send(alice.getSender(), { value: toNano("0.25") }, { $$type: "TokenTransfer", queryId: 1n, amount: bal / 2n, destination: pool.address, responseDestination: alice.address, customPayload: null, forwardTonAmount: toNano("0.15"), forwardPayload: payload })));
+  const payload = beginCell().storeBit(1).storeRef(beginCell().store(storeSwapIntent({ $$type: "SwapIntent", minOut: 0n, recipient: null, referrer: ref.address })).endCell()).endCell().beginParse();
+  row("Sell for TON (via referral link)", fees(await w.send(alice.getSender(), { value: toNano("0.25") }, { $$type: "TokenTransfer", queryId: 1n, amount: bal / 2n, destination: pool.address, responseDestination: alice.address, customPayload: null, forwardTonAmount: toNano("0.15"), forwardPayload: payload })));
   row("Claim fees", fees(await pool.send(alice.getSender(), { value: toNano("0.1") }, { $$type: "ClaimFees", queryId: 1n })));
+  row("Claim referral share", fees(await pool.send(ref.getSender(), { value: toNano("0.05") }, { $$type: "ClaimReferral", queryId: 1n })));
   // Jetton-paired launch: stand-in pair jetton, registered, then launched
   const usdx = chain.openContract(await BitpadJetton.fromInit(owner.address, 999n, content, owner.address, null));
   await usdx.send(owner.getSender(), { value: toNano("0.5") }, { $$type: "MintLaunch", queryId: 0n, pool: creator.address, poolAmount: 10n ** 12n, creator: creator.address, creatorAmount: 0n });
@@ -41,7 +44,7 @@ const fees = (r: { transactions: Tx[] }) =>
     const dict = Dictionary.empty(Dictionary.Keys.Uint(8), dictValueParserBundleLeg());
     const legs: Address[] = await Promise.all(Array.from({ length: n }, (_, i) => chain.treasury(`l${n}_${i}`).then((t) => t.address)));
     legs.forEach((a, i) => dict.set(i, { $$type: "BundleLeg", recipient: a, amount: toNano("0.5"), minOut: 0n }));
-    const r = await bundler.send(alice.getSender(), { value: toNano(0.5 * n) + BigInt(n) * toNano("0.12") + toNano("0.1") }, { $$type: "BundleBuy", queryId: 1n, pool: pool.address, count: BigInt(n), legs: dict as never });
+    const r = await bundler.send(alice.getSender(), { value: toNano(0.5 * n) + BigInt(n) * toNano("0.12") + toNano("0.1") }, { $$type: "BundleBuy", queryId: 1n, pool: pool.address, referrer: ref.address, count: BigInt(n), legs: dict as never });
     row(`Bundle buy, ${n} wallets`, fees(r));
   }
 })();

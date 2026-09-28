@@ -25,7 +25,7 @@ value fails, the UI shows "—" or an explicit "unavailable" message instead of 
 | Multi-wallet bundler | TON Connect + toncenter | generate/fund/buy/sell/sweep |
 | Portfolio | TonAPI + Solana & EVM public RPCs | TON jettons, SOL, ETH/Base, BNB |
 | Search | STON.fi asset list | name, ticker or address |
-| Revenue page | TonAPI events on the fee wallet | shows TON actually received |
+| Revenue page | TonAPI events on the fee wallet | TON actually received + the on-chain fee/referral model |
 | Login | TON Connect, Solana, EVM | Telegram needs `TELEGRAM_BOT_TOKEN` |
 
 ## Environment variables
@@ -39,7 +39,7 @@ value fails, the UI shows "—" or an explicit "unavailable" message instead of 
 | `TELEGRAM_BOT_TOKEN` | optional | Telegram login, Mini App and bot. Bot username, session and webhook secrets are derived from it. |
 | `NEXT_PUBLIC_APP_URL` | optional | Custom domain only; otherwise Vercel's production URL. |
 
-Non-secret settings (fee on STON.fi/DeDust routes, $BITL address, fee split, social links) are constants in
+Non-secret settings (fee on STON.fi/DeDust routes, social links) are constants in
 `src/lib/config.ts`. $GRAM/USDC addresses are resolved live from STON.fi.
 
 ## Setup steps

@@ -49,7 +49,7 @@ contract BitpadBundler with Ownable {
                 value: leg.amount + BUY_GAS,
                 mode: SendPayGasSeparately,
                 bounce: true,
-                body: BuyTon{ queryId: msg.queryId, amountIn: leg.amount, minOut: leg.minOut, recipient: leg.recipient }.toCell()
+                body: BuyTon{ queryId: msg.queryId, amountIn: leg.amount, minOut: leg.minOut, recipient: leg.recipient, referrer: msg.referrer }.toCell()
             });
         }
         if (fee > 0) {
