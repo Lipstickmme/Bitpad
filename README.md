@@ -32,7 +32,7 @@ value fails, the UI shows "—" or an explicit "unavailable" message instead of 
 
 | Item | Why | How |
 | --- | --- | --- |
-| **Deploy `BitpadFactory`** | Launching tokens + the "Bitpad launches" list | [`contracts/README.md`](contracts/README.md) → `npm run deploy:factory`, then set `NEXT_PUBLIC_BITPAD_FACTORY` |
+| **Deploy `BitpadFactory`** (+ optional `BitpadBundler`) | Launching tokens (token + locked pool in one tx), the "Bitpad launches" list, on-chain bundles | [`contracts/README.md`](contracts/README.md) → `npm run deploy:factory`, `npm run deploy:bundler`, `npm run pair:add` |
 | Fee wallet | Collect swap + launch fees | `NEXT_PUBLIC_FEE_WALLET`, `NEXT_PUBLIC_SWAP_FEE_BPS` |
 | Telegram bot | Telegram login, Mini App, `/trending` `/price` bot | @BotFather → `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_TELEGRAM_BOT`; `/setdomain`; set webhook (below) |
 | Public URL | TON Connect manifest, jetton metadata URIs | `NEXT_PUBLIC_APP_URL` (must be HTTPS in production) |
@@ -97,8 +97,8 @@ npm run build
 ## Layout
 
 ```
-contracts/            Tact factory + jetton, sandbox tests
-scripts/              deploy-factory.ts
+contracts/            Tact: factory, jetton, pool (locked-liquidity AMM), bundler + sandbox tests
+scripts/              deploy-factory.ts, deploy-bundler.ts, add-pair.ts
 src/brand.css         brand tokens (colors / font) — the one file to re-skin
 src/app/              pages + API routes
 src/components/       UI

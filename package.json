@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit",
     "contracts:build": "tact --config contracts/tact.config.json",
     "test": "npm run contracts:build && tsx --test contracts/tests/factory.test.ts tests/*.test.ts",
-    "deploy:factory": "npm run contracts:build && tsx scripts/deploy-factory.ts"
+    "deploy:factory": "npm run contracts:build && tsx scripts/deploy-factory.ts",
+    "deploy:bundler": "npm run contracts:build && tsx scripts/deploy-bundler.ts",
+    "pair:add": "npm run contracts:build && tsx scripts/add-pair.ts",
+    "contracts:gas": "npm run contracts:build && tsx contracts/tests/gas-report.ts"
   },
   "dependencies": {
     "@dedust/sdk": "^0.8.7",

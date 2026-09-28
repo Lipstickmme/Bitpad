@@ -1,44 +1,211 @@
-# Bitpad contracts (Tact)
+# Bitpad contracts
 
-**Only one contract needs deploying: `BitpadFactory`.** Everything else is either deployed by the
-factory (each launch's jetton), or already live on mainnet (STON.fi / DeDust pools, routers, vaults).
+Four Tact contracts, all in this folder, compiled with Tact 1.6 (`npm run contracts:build`) and tested
+in `@ton/sandbox` (`npm test`: 13 contract tests + an invariant test over 40 random trades).
 
-| File | Purpose |
-| --- | --- |
-| `bitpad_factory.tact` | Receives `Launch`, deploys a `BitpadJetton`, mints 100% of supply to the creator, forwards the launch fee to the fee wallet, and records the minter in an on-chain registry (`launch_count`, `minter(i)`) that the app indexes. |
-| `jetton.tact` | Fixed-supply TEP-74 jetton minter + wallet. Minted exactly once by the factory, then non-mintable. `bitpad_info` exposes creator + pair. |
-| `messages.tact` | Message & struct definitions. `Launch` opcode `0x42504c31` matches `src/lib/ton/launch.ts`. |
+| Contract | File | Deployed by | Purpose |
+| --- | --- | --- | --- |
+| **BitpadFactory** | `bitpad_factory.tact` | **you, once** | Launches tokens, owns the pair-asset registry, collects launch fees |
+| **BitpadJetton** (+ wallet) | `jetton.tact` | the factory, per launch | Fixed-supply TEP-74 token, minted exactly once |
+| **BitpadPool** | `pool.tact` | the factory, per launch | TOKEN ⟷ PAIR constant-product pool, liquidity locked forever |
+| **BitpadBundler** | `bundler.tact` | **you, once** (optional) | Buy into up to 100 wallets in one transaction |
 
-## What is and isn't a contract
+Messages and structs live in `messages.tact`. Opcodes are fixed (`0x42504c..`) so the frontend
+(`src/lib/ton/launch.ts`) builds bodies directly; `tests/launch-encoding.test.ts` checks them against the
+compiler-generated parsers.
 
-| Feature | On-chain piece | Deploy needed? |
-| --- | --- | --- |
-| Token launches | `BitpadFactory` → `BitpadJetton` per launch | **Yes — the factory, once** |
-| Pools / liquidity | STON.fi v2 router creates the pool on first `provide_liquidity` | No |
-| Swaps | STON.fi v2 routers, DeDust v2 vaults | No |
-| Platform swap fee | STON.fi referral (paid inside the swap) · DeDust: extra transfer in the same request | No |
-| Launch fee | Forwarded by the factory | No (part of the factory) |
-| Multi-wallet bundles | Standard W5 wallets, created in the browser | No |
-| Fee split / buybacks | Distributed from the fee wallet | No (optional later: a splitter contract) |
+---
 
-## Deploy
+## 1. How a launch works
 
-```bash
-npm install
-npm test                                # compiles + runs sandbox tests
-
-# 1) testnet first — get test TON from @testgiver_ton_bot
-DEPLOYER_MNEMONIC="w1 … w24" NETWORK=testnet FEE_WALLET=<your fee wallet> LAUNCH_FEE_TON=1 \
-  npm run deploy:factory
-
-# 2) mainnet (needs ~0.6 TON on the deployer wallet)
-DEPLOYER_MNEMONIC="w1 … w24" NETWORK=mainnet FEE_WALLET=<your fee wallet> LAUNCH_FEE_TON=1 \
-  TONCENTER_API_KEY=<free key from @tonapibot> npm run deploy:factory
+```mermaid
+sequenceDiagram
+    participant C as Creator wallet
+    participant F as BitpadFactory
+    participant P as BitpadPool
+    participant M as BitpadJetton (minter)
+    participant W as Jetton wallets
+    C->>F: Launch {supply, creatorBps, pairAmount, content} + (fee + liquidity + gas)
+    F->>P: deploy + PoolInit {pair, fees, creator} (+ TON liquidity)
+    F->>M: deploy + MintLaunch {pool share, creator share}
+    F-->>C: launch fee → fee wallet, unused gas → creator
+    M->>W: mint pool share → pool's wallet
+    W->>P: TokenNotification (from = minter) → reserveToken set
+    M->>W: mint creator share → creator's wallet
+    Note over P: tradingOpen = true — first trade can land in the next block
 ```
 
-The script prints `NEXT_PUBLIC_BITPAD_FACTORY=…` — put it in your env (and `NEXT_PUBLIC_TON_NETWORK=testnet`
-while testing). The deployer wallet becomes the factory owner and can later change the fee
-(`SetLaunchFee`) or fee wallet (`SetFeeWallet`). Use `WALLET_VERSION=v4` if your mnemonic is a v4 wallet.
+One signature from the creator produces the token and a live, locked pool. There is no bonding curve and no
+"graduation": the pool *is* the market from the first block.
 
-> ⚠️ Not audited. Launch a couple of tokens on testnet end-to-end (launch → seed pool → buy/sell)
-> and get an audit before putting real value through it.
+**Jetton-paired launch** (USDT, GRAM, XAUt, a bridged stock…): the creator sends the pair jetton to the factory
+with a `LaunchWithJetton` payload. The factory deploys the token and pool; the pool asks the pair jetton's master
+for its own wallet address (TEP-89), reports `PoolReady`, and only then does the factory forward the liquidity.
+If the payload is invalid, the pair isn't registered or enabled, liquidity is below the minimum, or not enough
+TON is attached, **the jettons are returned** and nothing is deployed.
+
+## 2. How pairs and prices work
+
+A pool holds two reserves: `reserveToken` (the launched token) and `reservePair` (TON or the pair jetton). It is a
+standard constant-product market (`x · y = k`):
+
+```
+buy  (pair in):   fee = in × (protocolBps + creatorBps) / 10 000
+                  out = (in − fee) × reserveToken / (reservePair + in − fee)
+sell (token in):  gross = in × reservePair / (reserveToken + in)
+                  out   = gross − gross × (protocolBps + creatorBps) / 10 000
+```
+
+**Price, on-chain:** `get price()` returns raw pair units per 1 whole token (`reservePair × 10⁹ / reserveToken`).
+The pool *knows its price in the pair asset*, e.g. "0.0000111 TON" or "0.0052 USDT" or "0.0000002 XAUt".
+
+**Price in USD** = pool price × USD price of the pair asset. The contracts don't call an oracle for this. Nothing
+on-chain needs the USD value to trade correctly, and an oracle call on every swap would add cost and a failure mode.
+Instead, the factory's pair registry stores each asset's **Pyth price-feed id** (`PairInfo.pythFeedId`, and
+`tonPythFeedId` for TON), so any indexer or frontend can compute USD prices from on-chain data alone. The Bitpad
+app does exactly that. If you later need USD-denominated rules on-chain (e.g. "minimum liquidity $5 000"), Pyth
+has a pull oracle on TON that the factory could consult at launch time.
+
+**What "paired with a stock" means:** the pool's other side is a tokenized-stock jetton, so the token's price moves
+with both its own demand and the stock's price, and half the pool's value is that stock. It does **not** give token
+holders a claim on the stock, its issuer or its dividends. Dividends paid to the tokenized-stock jetton (if its
+issuer passes them on) would accrue to whoever holds that jetton, here the pool, and effectively deepen the reserve.
+
+**Registering a pair** (`AddPair`, owner only): symbol, decimals, kind (stable/jetton/stock/commodity/crypto), Pyth
+feed id, minimum liquidity, enabled flag. The factory discovers and stores its own wallet for that jetton.
+Only registered, enabled jettons can be used as pairs, which prevents launches against fake USDT or scam jettons.
+
+## 3. Multichain: what's possible
+
+TON contracts can only hold TON-chain assets. Three consequences:
+
+1. **The pair asset must exist as a jetton on TON.** Native TON, USDT (issued natively on TON), GRAM and NOT
+   already are. BTC, ETH and gold are available through bridges or issuers (e.g. tgBTC, bridged jWBTC/jWETH, XAUt0).
+   A stock can be used once a tokenized version is bridged or issued on TON. Register it with `pair:add` and it's usable.
+2. **Buyers from other chains** bridge or swap into TON first (TON Bridge, Layerswap, Omniston/STON.fi cross-chain
+   RFQ, CEX), then trade on the pool. The app can wrap that route; the contracts don't need to change.
+3. **Launching on other chains** (a "Bitpad on Base/Solana") would be a separate deployment of equivalent
+   contracts (Solidity + Uniswap-style pool, or an Anchor program). The token would be a different asset on each
+   chain unless bridged. Not part of this codebase.
+
+## 4. The bundler
+
+`BundleBuy {pool, count, legs: map<uint8, {recipient, amount, minOut}>}` sends one `BuyTon` per leg to the pool
+with `recipient` set, so tokens land **directly in each wallet**, all from one signed transaction in the same
+block. A leg whose `minOut` can't be met is refunded by the pool **to that leg's wallet**. The rest still executes.
+There's an optional bundler fee (`feeBps`) to the fee wallet.
+
+What a contract **can't** do is sell from many wallets: each wallet must sign its own jetton transfer. The app's
+multi-wallet signer (`src/lib/ton/bundler.ts`) handles sells, funding and sweeping client-side.
+
+## 5. Function reference
+
+### BitpadFactory
+| Message / getter | Who | What it does |
+| --- | --- | --- |
+| `Launch {queryId, supply, creatorBps ≤ 2000, pairAmount, content}` | anyone | TON-paired launch. Attach `launchFee + pairAmount + 0.45 TON` (excess refunded). Requires `pairAmount ≥ minTonLiquidity`. |
+| jetton transfer + `LaunchWithJetton {supply, creatorBps, content}` | anyone | Jetton-paired launch. `forward_ton_amount ≥ launchFee + 0.6 TON`. |
+| `PoolReady {index}` | pool only | Pool discovered its pair wallet → factory sends the liquidity. |
+| `AddPair {master, info}` | owner | Register a pair asset (attach 0.15 TON for wallet discovery). |
+| `SetPairEnabled {master, enabled}` | owner | Pause or resume a pair for **new** launches. |
+| `SetConfig {launchFee, protocolFeeBps, creatorFeeBps, minTonLiquidity, tonPythFeedId}` | owner | Applies to **future** launches; trade fees capped at 10% total. |
+| `SetFeeWallet {wallet}` | owner | Where launch and protocol fees go (future launches). |
+| `Withdraw {amount}` | owner | Stray TON only; can't touch gas reserved for pending launches. |
+| `launch_count()`, `minter(i)`, `pool(i)` | getter | On-chain launch registry. |
+| `pair(master)`, `pending_launch(i)`, `config()`, `launch_fee()` | getter | Registry, pending jetton launches, settings. |
+| `minter_address(i, content, creator, pair)`, `pool_address(i, minter)` | getter | Deterministic addresses before a launch happens. |
+
+### BitpadPool
+| Message / getter | Who | What it does |
+| --- | --- | --- |
+| `BuyTon {queryId, amountIn, minOut, recipient?}` | anyone | Buy with TON; attach `amountIn + 0.1 TON`. Slippage → full refund. |
+| jetton transfer + `SwapIntent {minOut, recipient?}` | anyone | Send TOKEN = sell; send PAIR jetton = buy. `forward_ton_amount ≥ 0.1 TON`. Bad payload / slippage → jettons returned. |
+| `ClaimFees {queryId}` | anyone | Pays accrued protocol fees → fee wallet, creator fees → creator (jetton pools: attach 0.2 TON). |
+| `PoolInit`, `TakeWalletAddress` | factory / pair master | Setup; rejected from anyone else, and only once. |
+| `pool_data()` | getter | Reserves, fees accrued, fee rates, pair, wallets, `tradingOpen`. |
+| `price()` | getter | Raw pair units per 1 whole token. |
+| `quote_buy(amountIn)`, `quote_sell(amountIn)` | getter | Exact output the next trade would get (use for `minOut`). |
+
+### BitpadJetton / BitpadJettonWallet
+Standard TEP-74 (`transfer`, `burn`, `get_jetton_data`, `get_wallet_address`, `get_wallet_data`) + TEP-89
+`provide_wallet_address`. `MintLaunch` is accepted **once, from the factory only**; after it `mintable = false`
+forever. `bitpad_info()` returns creator, launch index and pair.
+
+### BitpadBundler
+| Message / getter | Who | What it does |
+| --- | --- | --- |
+| `BundleBuy {queryId, pool, count ≤ 100, legs}` | anyone | Attach `Σamount + 0.12 TON × legs + fee`. |
+| `SetFeeWallet`, `Withdraw` | owner | Admin; `Withdraw` also recovers TON from a leg that bounced (e.g. wrong pool address). |
+| `fee_bps()` | getter | Bundler fee. |
+
+## 6. Security properties (tested)
+
+- **Liquidity is locked.** No LP tokens and no code path that removes reserves except trades.
+- **Supply is fixed.** The minter mints once, only when the factory tells it to; re-mint attempts fail.
+- **Pools can't be re-initialised or spoofed.** `PoolInit` only from the factory, once. Reserves can only be seeded
+  by the pool's own derived jetton wallet with `from` = minter / factory. Spoofed notifications change nothing.
+- **Failed swaps never lose funds.** TON buys past slippage are refunded; jetton swaps with a bad payload, slippage
+  or a closed pool are returned via the same wallet.
+- **Solvency.** After every trade the pool's TON balance ≥ reserve + unclaimed fees, its token wallet equals
+  `reserveToken`, and `x·y` never decreases (40-trade randomized test).
+- **Owner powers are limited:** fees and pairs for *future* launches, fee wallet, withdrawing stray factory TON.
+  The owner cannot touch pools, reserves, tokens or accrued fees.
+
+**Not yet done:**
+- **Audit.** These contracts hold user funds. Get an independent audit before mainnet use at scale.
+- **Immutability.** No upgrade path. That makes them trustless, but a bug can't be patched; a fix means a new factory.
+- **Indexing.** GeckoTerminal, DexScreener and aggregators index known DEXes. Bitpad pools need the Bitpad app's own
+  on-chain indexer (the `Swapped` events + `pool_data()` getter) until you apply for listings.
+- **Pool deploy surplus.** A TON pool keeps ~0.1 TON of deploy gas above its tracked balance; the first trader's
+  refund picks it up.
+- **Rent.** Each pool keeps 0.05 TON for storage, enough for many years at current rates. Anyone can top up with a plain transfer.
+
+## 7. Gas (measured in sandbox)
+
+| Action | Network fees | You attach (excess refunded) |
+| --- | --- | --- |
+| Deploy factory | ~0.016 TON | 0.3 TON |
+| Launch, TON pair | ~0.013 TON | launch fee + liquidity + 0.6 TON |
+| Launch, jetton pair | ~0.020 TON | launch fee + 0.75 TON (as forward TON) + liquidity in jettons |
+| Buy with TON | ~0.004 TON | amount + 0.12 TON |
+| Sell | ~0.0044 TON | 0.25 TON (0.15 forward) |
+| Claim fees | ~0.0013 TON | 0.1 TON |
+| Register a pair (`AddPair`) | ~0.003 TON | 0.15 TON |
+| Bundle buy, 5 / 20 wallets | ~0.021 / ~0.083 TON | Σ amounts + 0.12 TON per leg |
+
+Regenerate with `npm run contracts:gas`.
+
+## 8. Deploying to mainnet
+
+**Prerequisites:** a deployer wallet (W5 by default; set `WALLET_VERSION=v4` for v4) holding ~1 TON; a separate
+fee wallet (a hardware or multisig wallet is recommended); a free toncenter API key from @tonapibot.
+
+```bash
+npm install && npm test                       # compile + all tests must pass
+
+# 1. Rehearse on testnet (test TON from @testgiver_ton_bot)
+export DEPLOYER_MNEMONIC="w1 … w24" TONCENTER_API_KEY=… FEE_WALLET=<fee wallet>
+NETWORK=testnet npm run deploy:factory
+NETWORK=testnet npm run deploy:bundler
+#    → launch a token from the app with NEXT_PUBLIC_TON_NETWORK=testnet, buy, sell, claim fees
+
+# 2. Mainnet
+NETWORK=mainnet LAUNCH_FEE_TON=1 PROTOCOL_FEE_BPS=50 CREATOR_FEE_BPS=50 MIN_TON_LIQUIDITY=5 \
+  npm run deploy:factory
+NETWORK=mainnet BUNDLE_FEE_BPS=0 npm run deploy:bundler
+
+# 3. Register pair assets (repeat per asset)
+NETWORK=mainnet FACTORY=<factory> MASTER=EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs \
+  SYMBOL=USDT DECIMALS=6 KIND=stable MIN_LIQUIDITY=100 PYTH_FEED=<USDT/USD id> npm run pair:add
+NETWORK=mainnet FACTORY=<factory> MASTER=<GRAM master> SYMBOL=GRAM DECIMALS=9 KIND=jetton MIN_LIQUIDITY=100000 npm run pair:add
+```
+
+Each script prints the address and the env line to paste (`NEXT_PUBLIC_BITPAD_FACTORY`, `NEXT_PUBLIC_BITPAD_BUNDLER`).
+Pyth feed ids are listed at https://www.pyth.network/developers/price-feed-ids. Always verify jetton master
+addresses on tonviewer.com before registering them.
+
+**Post-deploy checklist:**
+1. `config()` getter shows the expected fees, fee wallet and minimum liquidity.
+2. `pair(master)` shows a non-null `wallet` for each registered pair.
+3. Make a small real launch: pool `tradingOpen = true`, `price()` as expected, a buy and a sell settle, `ClaimFees` pays both wallets.
+4. Keep the deployer mnemonic offline — it is the factory owner.

@@ -2,8 +2,28 @@ import { Address, beginCell, toNano, type Cell } from "@ton/core";
 import { config } from "../config";
 import type { TcMessage } from "./client";
 
-/** Must match `message(0x42504c31) Launch` in contracts/bitpad_factory.tact */
-export const OP_LAUNCH = 0x42504c31;
+/**
+ * Message builders for the Bitpad contracts. Opcodes/layouts must match
+ * contracts/messages.tact — tests/launch-encoding.test.ts checks them against
+ * the compiler-generated parsers.
+ */
+export const OP = {
+  Launch: 0x42504c31,
+  LaunchWithJetton: 0x42504c36,
+  BuyTon: 0x42504c51,
+  SwapIntent: 0x42504c52,
+  ClaimFees: 0x42504c53,
+  JettonTransfer: 0x0f8a7ea5,
+} as const;
+
+/** Gas the factory needs on top of fee + liquidity (LAUNCH_GAS 0.45 + margin; excess is refunded). */
+export const LAUNCH_GAS = toNano("0.6");
+/** Extra gas for jetton-paired launches (PAIR_SEND_GAS). */
+export const PAIR_SEND_GAS = toNano("0.15");
+/** Attach to BuyTon on top of amountIn (BUY_GAS 0.1 + margin). */
+export const BUY_GAS = toNano("0.12");
+/** forward_ton_amount for jetton → pool swaps (JETTON_OUT_GAS). */
+export const SWAP_FWD = toNano("0.15");
 
 export interface LaunchParams {
   name: string;
@@ -12,37 +32,84 @@ export interface LaunchParams {
   image: string;
   supply: bigint; // whole tokens
   decimals?: number;
+  /** 0–2000 = 0–20% of supply kept by the creator */
+  creatorBps?: number;
   pairSymbol: string;
-  pairAddress?: string;
 }
 
-/**
- * TEP-64 off-chain content: 0x01 prefix + URI. The URI points at Bitpad's
- * stateless metadata endpoint, which decodes the JSON embedded in the query.
- */
+/** TEP-64 off-chain content: 0x01 + URI pointing at Bitpad's stateless metadata endpoint. */
 export function metadataUri(p: LaunchParams): string {
   const json = JSON.stringify({ name: p.name, symbol: p.symbol, description: p.description, image: p.image, decimals: String(p.decimals ?? 9), bitpad_pair: p.pairSymbol });
   return `${config.appUrl}/api/jetton/metadata?d=${Buffer.from(json).toString("base64url")}`;
 }
 
-function contentCell(p: LaunchParams): Cell {
+export function contentCell(p: LaunchParams): Cell {
   return beginCell().storeUint(0x01, 8).storeStringTail(metadataUri(p)).endCell();
 }
 
-export function buildLaunchTx(p: LaunchParams): TcMessage {
+const raw = (p: LaunchParams) => p.supply * 10n ** BigInt(p.decimals ?? 9);
+
+function factory() {
   if (!config.factoryAddress) throw new Error("NEXT_PUBLIC_BITPAD_FACTORY is not configured");
-  const decimals = p.decimals ?? 9;
+  return config.factoryAddress;
+}
+
+/** Launch paired with TON. `pairTon` is the TON locked in the pool (nanoTON). */
+export function buildLaunchTx(p: LaunchParams & { pairTon: bigint; launchFee: bigint }): TcMessage {
   const body = beginCell()
-    .storeUint(OP_LAUNCH, 32)
+    .storeUint(OP.Launch, 32)
     .storeUint(BigInt(Date.now()), 64)
-    .storeCoins(p.supply * 10n ** BigInt(decimals))
+    .storeCoins(raw(p))
+    .storeUint(p.creatorBps ?? 0, 16)
+    .storeCoins(p.pairTon)
     .storeRef(contentCell(p))
-    .storeAddress(p.pairAddress ? Address.parse(p.pairAddress) : null)
     .endCell();
-  return {
-    address: config.factoryAddress,
-    // launch fee + gas for minter deploy & initial mint
-    amount: (toNano(config.launchFeeTon.toString()) + toNano("0.3")).toString(),
-    payload: body.toBoc().toString("base64"),
-  };
+  return { address: factory(), amount: (p.launchFee + p.pairTon + LAUNCH_GAS).toString(), payload: body.toBoc().toString("base64") };
+}
+
+/**
+ * Launch paired with a registered jetton: a jetton transfer from the creator's
+ * wallet for that jetton to the factory, carrying LaunchWithJetton.
+ */
+export function buildJettonLaunchTx(p: LaunchParams & { creatorPairWallet: string; creator: string; pairUnits: bigint; launchFee: bigint }): TcMessage {
+  const launch = beginCell().storeUint(OP.LaunchWithJetton, 32).storeCoins(raw(p)).storeUint(p.creatorBps ?? 0, 16).storeRef(contentCell(p)).endCell();
+  const fwd = p.launchFee + LAUNCH_GAS + PAIR_SEND_GAS;
+  const body = beginCell()
+    .storeUint(OP.JettonTransfer, 32)
+    .storeUint(BigInt(Date.now()), 64)
+    .storeCoins(p.pairUnits)
+    .storeAddress(Address.parse(factory()))
+    .storeAddress(Address.parse(p.creator))
+    .storeBit(false)
+    .storeCoins(fwd)
+    .storeBit(true)
+    .storeRef(launch)
+    .endCell();
+  return { address: p.creatorPairWallet, amount: (fwd + toNano("0.1")).toString(), payload: body.toBoc().toString("base64") };
+}
+
+/** Buy from a TON-paired Bitpad pool. */
+export function buildPoolBuyTx(pool: string, amountIn: bigint, minOut: bigint, recipient?: string): TcMessage {
+  const b = beginCell().storeUint(OP.BuyTon, 32).storeUint(BigInt(Date.now()), 64).storeCoins(amountIn).storeCoins(minOut).storeAddress(recipient ? Address.parse(recipient) : null).endCell();
+  return { address: pool, amount: (amountIn + BUY_GAS).toString(), payload: b.toBoc().toString("base64") };
+}
+
+/**
+ * Sell to a Bitpad pool (or buy with its pair jetton): a jetton transfer of
+ * `amount` from `userJettonWallet` to the pool carrying SwapIntent.
+ */
+export function buildPoolSwapTx(p: { pool: string; userJettonWallet: string; user: string; amount: bigint; minOut: bigint }): TcMessage {
+  const intent = beginCell().storeUint(OP.SwapIntent, 32).storeCoins(p.minOut).storeAddress(null).endCell();
+  const body = beginCell()
+    .storeUint(OP.JettonTransfer, 32)
+    .storeUint(BigInt(Date.now()), 64)
+    .storeCoins(p.amount)
+    .storeAddress(Address.parse(p.pool))
+    .storeAddress(Address.parse(p.user))
+    .storeBit(false)
+    .storeCoins(SWAP_FWD)
+    .storeBit(true)
+    .storeRef(intent)
+    .endCell();
+  return { address: p.userJettonWallet, amount: (SWAP_FWD + toNano("0.1")).toString(), payload: body.toBoc().toString("base64") };
 }

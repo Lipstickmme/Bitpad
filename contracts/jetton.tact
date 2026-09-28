@@ -22,24 +22,34 @@ contract BitpadJetton {
         self.pair = pair;
     }
 
-    receive(msg: MintAll) {
+    /// One-time mint from the factory: pool share (with a notification so the
+    /// pool can record its reserve) + optional creator share. Never callable again.
+    receive(msg: MintLaunch) {
         require(sender() == self.factory, "Only factory");
         require(!self.minted, "Already minted");
+        require(msg.poolAmount > 0, "Empty pool share");
         self.minted = true;
-        self.totalSupply = msg.amount;
-        let init: StateInit = initOf BitpadJettonWallet(msg.receiver, myAddress());
+        self.totalSupply = msg.poolAmount + msg.creatorAmount;
+        self.mintTo(msg.pool, msg.poolAmount, msg.queryId, ton("0.02"), ton("0.08"));
+        if (msg.creatorAmount > 0) {
+            self.mintTo(msg.creator, msg.creatorAmount, msg.queryId, 0, ton("0.05"));
+        }
+    }
+
+    fun mintTo(to: Address, amount: Int, queryId: Int, fwdTon: Int, value: Int) {
+        let init: StateInit = initOf BitpadJettonWallet(to, myAddress());
         send(SendParameters{
             to: contractAddress(init),
-            value: 0,
+            value: value,
             bounce: false,
-            mode: SendRemainingValue,
+            mode: SendPayGasSeparately,
             body: TokenTransferInternal{
-                queryId: msg.queryId,
-                amount: msg.amount,
+                queryId: queryId,
+                amount: amount,
                 from: myAddress(),
-                responseDestination: msg.receiver,
-                forwardTonAmount: 0,
-                forwardPayload: emptySlice()
+                responseDestination: null,
+                forwardTonAmount: fwdTon,
+                forwardPayload: beginCell().storeBit(false).endCell().beginParse()
             }.toCell(),
             code: init.code,
             data: init.data
@@ -85,6 +95,10 @@ contract BitpadJetton {
 
     get fun get_wallet_address(owner: Address): Address {
         return contractAddress(initOf BitpadJettonWallet(owner, myAddress()));
+    }
+
+    get fun factory(): Address {
+        return self.factory;
     }
 
     get fun bitpad_info(): Cell {

@@ -47,38 +47,26 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
     }
     try {
       setStep("deploying");
-      const { buildLaunchTx } = await import("@/lib/ton/launch");
-      const msg = buildLaunchTx({ name: f.name, symbol: f.symbol, description: f.description, image: f.image, supply: BigInt(supply), pairSymbol: pair.symbol, pairAddress });
-      await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [msg] });
-      toast.success("Jetton deploying", "Waiting for the minted supply to land in your wallet…");
-
-      // Wait for the new jetton to show up in the creator's wallet, then seed the pool.
-      let jetton: string | undefined;
-      for (let i = 0; i < 30 && !jetton; i++) {
-        await new Promise((r) => setTimeout(r, 4000));
-        const d = await fetch(`/api/portfolio?address=${wallet}`).then((r) => r.json()).catch(() => null);
-        jetton = d?.holdings?.find((h: { symbol: string }) => h.symbol === f.symbol)?.address;
+      const { buildLaunchTx, buildJettonLaunchTx } = await import("@/lib/ton/launch");
+      const { toNano } = await import("@ton/core");
+      const base = { name: f.name, symbol: f.symbol, description: f.description, image: f.image, supply: BigInt(supply), creatorBps: Math.round((100 - poolPct) * 100), pairSymbol: pair.symbol, launchFee: toNano(String(config.launchFeeTon)) };
+      let message;
+      if (!pairAddress || pairAddress === TON_ASSETS.TON) {
+        // One transaction: jetton + pool deployed, TON liquidity locked, trading open
+        message = buildLaunchTx({ ...base, pairTon: toNano(pairUnits!.toFixed(9)) });
+      } else {
+        // Jetton-paired: transfer the pair jetton to the factory with the launch payload.
+        const { JettonMaster, Address } = await import("@ton/ton");
+        const { tonClient } = await import("@/lib/ton/client");
+        const master = tonClient().open(JettonMaster.create(Address.parse(pairAddress)));
+        const myWallet = (await master.getWalletAddress(Address.parse(wallet))).toString();
+        const decimals = pairAddress === TON_ASSETS.USDT ? 6 : 9;
+        message = buildJettonLaunchTx({ ...base, creatorPairWallet: myWallet, creator: wallet, pairUnits: BigInt(Math.floor(pairUnits! * 10 ** decimals)) });
       }
-      if (!jetton) throw new Error("Jetton not detected yet — seed the pool from your portfolio once it appears.");
-      if (!onChainPair) {
-        setStep("done");
-        toast.info("Jetton live", `${pair.symbol} has no TON jetton configured, so seed the pool manually or paste a jetton address for it.`);
-        return;
-      }
-      setStep("seeding");
-      const { buildSeedPoolTx } = await import("@/lib/ton/liquidity");
-      const decimals = pairAddress === TON_ASSETS.USDT ? 6 : 9;
-      const messages = await buildSeedPoolTx({
-        wallet,
-        jetton,
-        jettonUnits: BigInt(Math.floor(poolTokens)) * 10n ** 9n,
-        pairAddress: pairAddress!,
-        pairUnits: BigInt(Math.floor(pairUnits! * 10 ** decimals)),
-      });
-      await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages });
+      await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [message] });
       setStep("done");
       haptic("success");
-      toast.success(`$${f.symbol} is live`, `Pool ${f.symbol}/${pair.symbol} seeded on STON.fi. Trading is open.`);
+      toast.success(`$${f.symbol} is launching`, `Token and ${f.symbol}/${pair.symbol} pool deploy in one go — liquidity is locked and trading opens as soon as it lands.`);
     } catch (e) {
       setStep("form");
       haptic("error");
@@ -175,16 +163,16 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
             <Row k="Starting market cap" v={usd(startMcap, { compact: true })} />
             <Row k="Pool" v={`${num(poolTokens, 0)} ${f.symbol || "TOKEN"} + ${pairUnits != null ? pairUnits.toLocaleString("en-US", { maximumFractionDigits: 4 }) : "?"} ${pair.symbol}`} />
             <Row k="Pool depth" v={usd(pairUsd * 2, { compact: true })} />
-            <Row k="LP tokens" v="Sent to creator" />
+            <Row k="Liquidity" v="Locked forever (no LP tokens)" />
           </dl>
           <div className="mt-4 space-y-2 rounded-xl bg-surface-2 p-3 text-xs">
             <Row k="Launch fee" v={`${config.launchFeeTon} TON`} />
             <Row k="Network gas (est.)" v="≈ 0.5 TON" />
-            <Row k="Trading fee to platform" v={`${(config.swapFeeBps / 100).toFixed(2)}%`} />
+            <Row k="Trading fee" v="set by the factory (protocol + creator share)" />
           </div>
           <button onClick={launch} disabled={!valid || step === "deploying" || step === "seeding"} className="btn btn-primary mt-4 h-12 w-full text-base">
             <Rocket className="size-4" />
-            {!wallet ? "Connect TON wallet" : step === "deploying" ? "Deploying jetton…" : step === "seeding" ? "Seeding pool…" : step === "done" ? "Launched ✓" : "Launch & add liquidity"}
+            {!wallet ? "Connect TON wallet" : step === "deploying" ? "Deploying jetton…" : step === "done" ? "Launched ✓" : "Launch & add liquidity"}
           </button>
           {!valid && <p className="mt-2 text-center text-xs text-muted">{pairUnits == null ? `No live price for ${pair.symbol} right now.` : "Name, a 2–10 character ticker and liquidity are required."}</p>}
         </div>

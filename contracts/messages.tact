@@ -1,35 +1,171 @@
-// ── Bitpad messages ──────────────────────────────────────────────────────
-// Opcode must match OP_LAUNCH in src/lib/ton/launch.ts
+// ═══════════════════════════════════════════════════════════════════════════
+//  Bitpad messages & structs
+//  Opcodes are explicit so the frontend (src/lib/ton/*) can build bodies.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Pair-asset kinds (informational; stored in the registry) ──────────────
+const PAIR_KIND_NATIVE: Int = 0;    // TON
+const PAIR_KIND_STABLE: Int = 1;    // USDT, USDC
+const PAIR_KIND_JETTON: Int = 2;    // GRAM, NOT, …
+const PAIR_KIND_STOCK: Int = 3;     // tokenized equities bridged to TON
+const PAIR_KIND_COMMODITY: Int = 4; // XAUt, …
+const PAIR_KIND_CRYPTO: Int = 5;    // bridged BTC / ETH, …
+
+/// Registry entry for a jetton that tokens may be paired with.
+struct PairInfo {
+    symbol: String;
+    decimals: Int as uint8;
+    kind: Int as uint8;
+    /// Pyth price-feed id for the asset's USD price (0 = none). Lets any
+    /// indexer/frontend derive USD prices from the on-chain pool price.
+    pythFeedId: Int as uint256;
+    /// Minimum initial liquidity (raw jetton units) for a launch
+    minLiquidity: Int as coins;
+    /// The factory's own jetton wallet for this asset (discovered via TEP-89)
+    wallet: Address?;
+    enabled: Bool;
+}
+
+// ── Factory: launches ─────────────────────────────────────────────────────
+
+/// Launch paired with native TON. Attach: launchFee + pairAmount + LAUNCH_GAS.
 message(0x42504c31) Launch {
     queryId: Int as uint64;
-    supply: Int as coins;       // raw units (supply * 10^decimals)
-    content: Cell;              // TEP-64 off-chain content (0x01 + URI)
-    pair: Address?;             // jetton master of the paired asset (null = TON / off-chain asset)
+    supply: Int as coins;          // raw units (supply × 10^9)
+    creatorBps: Int as uint16;     // share of supply kept by the creator (0–2000 = 0–20%)
+    pairAmount: Int as coins;      // TON (nanoTON) to lock in the pool
+    content: Cell;                 // TEP-64 content (0x01 + URI)
 }
 
-message(0x42504c32) MintAll {
-    queryId: Int as uint64;
-    amount: Int as coins;
-    receiver: Address;
+/// Launch paired with a registered jetton: sent as the forward_payload of a
+/// jetton transfer to the factory. forward_ton_amount must cover launchFee + gas.
+message(0x42504c36) LaunchWithJetton {
+    supply: Int as coins;
+    creatorBps: Int as uint16;
+    content: Cell;
 }
 
-message(0x42504c33) SetLaunchFee {
-    fee: Int as coins;
-}
-
-message(0x42504c34) SetFeeWallet {
-    wallet: Address;
+/// Pool → factory: pair-jetton wallet discovered, send the initial liquidity.
+message(0x42504c37) PoolReady {
+    index: Int as uint64;
 }
 
 message(0x42504c35) Launched {
     index: Int as uint64;
     minter: Address;
+    pool: Address;
     creator: Address;
     supply: Int as coins;
-    pair: Address?;
+    pair: Address?;               // null = TON
+    pairAmount: Int as coins;
 }
 
-// ── TEP-74 jetton messages ───────────────────────────────────────────────
+// ── Factory: admin ────────────────────────────────────────────────────────
+message(0x42504c40) AddPair {
+    master: Address;
+    info: PairInfo;
+}
+message(0x42504c41) SetPairEnabled {
+    master: Address;
+    enabled: Bool;
+}
+message(0x42504c42) SetConfig {
+    launchFee: Int as coins;
+    protocolFeeBps: Int as uint16;
+    creatorFeeBps: Int as uint16;
+    minTonLiquidity: Int as coins;
+    tonPythFeedId: Int as uint256;
+}
+message(0x42504c34) SetFeeWallet {
+    wallet: Address;
+}
+message(0x42504c43) Withdraw {
+    amount: Int as coins;          // stray TON only; never touches pending launches
+}
+
+// ── Jetton minter (fixed supply, minted once) ─────────────────────────────
+message(0x42504c32) MintLaunch {
+    queryId: Int as uint64;
+    pool: Address;
+    poolAmount: Int as coins;
+    creator: Address;
+    creatorAmount: Int as coins;
+}
+
+// ── Pool ──────────────────────────────────────────────────────────────────
+message(0x42504c50) PoolInit {
+    queryId: Int as uint64;
+    tokenMaster: Address;
+    pairMaster: Address?;          // null = TON pair
+    creator: Address;
+    feeWallet: Address;
+    protocolFeeBps: Int as uint16;
+    creatorFeeBps: Int as uint16;
+    pairAmount: Int as coins;      // TON pairs: the TON reserve (included in value)
+}
+
+/// Buy the token with TON. Attach amountIn + BUY_GAS.
+message(0x42504c51) BuyTon {
+    queryId: Int as uint64;
+    amountIn: Int as coins;
+    minOut: Int as coins;
+    recipient: Address?;           // null = sender (bundler sets it per leg)
+}
+
+/// forward_payload of a jetton transfer to the pool: sell the token, or buy
+/// with the pair jetton. Invalid/failed swaps are refunded in full.
+message(0x42504c52) SwapIntent {
+    minOut: Int as coins;
+    recipient: Address?;
+}
+
+message(0x42504c53) ClaimFees {
+    queryId: Int as uint64;
+}
+
+message(0x42504c54) Swapped {
+    buy: Bool;
+    trader: Address;
+    amountIn: Int as coins;
+    amountOut: Int as coins;
+    reserveToken: Int as coins;
+    reservePair: Int as coins;
+}
+
+struct PoolData {
+    index: Int;
+    factory: Address;
+    tokenMaster: Address?;
+    pairMaster: Address?;
+    pairWallet: Address?;
+    tokenWallet: Address?;
+    creator: Address?;
+    reserveToken: Int;
+    reservePair: Int;
+    protocolFeesAccrued: Int;
+    creatorFeesAccrued: Int;
+    protocolFeeBps: Int;
+    creatorFeeBps: Int;
+    tradingOpen: Bool;
+}
+
+// ── Bundler ───────────────────────────────────────────────────────────────
+struct BundleLeg {
+    recipient: Address;
+    amount: Int as coins;          // TON spent on this leg
+    minOut: Int as coins;
+}
+
+/// Buy from one pool into many wallets in one transaction.
+/// Attach Σ amount + legs × LEG_GAS + bundler fee.
+message(0x42504c60) BundleBuy {
+    queryId: Int as uint64;
+    pool: Address;
+    count: Int as uint8;
+    legs: map<Int as uint8, BundleLeg>;
+}
+
+// ═══ TEP-74 jetton standard ═════════════════════════════════════════════
 message(0x0f8a7ea5) TokenTransfer {
     queryId: Int as uint64;
     amount: Int as coins;
@@ -74,6 +210,7 @@ message(0xd53276db) TokenExcesses {
     queryId: Int as uint64;
 }
 
+// TEP-89 wallet discovery
 message(0x2c76b973) ProvideWalletAddress {
     queryId: Int as uint64;
     ownerAddress: Address;
@@ -99,4 +236,30 @@ struct JettonWalletData {
     owner: Address;
     master: Address;
     code: Cell;
+}
+
+// ── Shared helpers ────────────────────────────────────────────────────────
+
+/// TEP-74 forward_payload is `Either Cell ^Cell`: unwrap to a plain slice.
+inline fun unwrapForwardPayload(p: Slice): Slice {
+    if (p.bits() == 0) {
+        return p;
+    }
+    if (p.loadBit()) {
+        return p.loadRef().beginParse();
+    }
+    return p;
+}
+
+/// Jetton transfer body for returning/sending jettons from a contract's wallet.
+inline fun jettonTransfer(queryId: Int, amount: Int, to: Address, response: Address?, fwdTon: Int): Cell {
+    return TokenTransfer{
+        queryId: queryId,
+        amount: amount,
+        destination: to,
+        responseDestination: response,
+        customPayload: null,
+        forwardTonAmount: fwdTon,
+        forwardPayload: beginCell().storeBit(false).endCell().beginParse()
+    }.toCell();
 }

@@ -1,0 +1,45 @@
+import { mnemonicToPrivateKey } from "@ton/crypto";
+import { TonClient, WalletContractV4, WalletContractV5R1, internal, SendMode, type Cell, type StateInit, type Address } from "@ton/ton";
+
+/** Shared deploy helpers: network client + deployer wallet from env. */
+export async function deployer() {
+  const words = process.env.DEPLOYER_MNEMONIC?.trim().split(/\s+/);
+  if (!words || words.length < 12) throw new Error("Set DEPLOYER_MNEMONIC (24 words)");
+  const network = process.env.NETWORK === "mainnet" ? "mainnet" : "testnet";
+  const client = new TonClient({
+    endpoint: network === "mainnet" ? "https://toncenter.com/api/v2/jsonRPC" : "https://testnet.toncenter.com/api/v2/jsonRPC",
+    apiKey: process.env.TONCENTER_API_KEY,
+  });
+  const key = await mnemonicToPrivateKey(words);
+  const wallet = process.env.WALLET_VERSION === "v4"
+    ? WalletContractV4.create({ workchain: 0, publicKey: key.publicKey })
+    : WalletContractV5R1.create({ workchain: 0, publicKey: key.publicKey, walletId: { networkGlobalId: network === "mainnet" ? -239 : -3 } });
+  const w = client.open(wallet);
+  const fmt = (a: Address) => a.toString({ testOnly: network === "testnet" });
+
+  async function send(to: Address, value: bigint, body?: Cell, init?: StateInit) {
+    const seqno = await w.getSeqno();
+    await w.sendTransfer({ seqno, secretKey: key.secretKey, sendMode: SendMode.PAY_GAS_SEPARATELY | SendMode.IGNORE_ERRORS, messages: [internal({ to, value, bounce: !init, init, body })] });
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 2500));
+      if ((await w.getSeqno()) > seqno) return;
+    }
+    throw new Error("Transaction not confirmed in time");
+  }
+
+  async function waitDeployed(addr: Address) {
+    for (let i = 0; i < 40; i++) {
+      if (await client.isContractDeployed(addr)) return true;
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    return false;
+  }
+
+  return { client, network, wallet, address: wallet.address, balance: () => w.getBalance(), send, waitDeployed, fmt };
+}
+
+export const env = (k: string, fallback?: string) => {
+  const v = process.env[k] ?? fallback;
+  if (v === undefined) throw new Error(`Set ${k}`);
+  return v;
+};
