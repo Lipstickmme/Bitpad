@@ -1,6 +1,23 @@
 import { mnemonicToPrivateKey } from "@ton/crypto";
 import { TonClient, WalletContractV4, WalletContractV5R1, internal, SendMode, type Cell, type StateInit, type Address } from "@ton/ton";
 
+import { existsSync, readFileSync } from "node:fs";
+
+/**
+ * Load settings from .env.deploy (gitignored) so the same commands work in any
+ * terminal — PowerShell, cmd, bash, zsh. Real environment variables win.
+ */
+(function loadDeployEnv() {
+  const file = ".env.deploy";
+  if (!existsSync(file)) return;
+  for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (!m || process.env[m[1]] !== undefined) continue;
+    const v = m[2].replace(/^(['"])(.*)\1$/, "$2").trim();
+    if (v) process.env[m[1]] = v; // empty = unset, so defaults apply
+  }
+})();
+
 /** Shared deploy helpers: network client + deployer wallet from env. */
 export async function deployer() {
   const words = process.env.DEPLOYER_MNEMONIC?.trim().split(/\s+/);

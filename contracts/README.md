@@ -205,30 +205,28 @@ Regenerate with `npm run contracts:gas`.
 
 ## 9. Deploying to mainnet
 
-**Prerequisites:** a deployer wallet (W5 by default; set `WALLET_VERSION=v4` for v4) holding ~1 TON; a separate
-fee wallet (a hardware or multisig wallet is recommended); a free toncenter API key from @tonapibot.
+**Prerequisites:** Node.js 20+ and Git; a deployer wallet (Tonkeeper/MyTonWallet W5 by default; set
+`WALLET_VERSION=v4` for v4) holding ~1 TON; a separate fee wallet (hardware or multisig recommended); a free
+toncenter API key from @tonapibot.
+
+Settings live in **`.env.deploy`** (gitignored). Copy `.env.deploy.example` to `.env.deploy` and fill it in.
+The same commands then work in any terminal (PowerShell, cmd, bash, zsh):
 
 ```bash
-npm install && npm test                       # compile + all tests must pass
+npm install
+npm test                    # compiles the contracts + runs all tests — must pass
 
-# 1. Rehearse on testnet (test TON from @testgiver_ton_bot)
-export DEPLOYER_MNEMONIC="w1 … w24" TONCENTER_API_KEY=… FEE_WALLET=<fee wallet>
-NETWORK=testnet npm run deploy:factory
-NETWORK=testnet npm run deploy:bundler
-#    → point the app at the testnet factory (it switches to testnet automatically), launch, buy, sell, claim fees
+# 1. Rehearse on testnet: NETWORK=testnet in .env.deploy (test TON from @testgiver_ton_bot)
+npm run deploy:factory      # prints NEXT_PUBLIC_BITPAD_FACTORY=…
+npm run deploy:bundler      # optional
 
-# 2. Mainnet
-NETWORK=mainnet LAUNCH_FEE_TON=1 PROTOCOL_FEE_BPS=50 CREATOR_FEE_BPS=50 MIN_TON_LIQUIDITY=5 \
-  npm run deploy:factory
-NETWORK=mainnet BUNDLE_FEE_BPS=0 npm run deploy:bundler
+# 2. Mainnet: set NETWORK=mainnet, then run the same two commands again
 
-# 3. Register pair assets (repeat per asset)
-NETWORK=mainnet FACTORY=<factory> MASTER=EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs \
-  SYMBOL=USDT DECIMALS=6 KIND=stable MIN_LIQUIDITY=100 PYTH_FEED=<USDT/USD id> npm run pair:add
-NETWORK=mainnet FACTORY=<factory> MASTER=<GRAM master> SYMBOL=GRAM DECIMALS=9 KIND=jetton MIN_LIQUIDITY=100000 npm run pair:add
+# 3. Register pair assets: put the printed factory address in FACTORY=, set MASTER/SYMBOL/DECIMALS/KIND/
+#    MIN_LIQUIDITY for one asset, run:
+npm run pair:add            # repeat per asset (USDT is pre-filled in the example)
 ```
 
-`deploy:factory` prints the `NEXT_PUBLIC_BITPAD_FACTORY=…` line to paste into your hosting env; `deploy:bundler` prints the bundler address.
 Pyth feed ids are listed at https://www.pyth.network/developers/price-feed-ids. Always verify jetton master
 addresses on tonviewer.com before registering them.
 
