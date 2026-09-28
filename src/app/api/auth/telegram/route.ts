@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { botToken } from "@/lib/telegram";
 import { readSession, signSession, verifyInitData, verifyLoginWidget, SESSION_COOKIE } from "@/lib/auth";
 
 /** POST { initData } from a Mini App, or the Login Widget payload. */
 export async function POST(req: NextRequest) {
-  const bot = process.env.TELEGRAM_BOT_TOKEN;
+  const bot = botToken();
   if (!bot) return NextResponse.json({ error: "TELEGRAM_BOT_TOKEN not configured" }, { status: 503 });
   const body = await req.json();
   const user = typeof body.initData === "string" ? verifyInitData(body.initData, bot) : verifyLoginWidget(body, bot);

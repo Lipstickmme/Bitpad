@@ -187,7 +187,7 @@ npm install && npm test                       # compile + all tests must pass
 export DEPLOYER_MNEMONIC="w1 … w24" TONCENTER_API_KEY=… FEE_WALLET=<fee wallet>
 NETWORK=testnet npm run deploy:factory
 NETWORK=testnet npm run deploy:bundler
-#    → launch a token from the app with NEXT_PUBLIC_TON_NETWORK=testnet, buy, sell, claim fees
+#    → point the app at the testnet factory (it switches to testnet automatically), launch, buy, sell, claim fees
 
 # 2. Mainnet
 NETWORK=mainnet LAUNCH_FEE_TON=1 PROTOCOL_FEE_BPS=50 CREATOR_FEE_BPS=50 MIN_TON_LIQUIDITY=5 \
@@ -200,7 +200,7 @@ NETWORK=mainnet FACTORY=<factory> MASTER=EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7
 NETWORK=mainnet FACTORY=<factory> MASTER=<GRAM master> SYMBOL=GRAM DECIMALS=9 KIND=jetton MIN_LIQUIDITY=100000 npm run pair:add
 ```
 
-Each script prints the address and the env line to paste (`NEXT_PUBLIC_BITPAD_FACTORY`, `NEXT_PUBLIC_BITPAD_BUNDLER`).
+`deploy:factory` prints the `NEXT_PUBLIC_BITPAD_FACTORY=…` line to paste into your hosting env; `deploy:bundler` prints the bundler address.
 Pyth feed ids are listed at https://www.pyth.network/developers/price-feed-ids. Always verify jetton master
 addresses on tonviewer.com before registering them.
 

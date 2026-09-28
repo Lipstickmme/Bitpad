@@ -20,7 +20,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <TonConnectUIProvider manifestUrl={manifestUrl} uiPreferences={{ theme: THEME.LIGHT }} actionsConfiguration={{ twaReturnUrl: `https://t.me/${process.env.NEXT_PUBLIC_TELEGRAM_BOT || "bitpad_bot"}/app` }}>
+    <TonConnectUIProvider manifestUrl={manifestUrl} uiPreferences={{ theme: THEME.LIGHT }}>
       <TelegramBridge />
       {children}
       <Toaster />

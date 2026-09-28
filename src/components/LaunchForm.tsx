@@ -13,7 +13,10 @@ import { haptic } from "./TelegramBridge";
 const KINDS: PairKind[] = ["stock", "commodity", "jetton", "crypto"];
 type Step = "form" | "deploying" | "seeding" | "done";
 
-export function LaunchForm({ assets }: { assets: PairAsset[] }) {
+/** Live factory settings, read on-chain by the server (null when the factory isn't deployed/reachable). */
+export interface FactoryInfo { launchFee: string; minTonLiquidity: string; tradeFeeBps: number }
+
+export function LaunchForm({ assets, factory }: { assets: PairAsset[]; factory: FactoryInfo | null }) {
   const wallet = useTonAddress();
   const [tc] = useTonConnectUI();
   const [kind, setKind] = useState<PairKind>("stock");
@@ -33,7 +36,10 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
   const pairUnits = pair.priceUsd ? pairUsd / pair.priceUsd : null;
   const pairAddress = customJetton || pair.tonAddress;
   const onChainPair = !!pairAddress;
-  const valid = f.name.trim().length >= 2 && /^[A-Z0-9]{2,10}$/.test(f.symbol) && supply > 0 && pairUsd > 0 && pairUnits != null;
+  const isTonPair = !pairAddress || pairAddress === TON_ASSETS.TON;
+  const minTon = factory ? Number(factory.minTonLiquidity) / 1e9 : 0;
+  const belowMin = isTonPair && pairUnits != null && pairUnits < minTon;
+  const valid = !belowMin && f.name.trim().length >= 2 && /^[A-Z0-9]{2,10}$/.test(f.symbol) && supply > 0 && pairUsd > 0 && pairUnits != null;
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setF((s) => ({ ...s, [k]: k === "symbol" ? e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") : e.target.value }));
@@ -41,7 +47,7 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
   async function launch() {
     haptic("medium");
     if (!wallet) return tc.openModal();
-    if (!config.factoryAddress) {
+    if (!config.factoryAddress || !factory) {
       toast.info("Factory not deployed", "Deploy BitpadFactory (npm run deploy:factory) and set NEXT_PUBLIC_BITPAD_FACTORY to launch on-chain.");
       return;
     }
@@ -49,7 +55,7 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
       setStep("deploying");
       const { buildLaunchTx, buildJettonLaunchTx } = await import("@/lib/ton/launch");
       const { toNano } = await import("@ton/core");
-      const base = { name: f.name, symbol: f.symbol, description: f.description, image: f.image, supply: BigInt(supply), creatorBps: Math.round((100 - poolPct) * 100), pairSymbol: pair.symbol, launchFee: toNano(String(config.launchFeeTon)) };
+      const base = { name: f.name, symbol: f.symbol, description: f.description, image: f.image, supply: BigInt(supply), creatorBps: Math.round((100 - poolPct) * 100), pairSymbol: pair.symbol, launchFee: BigInt(factory!.launchFee) };
       let message;
       if (!pairAddress || pairAddress === TON_ASSETS.TON) {
         // One transaction: jetton + pool deployed, TON liquidity locked, trading open
@@ -166,15 +172,15 @@ export function LaunchForm({ assets }: { assets: PairAsset[] }) {
             <Row k="Liquidity" v="Locked forever (no LP tokens)" />
           </dl>
           <div className="mt-4 space-y-2 rounded-xl bg-surface-2 p-3 text-xs">
-            <Row k="Launch fee" v={`${config.launchFeeTon} TON`} />
+            <Row k="Launch fee" v={factory ? `${Number(factory.launchFee) / 1e9} TON` : "—"} />
             <Row k="Network gas (est.)" v="≈ 0.5 TON" />
-            <Row k="Trading fee" v="set by the factory (protocol + creator share)" />
+            <Row k="Trading fee" v={factory ? `${(factory.tradeFeeBps / 100).toFixed(2)}% (protocol + creator)` : "—"} />
           </div>
           <button onClick={launch} disabled={!valid || step === "deploying" || step === "seeding"} className="btn btn-primary mt-4 h-12 w-full text-base">
             <Rocket className="size-4" />
             {!wallet ? "Connect TON wallet" : step === "deploying" ? "Deploying jetton…" : step === "done" ? "Launched ✓" : "Launch & add liquidity"}
           </button>
-          {!valid && <p className="mt-2 text-center text-xs text-muted">{pairUnits == null ? `No live price for ${pair.symbol} right now.` : "Name, a 2–10 character ticker and liquidity are required."}</p>}
+          {!valid && <p className="mt-2 text-center text-xs text-muted">{pairUnits == null ? `No live price for ${pair.symbol} right now.` : belowMin ? `Minimum liquidity is ${minTon} TON.` : "Name, a 2–10 character ticker and liquidity are required."}</p>}
         </div>
         <div className="card p-4 text-xs text-ink-2">
           <div className="mb-1 font-bold text-ink">Why direct liquidity?</div>

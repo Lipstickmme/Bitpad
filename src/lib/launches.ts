@@ -89,3 +89,31 @@ export async function getLaunches(limit = 60): Promise<{ launches: Launch[]; cou
     return { launches: [], count: 0, factory: config.factoryAddress, ok: false };
   }
 }
+
+export interface FactoryConfig {
+  feeWallet: string;
+  launchFee: bigint;
+  protocolFeeBps: number;
+  creatorFeeBps: number;
+  minTonLiquidity: bigint;
+}
+
+/** Live factory settings (launch fee, trade fees, minimum liquidity) from its `config()` getter. */
+export async function getFactoryConfig(): Promise<FactoryConfig | null> {
+  if (!config.factoryAddress) return null;
+  try {
+    return await memo("factory:config", 60_000, async () => {
+      const s = (await tc().runMethod(Address.parse(config.factoryAddress), "config")).stack.readTuple();
+      s.readAddress(); // owner
+      const feeWallet = fmt(s.readAddress());
+      const launchFee = s.readBigNumber();
+      const protocolFeeBps = s.readNumber();
+      const creatorFeeBps = s.readNumber();
+      const minTonLiquidity = s.readBigNumber();
+      return { feeWallet, launchFee, protocolFeeBps, creatorFeeBps, minTonLiquidity };
+    });
+  } catch (e) {
+    console.warn("[factory] config read failed:", (e as Error).message);
+    return null;
+  }
+}

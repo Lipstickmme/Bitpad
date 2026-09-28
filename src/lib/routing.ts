@@ -19,8 +19,6 @@ export async function payInfo(symbol: string): Promise<PayInfo | null> {
   const px = (s: string) => assets.find((a) => a.symbol === s)?.priceUsd ?? null;
   if (symbol === "TON") return { symbol, address: TON_ASSETS.TON, decimals: 9, priceUsd: px("TON") };
   if (symbol === "USDT") return { symbol, address: TON_ASSETS.USDT, decimals: 6, priceUsd: 1 };
-  const envAddr = symbol === "GRAM" ? config.gramJetton : symbol === "USDC" ? config.usdcJetton : "";
-  if (envAddr) return { symbol, address: envAddr, decimals: symbol === "USDC" ? 6 : 9, priceUsd: px(symbol) };
   const hit = assets.find((a) => a.symbol === symbol && a.tonAddress);
   if (hit?.tonAddress) return { symbol, address: hit.tonAddress, decimals: symbol === "USDC" ? 6 : 9, priceUsd: hit.priceUsd };
   const { resolveTonSymbol } = await import("./data/stonfi");

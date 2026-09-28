@@ -15,5 +15,5 @@ import { deployer, env } from "./lib";
   console.log(`Bundler   ${d.fmt(bundler.address)}   fee ${Number(feeBps) / 100}%`);
   if (await d.client.isContractDeployed(bundler.address)) return console.log("Already deployed ✓");
   await d.send(bundler.address, toNano("0.1"), undefined, bundler.init!);
-  if (await d.waitDeployed(bundler.address)) console.log(`Deployed ✓\n\nNEXT_PUBLIC_BITPAD_BUNDLER=${d.fmt(bundler.address)}`);
+  if (await d.waitDeployed(bundler.address)) console.log(`Deployed ✓  ${d.fmt(bundler.address)}`);
 })().catch((e) => { console.error(e.message ?? e); process.exit(1); });

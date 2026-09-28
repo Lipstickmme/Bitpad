@@ -18,7 +18,7 @@ value fails, the UI shows "—" or an explicit "unavailable" message instead of 
 | Trade history | GeckoTerminal trades → STON.fi operations | refreshes every 15s |
 | Holders | TonAPI → toncenter v3 | |
 | **Buy / sell any TON jetton** | STON.fi v2 + DeDust v2 via TON Connect | real quotes; pay with TON, USDT, $GRAM, USDC |
-| Platform fee on trades | STON.fi referral / DeDust fee transfer | needs `NEXT_PUBLIC_FEE_WALLET` |
+| Platform fee on trades | STON.fi referral / DeDust fee transfer | `NEXT_PUBLIC_FEE_WALLET` |
 | Stock / gold / crypto prices | Pyth → Yahoo → Jupiter / CoinGecko | real 24h change |
 | Dividend yield (TTM) | Yahoo Finance dividend history | |
 | Analytics dashboard | GeckoTerminal (→ DexScreener) + DefiLlama | volume, wins/losses, FOMO, 14-day history |
@@ -26,22 +26,29 @@ value fails, the UI shows "—" or an explicit "unavailable" message instead of 
 | Portfolio | TonAPI + Solana & EVM public RPCs | TON jettons, SOL, ETH/Base, BNB |
 | Search | STON.fi asset list | name, ticker or address |
 | Revenue page | TonAPI events on the fee wallet | shows TON actually received |
-| Login | TON Connect, Solana, EVM | Telegram needs a bot token (below) |
+| Login | TON Connect, Solana, EVM | Telegram needs `TELEGRAM_BOT_TOKEN` |
 
-## What needs setup
+## Environment variables
 
-| Item | Why | How |
+| Variable | | Purpose |
 | --- | --- | --- |
-| **Deploy `BitpadFactory`** (+ optional `BitpadBundler`) | Launching tokens (token + locked pool in one tx), the "Bitpad launches" list, on-chain bundles | [`contracts/README.md`](contracts/README.md) → `npm run deploy:factory`, `npm run deploy:bundler`, `npm run pair:add` |
-| Fee wallet | Collect swap + launch fees | `NEXT_PUBLIC_FEE_WALLET`, `NEXT_PUBLIC_SWAP_FEE_BPS` |
-| Telegram bot | Telegram login, Mini App, `/trending` `/price` bot | @BotFather → `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_TELEGRAM_BOT`; `/setdomain`; set webhook (below) |
-| Public URL | TON Connect manifest, jetton metadata URIs | `NEXT_PUBLIC_APP_URL` (must be HTTPS in production) |
-| $BITL tab | Link the flagship token | `NEXT_PUBLIC_BITL_JETTON` |
-| Brand | Bitlievers logo + colors | replace `public/brand/logo.svg`, `public/icon-180.png`; edit `src/brand.css` |
+| `NEXT_PUBLIC_BITPAD_FACTORY` | required | Deployed factory. Launch fee, trade fees and minimum liquidity are read from it on-chain; a testnet address switches the app to testnet. |
+| `NEXT_PUBLIC_FEE_WALLET` | required | Receives the fee on STON.fi / DeDust routes. |
+| `TONCENTER_API_KEY` | optional | Higher TON RPC limits (@tonapibot). Server-only; the browser uses the `/api/ton-rpc` proxy. |
+| `TONAPI_KEY` | optional | Higher TonAPI limits (tonconsole.com). |
+| `TELEGRAM_BOT_TOKEN` | optional | Telegram login, Mini App and bot. Bot username, session and webhook secrets are derived from it. |
+| `NEXT_PUBLIC_APP_URL` | optional | Custom domain only; otherwise Vercel's production URL. |
 
-Optional free keys that lift rate limits (server-only, never exposed to the browser — client RPC goes through
-the `/api/ton-rpc` proxy): `TONCENTER_API_KEY` from @tonapibot,
-`TONAPI_KEY` from tonconsole.com. Everything works without them at lower throughput.
+Non-secret settings (fee on STON.fi/DeDust routes, $BITL address, fee split, social links) are constants in
+`src/lib/config.ts`. $GRAM/USDC addresses are resolved live from STON.fi.
+
+## Setup steps
+
+| Item | How |
+| --- | --- |
+| **Deploy the contracts** | [`contracts/README.md`](contracts/README.md): `npm run deploy:factory`, `npm run deploy:bundler`, `npm run pair:add` |
+| Telegram bot | @BotFather → token → `TELEGRAM_BOT_TOKEN` → redeploy → open `https://<site>/api/telegram/setup` once (sets webhook + Mini App button). `/setdomain` in @BotFather enables the web login widget. |
+| Brand | replace `public/brand/logo.svg`, `public/icon-180.png`; edit `src/brand.css` |
 
 ## Free data sources & fallback chains
 
@@ -79,12 +86,6 @@ npm run dev          # http://localhost:3000
 npm test             # contracts (sandbox) + auth + parser tests
 npm run build
 ```
-
-### Telegram Mini App & bot
-
-1. @BotFather → create bot → `TELEGRAM_BOT_TOKEN`, `NEXT_PUBLIC_TELEGRAM_BOT`.
-2. `/newapp` (or Bot Settings → Menu Button) → `NEXT_PUBLIC_APP_URL`. `/setdomain` for the web login widget.
-3. `curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook?url=$APP_URL/api/telegram/webhook&secret_token=$TELEGRAM_WEBHOOK_SECRET"`
 
 ## Limits worth knowing
 

@@ -1,23 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getBitpadTokens, getTonMarket, getToken, searchTokens } from "@/lib/market";
-import { config } from "@/lib/config";
+import { botToken, webhookSecret } from "@/lib/telegram";
 import { price, pct, usd } from "@/lib/format";
 
-/**
- * Telegram bot webhook. Register with:
- *   curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook?url=$APP_URL/api/telegram/webhook&secret_token=$TELEGRAM_WEBHOOK_SECRET"
- */
+/** Telegram bot webhook. Register it once by opening /api/telegram/setup on the deployed site. */
 export async function POST(req: NextRequest) {
-  const bot = process.env.TELEGRAM_BOT_TOKEN;
-  const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  const bot = botToken();
   if (!bot) return NextResponse.json({ ok: false }, { status: 503 });
-  if (secret && req.headers.get("x-telegram-bot-api-secret-token") !== secret) return NextResponse.json({ ok: false }, { status: 401 });
+  if (req.headers.get("x-telegram-bot-api-secret-token") !== webhookSecret()) return NextResponse.json({ ok: false }, { status: 401 });
 
   const update = await req.json();
   const msg = update.message;
   if (!msg?.text) return NextResponse.json({ ok: true });
   const [cmd, arg] = String(msg.text).trim().split(/\s+/);
-  const app = { text: "Open Bitpad", web_app: { url: config.appUrl } };
+  const origin = req.nextUrl.origin;
+  const app = { text: "Open Bitpad", web_app: { url: origin } };
   let text = "";
 
   if (cmd.startsWith("/start")) {
@@ -32,7 +29,7 @@ export async function POST(req: NextRequest) {
     const hit = (await searchTokens(arg.replace("$", "")).catch(() => []))[0];
     const t = hit ? await getToken(hit.address) : undefined;
     text = t
-      ? `<b>$${t.symbol}</b> ${t.priceUsd != null ? price(t.priceUsd) : "—"}${t.change24h != null ? ` (${pct(t.change24h)})` : ""}\nMC ${t.marketCap != null ? usd(t.marketCap, { compact: true }) : "—"} · Vol ${t.volume24h != null ? usd(t.volume24h, { compact: true }) : "—"}\n${config.appUrl}/token/${t.address}`
+      ? `<b>$${t.symbol}</b> ${t.priceUsd != null ? price(t.priceUsd) : "—"}${t.change24h != null ? ` (${pct(t.change24h)})` : ""}\nMC ${t.marketCap != null ? usd(t.marketCap, { compact: true }) : "—"} · Vol ${t.volume24h != null ? usd(t.volume24h, { compact: true }) : "—"}\n${origin}/token/${t.address}`
       : `No TON token matches ${arg}`;
   } else {
     return NextResponse.json({ ok: true });

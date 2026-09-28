@@ -4,31 +4,30 @@ import { Wallet, ChevronDown, LogOut, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/lib/store";
 import { shortAddr } from "@/lib/format";
-import { config } from "@/lib/config";
 import { TelegramIcon } from "./Brand";
 import { toast } from "./Toast";
 
-function TelegramLoginWidget({ onAuth }: { onAuth: (u: Record<string, string | number>) => void }) {
+function TelegramLoginWidget({ bot, onAuth }: { bot: string; onAuth: (u: Record<string, string | number>) => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!config.telegramBot || !ref.current) return;
+    if (!bot || !ref.current) return;
     window.onTelegramAuth = onAuth;
     const s = document.createElement("script");
     s.src = "https://telegram.org/js/telegram-widget.js?22";
     s.async = true;
-    s.setAttribute("data-telegram-login", config.telegramBot);
+    s.setAttribute("data-telegram-login", bot);
     s.setAttribute("data-size", "medium");
     s.setAttribute("data-radius", "10");
     s.setAttribute("data-onauth", "onTelegramAuth(user)");
     s.setAttribute("data-request-access", "write");
     ref.current.innerHTML = "";
     ref.current.appendChild(s);
-  }, [onAuth]);
-  if (!config.telegramBot) return <p className="text-xs text-muted">Set NEXT_PUBLIC_TELEGRAM_BOT to enable Telegram login on the web. Inside the Telegram Mini App you are signed in automatically.</p>;
+  }, [bot, onAuth]);
+  if (!bot) return <p className="text-xs text-muted">Telegram login isn&apos;t configured on this deployment.</p>;
   return <div ref={ref} />;
 }
 
-export function ConnectMenu() {
+export function ConnectMenu({ telegramBot }: { telegramBot: string }) {
   const [tc] = useTonConnectUI();
   const ton = useTonAddress();
   const { tgUser, setTgUser, external, addExternal, removeExternal } = useApp();
@@ -117,7 +116,7 @@ export function ConnectMenu() {
                 <button onClick={logoutTg} className="flex items-center gap-1 text-xs font-semibold text-muted hover:text-down"><LogOut className="size-3.5" /> Sign out</button>
               </div>
             ) : (
-              <TelegramLoginWidget onAuth={onTelegram} />
+              <TelegramLoginWidget bot={telegramBot} onAuth={onTelegram} />
             )}
           </div>
         </div>

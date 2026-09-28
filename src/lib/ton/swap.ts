@@ -27,13 +27,13 @@ function referral() {
  */
 export type PayWith = "TON" | "USDT" | "GRAM" | "USDC";
 
-/** Jetton master + decimals for each pay asset on TON. GRAM/USDC come from env. */
+/** Jetton master + decimals for the pay assets with fixed addresses. */
 export function payAssetInfo(p: PayWith): { address: string; decimals: number } | null {
   switch (p) {
     case "TON": return { address: TON_ASSETS.TON, decimals: 9 };
     case "USDT": return { address: TON_ASSETS.USDT, decimals: 6 };
-    case "GRAM": return config.gramJetton ? { address: config.gramJetton, decimals: 9 } : null;
-    case "USDC": return config.usdcJetton ? { address: config.usdcJetton, decimals: 6 } : null;
+    // GRAM / USDC are resolved live (STON.fi asset list) and passed in via `payAsset`
+    default: return null;
   }
 }
 

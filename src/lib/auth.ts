@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { sessionSecret } from "./telegram";
 
 export type { TelegramUser } from "./auth-types";
 import type { TelegramUser } from "./auth-types";
@@ -47,7 +48,7 @@ export function verifyInitData(initData: string, botToken: string): TelegramUser
   }
 }
 
-const secret = () => process.env.SESSION_SECRET || "dev-only-secret";
+const secret = sessionSecret;
 
 export function signSession(s: Session): string {
   const body = Buffer.from(JSON.stringify(s)).toString("base64url");

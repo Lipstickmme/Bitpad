@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { config } from "@/lib/config";
 import { getFeeRevenue } from "@/lib/fees";
+import { getFactoryConfig } from "@/lib/launches";
 import { getPairAssets } from "@/lib/prices";
 import { ago, num, shortAddr, usd } from "@/lib/format";
 import { SERIES } from "@/lib/venues";
@@ -9,7 +10,7 @@ export const metadata: Metadata = { title: "Revenue & fees" };
 export const dynamic = "force-dynamic";
 
 export default async function RevenuePage() {
-  const [rev, { assets }] = await Promise.all([getFeeRevenue(), getPairAssets()]);
+  const [rev, { assets }, factory] = await Promise.all([getFeeRevenue(), getPairAssets(), getFactoryConfig()]);
   const tonUsd = assets.find((a) => a.symbol === "TON")?.priceUsd ?? null;
   const inUsd = (t: number | null | undefined) => (t != null && tonUsd ? ` · ${usd(t * tonUsd, { compact: true })}` : "");
 
@@ -20,8 +21,8 @@ export default async function RevenuePage() {
         <p className="text-sm text-ink-2">Fees are taken on-chain: STON.fi routes pay Bitpad&apos;s referral share inside the swap, DeDust routes and launches send a separate transfer. Figures below are what the fee wallet actually received.</p>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Tile label="Swap fee" value={`${(config.swapFeeBps / 100).toFixed(2)}%`} sub="per trade" />
-        <Tile label="Launch fee" value={`${config.launchFeeTon} TON`} sub="per token" />
+        <Tile label="Bitpad pool fee" value={factory ? `${((factory.protocolFeeBps + factory.creatorFeeBps) / 100).toFixed(2)}%` : "—"} sub={factory ? `${factory.protocolFeeBps / 100}% protocol · ${factory.creatorFeeBps / 100}% creator` : "factory not reachable"} />
+        <Tile label="Launch fee" value={factory ? `${Number(factory.launchFee) / 1e9} TON` : "—"} sub={`STON.fi / DeDust routes: ${(config.swapFeeBps / 100).toFixed(2)}%`} />
         <Tile label="Received · 24h" value={rev.configured ? `${num(rev.received24h, 2)} TON` : "—"} sub={rev.configured ? `${inUsd(rev.received24h).slice(3) || "fee wallet"}` : "set NEXT_PUBLIC_FEE_WALLET"} />
         <Tile label="Received · 7d" value={rev.configured ? `${num(rev.received7d, 2)} TON` : "—"} sub={rev.configured ? `balance ${rev.balance != null ? num(rev.balance, 2) : "—"} TON${inUsd(rev.balance)}` : "—"} />
       </div>

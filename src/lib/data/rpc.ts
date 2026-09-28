@@ -1,9 +1,9 @@
 /** Free public RPCs for native balances on non-TON chains. */
-const SOLANA_RPC = process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
 const EVM_RPC: Record<string, string> = {
-  ethereum: process.env.ETH_RPC_URL || "https://ethereum-rpc.publicnode.com",
-  base: process.env.BASE_RPC_URL || "https://base-rpc.publicnode.com",
-  bsc: process.env.BSC_RPC_URL || "https://bsc-rpc.publicnode.com",
+  ethereum: "https://ethereum-rpc.publicnode.com",
+  base: "https://base-rpc.publicnode.com",
+  bsc: "https://bsc-rpc.publicnode.com",
 };
 
 async function rpc<T>(url: string, method: string, params: unknown[]): Promise<T> {

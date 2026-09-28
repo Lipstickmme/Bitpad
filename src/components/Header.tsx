@@ -17,7 +17,7 @@ const NAV = [
   { href: "/revenue", label: "Revenue" },
 ];
 
-export function Header() {
+export function Header({ telegramBot }: { telegramBot: string }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
@@ -43,7 +43,7 @@ export function Header() {
           <a href={config.links.telegram} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 xl:inline-flex" aria-label="Telegram"><TelegramIcon /></a>
           <a href={config.links.x} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 xl:inline-flex" aria-label="X"><XIcon /></a>
           <Link href="/launch" className="btn btn-primary hidden sm:inline-flex"><Plus className="size-4" /> <span className="hidden md:inline">Launch</span></Link>
-          <ConnectMenu />
+          <ConnectMenu telegramBot={telegramBot} />
           <button className="btn btn-ghost w-10 px-0 lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu">
             {open ? <X className="size-4" /> : <Menu className="size-4" />}
           </button>
