@@ -1,5 +1,5 @@
 import { mnemonicToPrivateKey } from "@ton/crypto";
-import { TonClient, WalletContractV4, WalletContractV5R1, internal, SendMode, type Cell, type StateInit, type Address } from "@ton/ton";
+import { TonClient, TonClient4, WalletContractV4, WalletContractV5R1, internal, SendMode, type Cell, type StateInit, type Address } from "@ton/ton";
 
 import { existsSync, readFileSync } from "node:fs";
 
@@ -27,6 +27,9 @@ export async function deployer() {
     endpoint: network === "mainnet" ? "https://toncenter.com/api/v2/jsonRPC" : "https://testnet.toncenter.com/api/v2/jsonRPC",
     apiKey: process.env.TONCENTER_API_KEY,
   });
+  // Getter reads go through the v4 API: @ton/ton's toncenter-v2 parser mangles
+  // tuple results (e.g. "Not a cell: -1" from the factory's pair() getter).
+  const reader = new TonClient4({ endpoint: network === "mainnet" ? "https://mainnet-v4.tonhubapi.com" : "https://sandbox-v4.tonhubapi.com", timeout: 15_000 });
   const key = await mnemonicToPrivateKey(words);
   const wallet = process.env.WALLET_VERSION === "v4"
     ? WalletContractV4.create({ workchain: 0, publicKey: key.publicKey })
@@ -52,7 +55,7 @@ export async function deployer() {
     return false;
   }
 
-  return { client, network, wallet, address: wallet.address, balance: () => w.getBalance(), send, waitDeployed, fmt };
+  return { client, reader, network, wallet, address: wallet.address, balance: () => w.getBalance(), send, waitDeployed, fmt };
 }
 
 export const env = (k: string, fallback?: string) => {

@@ -1,6 +1,6 @@
 import "server-only";
-import { Address, Cell, TupleBuilder } from "@ton/core";
-import { TonClient } from "@ton/ton";
+import { Address, Cell } from "@ton/core";
+import { runGet, intArg, addressArg } from "./chain";
 import { config } from "./config";
 import { memo } from "./data/http";
 
@@ -18,15 +18,6 @@ export interface Launch {
   creator?: string;
   pairAddress?: string;
   meta: { name?: string; symbol?: string; description?: string; image?: string; decimals?: string; bitpad_pair?: string };
-}
-
-let client: TonClient | undefined;
-export function tc() {
-  client ??= new TonClient({
-    endpoint: config.network === "testnet" ? "https://testnet.toncenter.com/api/v2/jsonRPC" : "https://toncenter.com/api/v2/jsonRPC",
-    apiKey: process.env.TONCENTER_API_KEY || undefined,
-  });
-  return client;
 }
 
 export const fmt = (a: Address) => a.toString({ testOnly: config.network === "testnet" });
@@ -51,23 +42,18 @@ export async function decodeContent(cell: Cell): Promise<Launch["meta"]> {
 }
 
 async function readLaunch(factory: Address, index: number): Promise<Launch | null> {
-  const args = new TupleBuilder();
-  args.writeNumber(index);
-  const m = await tc().runMethod(factory, "minter", args.build());
-  const minter = m.stack.readAddressOpt();
+  const minter = (await runGet(factory, "minter", [intArg(index)])).readAddressOpt();
   if (!minter) return null;
-  const pArgs = new TupleBuilder();
-  pArgs.writeNumber(index);
-  const pool = (await tc().runMethod(factory, "pool", pArgs.build())).stack.readAddressOpt();
-  const data = await tc().runMethod(minter, "get_jetton_data");
-  const supply = data.stack.readBigNumber();
-  data.stack.readBoolean(); // mintable
-  data.stack.readAddress(); // admin
-  const meta = await decodeContent(data.stack.readCell());
+  const pool = (await runGet(factory, "pool", [intArg(index)])).readAddressOpt();
+  const data = await runGet(minter, "get_jetton_data");
+  const supply = data.readBigNumber();
+  data.readBoolean(); // mintable
+  data.readAddress(); // admin
+  const meta = await decodeContent(data.readCell());
   let creator: string | undefined;
   let pairAddress: string | undefined;
   try {
-    const info = (await tc().runMethod(minter, "bitpad_info")).stack.readCell().beginParse();
+    const info = (await runGet(minter, "bitpad_info")).readCell().beginParse();
     creator = fmt(info.loadAddress());
     info.loadUint(64);
     if (info.loadBit()) pairAddress = fmt(info.loadAddress());
@@ -82,7 +68,7 @@ export async function getLaunches(limit = 60): Promise<{ launches: Launch[]; cou
   if (!config.factoryAddress) return { launches: [], count: 0, factory: null, ok: true };
   const factory = Address.parse(config.factoryAddress);
   try {
-    const count = await memo("factory:count", 30_000, async () => Number((await tc().runMethod(factory, "launch_count")).stack.readBigNumber()));
+    const count = await memo("factory:count", 15_000, async () => (await runGet(factory, "launch_count")).readNumber());
     const out: Launch[] = [];
     // sequential: toncenter's free tier is ~1 rps without an API key
     for (let i = count - 1; i >= Math.max(0, count - limit); i--) {
@@ -110,7 +96,8 @@ export async function getFactoryConfig(): Promise<FactoryConfig | null> {
   if (!config.factoryAddress) return null;
   try {
     return await memo("factory:config", 15_000, async () => {
-      const s = (await tc().runMethod(Address.parse(config.factoryAddress), "config")).stack.readTuple();
+      // non-optional struct getters return their fields directly on the stack (Tact)
+      const s = await runGet(config.factoryAddress, "config");
       s.readAddress(); // owner
       const feeWallet = fmt(s.readAddress());
       const launchFee = s.readBigNumber();
@@ -143,9 +130,7 @@ export async function getRegisteredPairs(masters: string[]): Promise<RegisteredP
   const out: RegisteredPair[] = [];
   for (const m of [...new Set(masters)]) {
     const r = await memo(`pair:${m}`, 300_000, async () => {
-      const t = new TupleBuilder();
-      t.writeAddress(Address.parse(m));
-      const s = (await tc().runMethod(factory, "pair", t.build())).stack.readTupleOpt();
+      const s = (await runGet(factory, "pair", [addressArg(m)])).readTupleOpt();
       if (!s) return null;
       const symbol = s.readString();
       const decimals = s.readNumber();

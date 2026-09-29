@@ -1,6 +1,7 @@
 import "server-only";
-import { Address, Cell, Dictionary, TupleBuilder, type Slice } from "@ton/core";
-import { tc, fmt, getLaunches, type Launch } from "./launches";
+import { Address, Cell, Dictionary, type Slice } from "@ton/core";
+import { fmt, getLaunches, type Launch } from "./launches";
+import { runGet, addressArg } from "./chain";
 import { getJson, memo } from "./data/http";
 import { jettonInfo } from "./data/tonapi";
 import type { Candle, Trade } from "./types";
@@ -34,11 +35,6 @@ export interface ReferrerRow {
   volume: string;
 }
 
-const addrArg = (a: string) => {
-  const t = new TupleBuilder();
-  t.writeAddress(Address.parse(a));
-  return t.build();
-};
 
 async function pairDecimals(master: string | null) {
   if (!master) return 9;
@@ -47,7 +43,8 @@ async function pairDecimals(master: string | null) {
 
 export async function readPool(pool: string): Promise<PoolInfo> {
   return memo(`pool:${pool}`, 8_000, async () => {
-    const s = (await tc().runMethod(Address.parse(pool), "pool_data")).stack.readTuple();
+    // non-optional struct getters return their fields directly on the stack (Tact)
+    const s = await runGet(pool, "pool_data");
     const index = s.readNumber();
     s.readAddress(); // factory
     const tokenMaster = s.readAddressOpt();
@@ -100,7 +97,7 @@ const referrerValue = {
 /** All referral links of a pool with their on-chain stats. */
 export async function readReferrers(pool: string): Promise<ReferrerRow[]> {
   return memo(`refs:${pool}`, 8_000, async () => {
-    const cell = (await tc().runMethod(Address.parse(pool), "referrers")).stack.readCellOpt();
+    const cell = (await runGet(pool, "referrers")).readCellOpt();
     const dict = Dictionary.loadDirect(Dictionary.Keys.Address(), referrerValue, cell);
     return dict.keys().map((k) => {
       const v = dict.get(k)!;
@@ -111,7 +108,7 @@ export async function readReferrers(pool: string): Promise<ReferrerRow[]> {
 
 export async function isReferrer(pool: string, addr: string) {
   try {
-    return (await tc().runMethod(Address.parse(pool), "is_referrer", addrArg(addr))).stack.readBoolean();
+    return (await runGet(pool, "is_referrer", [addressArg(addr)])).readBoolean();
   } catch {
     return false;
   }
@@ -120,7 +117,7 @@ export async function isReferrer(pool: string, addr: string) {
 /** A jetton master's wallet address for an owner (TEP-74 get_wallet_address). */
 export async function jettonWalletOf(master: string, owner: string) {
   return memo(`jw:${master}:${owner}`, 86_400_000, async () =>
-    fmt((await tc().runMethod(Address.parse(master), "get_wallet_address", addrArg(owner))).stack.readAddress()),
+    fmt((await runGet(master, "get_wallet_address", [addressArg(owner)])).readAddress()),
   );
 }
 
@@ -247,5 +244,5 @@ export async function launchOf(creator: string, since: number): Promise<Launch |
 /** BitpadBundler fee in bps (its fee_bps getter). */
 export async function bundlerFeeBps(): Promise<number> {
   const { config } = await import("./config");
-  return memo("bundler:fee", 300_000, async () => (await tc().runMethod(Address.parse(config.bundlerAddress), "fee_bps")).stack.readNumber()).catch(() => 0);
+  return memo("bundler:fee", 300_000, async () => (await runGet(config.bundlerAddress, "fee_bps")).readNumber()).catch(() => 0);
 }

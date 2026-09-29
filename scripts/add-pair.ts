@@ -18,8 +18,13 @@ const KINDS: Record<string, bigint> = { native: 0n, stable: 1n, jetton: 2n, stoc
 
 (async () => {
   const d = await deployer();
-  const factory = d.client.open(BitpadFactory.fromAddress(Address.parse(env("FACTORY"))));
+  const factory = d.reader.open(BitpadFactory.fromAddress(Address.parse(env("FACTORY"))));
   const master = Address.parse(env("MASTER"));
+  const existing = await factory.getPair(master);
+  if (existing?.wallet) {
+    console.log(`${existing.symbol} is already registered ✓  (enabled: ${existing.enabled}, decimals: ${existing.decimals}, factory wallet ${d.fmt(existing.wallet)})`);
+    return;
+  }
   const decimals = BigInt(env("DECIMALS", "9"));
   const kind = KINDS[env("KIND", "jetton")];
   if (kind === undefined) throw new Error("KIND must be one of " + Object.keys(KINDS).join(", "));

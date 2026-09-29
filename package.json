@@ -14,7 +14,8 @@
     "deploy:factory": "npm run contracts:build && tsx scripts/deploy-factory.ts",
     "deploy:bundler": "npm run contracts:build && tsx scripts/deploy-bundler.ts",
     "pair:add": "npm run contracts:build && tsx scripts/add-pair.ts",
-    "contracts:gas": "npm run contracts:build && tsx contracts/tests/gas-report.ts"
+    "contracts:gas": "npm run contracts:build && tsx contracts/tests/gas-report.ts",
+    "status": "npm run contracts:build && tsx scripts/status.ts"
   },
   "dependencies": {
     "@dedust/sdk": "^0.8.7",
