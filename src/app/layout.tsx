@@ -5,6 +5,7 @@ import { Providers } from "@/components/Providers";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { botUsername } from "@/lib/telegram";
+import { ensureRuntimeConfig } from "@/lib/runtime";
 
 export const metadata: Metadata = {
   title: { default: "Bitpad — the TON launchpad for paired tokens", template: "%s · Bitpad" },
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: "#f5f7fa", width: "device-width", initialScale: 1 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const bot = await botUsername();
+  const [bot, runtime] = await Promise.all([botUsername(), ensureRuntimeConfig().catch(() => null)]);
   return (
     <html lang="en">
       <head>
@@ -24,7 +25,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className="min-h-screen">
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
-        <Providers>
+        <Providers feeWallet={runtime?.feeWallet ?? ""}>
           <Header telegramBot={bot} />
           <main className="mx-auto w-full max-w-[1400px] px-4 pb-16 pt-4 sm:px-6">{children}</main>
           <Footer />

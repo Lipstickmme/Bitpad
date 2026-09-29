@@ -4,6 +4,7 @@ import { ston } from "./data/stonfi";
 import { config, TON_ASSETS } from "./config";
 import { dedustQuote, platformFee } from "./ton/dedust";
 import { getPairAssets } from "./prices";
+import { ensureRuntimeConfig } from "./runtime";
 import type { MarketToken, RouteQuote } from "./types";
 
 export interface PayInfo {
@@ -32,6 +33,7 @@ export async function payInfo(symbol: string): Promise<PayInfo | null> {
  * quote are omitted rather than estimated.
  */
 export async function quoteBuy(token: MarketToken, pay: string, amount: number): Promise<{ routes: RouteQuote[]; pay: PayInfo | null; errors: string[] }> {
+  await ensureRuntimeConfig();
   const info = await payInfo(pay);
   if (!info) return { routes: [], pay: null, errors: [`${pay} is not available on TON`] };
   const units = BigInt(Math.floor(amount * 10 ** info.decimals));

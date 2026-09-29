@@ -22,7 +22,7 @@ export default async function RevenuePage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label="Bitpad pool fee" value={factory ? `${((factory.protocolFeeBps + factory.creatorFeeBps) / 100).toFixed(2)}%` : "—"} sub={factory ? `${factory.protocolFeeBps / 100}% protocol · ${factory.creatorFeeBps / 100}% creator` : "factory not reachable"} />
         <Tile label="Launch fee" value={factory ? `${Number(factory.launchFee) / 1e9} TON` : "—"} sub={`STON.fi / DeDust routes: ${(config.swapFeeBps / 100).toFixed(2)}%`} />
-        <Tile label="Received · 24h" value={rev.configured ? `${num(rev.received24h, 2)} TON` : "—"} sub={rev.configured ? `${inUsd(rev.received24h).slice(3) || "fee wallet"}` : "set NEXT_PUBLIC_FEE_WALLET"} />
+        <Tile label="Received · 24h" value={rev.configured ? `${num(rev.received24h, 2)} TON` : "—"} sub={rev.configured ? `${inUsd(rev.received24h).slice(3) || "fee wallet"}` : "factory not reachable"} />
         <Tile label="Received · 7d" value={rev.configured ? `${num(rev.received7d, 2)} TON` : "—"} sub={rev.configured ? `balance ${rev.balance != null ? num(rev.balance, 2) : "—"} TON${inUsd(rev.balance)}` : "—"} />
       </div>
 
@@ -39,7 +39,7 @@ export default async function RevenuePage() {
       <section className="card overflow-hidden">
         <div className="border-b border-line px-4 py-3 text-sm font-semibold">Incoming to fee wallet {rev.configured && <span className="font-mono text-xs font-normal text-muted">{shortAddr(config.feeWallet, 6, 6)}</span>}</div>
         {!rev.configured ? (
-          <p className="p-6 text-center text-sm text-muted">Set <code>NEXT_PUBLIC_FEE_WALLET</code> to start collecting fees.</p>
+          <p className="p-6 text-center text-sm text-muted">Couldn&apos;t read the fee wallet from the factory contract right now.</p>
         ) : !rev.recent.length ? (
           <p className="p-6 text-center text-sm text-muted">{rev.live ? "No incoming transfers yet." : "TonAPI didn't respond."}</p>
         ) : (

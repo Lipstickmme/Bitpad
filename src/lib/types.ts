@@ -65,8 +65,17 @@ export interface MarketToken {
   buys24h: number | null;
   sells24h: number | null;
   createdAt?: number;
-  /** Launched through the Bitpad factory */
-  bitpad?: { index: number; creator?: string };
+  /** Launched through the Bitpad factory — trades on its BitpadPool */
+  bitpad?: {
+    index: number;
+    creator?: string;
+    pool?: string;
+    pairMaster?: string | null; // null = TON
+    pairDecimals?: number;
+    tradingOpen?: boolean;
+    protocolFeeBps?: number;
+    creatorFeeBps?: number;
+  };
   socials?: { telegram?: string; x?: string; website?: string };
   /** Which APIs supplied this record */
   sources: string[];

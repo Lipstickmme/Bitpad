@@ -18,7 +18,7 @@ value fails, the UI shows "—" or an explicit "unavailable" message instead of 
 | Trade history | GeckoTerminal trades → STON.fi operations | refreshes every 15s |
 | Holders | TonAPI → toncenter v3 | |
 | **Buy / sell any TON jetton** | STON.fi v2 + DeDust v2 via TON Connect | real quotes; pay with TON, USDT, $GRAM, USDC |
-| Platform fee on trades | STON.fi referral / DeDust fee transfer | `NEXT_PUBLIC_FEE_WALLET` |
+| Platform fee on trades | Bitpad pools: on-chain · STON.fi referral / DeDust transfer | fee wallet read from the factory |
 | Stock / gold / crypto prices | Pyth → Yahoo → Jupiter / CoinGecko | real 24h change |
 | Dividend yield (TTM) | Yahoo Finance dividend history | |
 | Analytics dashboard | GeckoTerminal (→ DexScreener) + DefiLlama | volume, wins/losses, FOMO, 14-day history |
@@ -28,19 +28,20 @@ value fails, the UI shows "—" or an explicit "unavailable" message instead of 
 | Revenue page | TonAPI events on the fee wallet | TON actually received + the on-chain fee/referral model |
 | Login | TON Connect, Solana, EVM | Telegram needs `TELEGRAM_BOT_TOKEN` |
 
-## Environment variables
+## Configuration
 
-| Variable | | Purpose |
-| --- | --- | --- |
-| `NEXT_PUBLIC_BITPAD_FACTORY` | required | Deployed factory. Launch fee, trade fees and minimum liquidity are read from it on-chain; a testnet address switches the app to testnet. |
-| `NEXT_PUBLIC_FEE_WALLET` | required | Receives the fee on STON.fi / DeDust routes. |
-| `TONCENTER_API_KEY` | optional | Higher TON RPC limits (@tonapibot). Server-only; the browser uses the `/api/ton-rpc` proxy. |
-| `TONAPI_KEY` | optional | Higher TonAPI limits (tonconsole.com). |
-| `TELEGRAM_BOT_TOKEN` | optional | Telegram login, Mini App and bot. Bot username, session and webhook secrets are derived from it. |
-| `NEXT_PUBLIC_APP_URL` | optional | Custom domain only; otherwise Vercel's production URL. |
+**No environment variables are required.** The deployed contracts are public addresses in `src/lib/config.ts`:
 
-Non-secret settings (fee on STON.fi/DeDust routes, social links) are constants in
-`src/lib/config.ts`. $GRAM/USDC addresses are resolved live from STON.fi.
+| Constant | Mainnet |
+| --- | --- |
+| `FACTORY_ADDRESS` | `EQCZ9eHWHr6j00Fm3vcFW9kLIyZpPJ9284y7ZzIMQhx3wz1y` |
+| `BUNDLER_ADDRESS` | `EQCRv-NxbhlN5A9FRne7HhVpq1weRKumxscL6334xu2-xVTY` |
+
+Launch fee, trade fees, minimum liquidity, the fee wallet and the enabled pair assets are read from the factory
+on-chain; the network follows the factory address.
+
+Optional, server-only: `TONCENTER_API_KEY` (recommended for mainnet — @tonapibot), `TONAPI_KEY` (tonconsole.com),
+`TELEGRAM_BOT_TOKEN` (Telegram login, Mini App and bot).
 
 ## Setup steps
 

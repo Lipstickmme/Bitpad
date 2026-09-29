@@ -1,10 +1,12 @@
 import "server-only";
 import { config } from "./config";
+import { ensureRuntimeConfig } from "./runtime";
 import { accountEvents, accountTon, friendly } from "./data/tonapi";
 import { safe } from "./data/http";
 
 /** Real revenue: TON actually received by the fee wallet (TonAPI events). */
 export async function getFeeRevenue() {
+  await ensureRuntimeConfig();
   if (!config.feeWallet) return { configured: false as const };
   const me = friendly(config.feeWallet);
   const [bal, events] = await Promise.all([safe(accountTon(config.feeWallet), null as number | null, "fee balance"), safe(accountEvents(config.feeWallet, 100), [], "fee events")]);

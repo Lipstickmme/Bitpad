@@ -1,4 +1,4 @@
-import { Address, beginCell, toNano, type Cell } from "@ton/core";
+import { Address, beginCell, Dictionary, toNano, type Cell } from "@ton/core";
 import { config } from "../config";
 import type { TcMessage } from "./client";
 
@@ -16,6 +16,7 @@ export const OP = {
   AddReferrer: 0x42504c55,
   RemoveReferrer: 0x42504c56,
   ClaimReferral: 0x42504c57,
+  BundleBuy: 0x42504c60,
   JettonTransfer: 0x0f8a7ea5,
 } as const;
 
@@ -53,7 +54,6 @@ export function contentCell(p: LaunchParams): Cell {
 const raw = (p: LaunchParams) => p.supply * 10n ** BigInt(p.decimals ?? 9);
 
 function factory() {
-  if (!config.factoryAddress) throw new Error("NEXT_PUBLIC_BITPAD_FACTORY is not configured");
   return config.factoryAddress;
 }
 
@@ -144,4 +144,48 @@ export function buildReferrerTx(pool: string, referrer: string, remove = false):
 export function buildClaimReferralTx(pool: string): TcMessage {
   const b = beginCell().storeUint(OP.ClaimReferral, 32).storeUint(0, 64).endCell();
   return { address: pool, amount: toNano("0.1").toString(), payload: b.toBoc().toString("base64") };
+}
+
+/** Anyone: pay a pool's accrued protocol fees → fee wallet and creator fees → creator. */
+export function buildClaimFeesTx(pool: string, jettonPair = false): TcMessage {
+  const b = beginCell().storeUint(OP.ClaimFees, 32).storeUint(0, 64).endCell();
+  return { address: pool, amount: toNano(jettonPair ? "0.25" : "0.1").toString(), payload: b.toBoc().toString("base64") };
+}
+
+/** Per-leg gas the bundler requires (LEG_GAS in contracts/bundler.tact). */
+export const LEG_GAS = toNano("0.12");
+
+export interface BundleLegInput {
+  recipient: string;
+  amount: bigint; // nanoTON spent on this leg
+  minOut: bigint;
+}
+
+/**
+ * One transaction that buys from a TON-paired Bitpad pool into up to 100
+ * wallets (BitpadBundler). All legs use the same referral link.
+ */
+export function buildBundleBuyTx(p: { pool: string; referrer: string; legs: BundleLegInput[]; feeBps?: number }): TcMessage {
+  if (!p.legs.length || p.legs.length > 100) throw new Error("1–100 wallets per bundle");
+  const legValue = {
+    serialize: (src: BundleLegInput, b: import("@ton/core").Builder) => {
+      b.storeRef(beginCell().storeAddress(Address.parse(src.recipient)).storeCoins(src.amount).storeCoins(src.minOut).endCell());
+    },
+    parse: () => {
+      throw new Error("write-only");
+    },
+  };
+  const dict = Dictionary.empty(Dictionary.Keys.Uint(8), legValue);
+  p.legs.forEach((l, i) => dict.set(i, l));
+  const body = beginCell()
+    .storeUint(OP.BundleBuy, 32)
+    .storeUint(BigInt(Date.now()), 64)
+    .storeAddress(Address.parse(p.pool))
+    .storeAddress(Address.parse(p.referrer))
+    .storeUint(p.legs.length, 8)
+    .storeDict(dict)
+    .endCell();
+  const total = p.legs.reduce((s, l) => s + l.amount, 0n);
+  const fee = (total * BigInt(p.feeBps ?? 0)) / 10_000n;
+  return { address: config.bundlerAddress, amount: (total + BigInt(p.legs.length) * LEG_GAS + fee + toNano("0.05")).toString(), payload: body.toBoc().toString("base64") };
 }

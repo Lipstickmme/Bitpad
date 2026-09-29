@@ -217,7 +217,7 @@ npm install
 npm test                    # compiles the contracts + runs all tests — must pass
 
 # 1. Rehearse on testnet: NETWORK=testnet in .env.deploy (test TON from @testgiver_ton_bot)
-npm run deploy:factory      # prints NEXT_PUBLIC_BITPAD_FACTORY=…
+npm run deploy:factory      # prints the factory address → FACTORY_ADDRESS in src/lib/config.ts
 npm run deploy:bundler      # optional
 
 # 2. Mainnet: set NETWORK=mainnet, then run the same two commands again

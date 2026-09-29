@@ -29,6 +29,6 @@ import { deployer, env } from "./lib";
 
   if (await d.client.isContractDeployed(factory.address)) return console.log("Already deployed ✓");
   await d.send(factory.address, toNano("0.3"), undefined, factory.init!);
-  if (await d.waitDeployed(factory.address)) console.log(`Deployed ✓\n\nNEXT_PUBLIC_BITPAD_FACTORY=${d.fmt(factory.address)}`);
+  if (await d.waitDeployed(factory.address)) console.log(`Deployed ✓\n\nFactory: ${d.fmt(factory.address)}  → set FACTORY_ADDRESS in src/lib/config.ts`);
   else console.log("Not visible yet — check the address in an explorer.");
 })().catch((e) => { console.error(e.message ?? e); process.exit(1); });

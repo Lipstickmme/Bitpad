@@ -1,14 +1,18 @@
 import { Address } from "@ton/core";
 
 /*
- * Environment variables (see .env.example):
- *   required  NEXT_PUBLIC_BITPAD_FACTORY   deployed BitpadFactory address
- *   required  NEXT_PUBLIC_FEE_WALLET       receives trading fees on STON.fi / DeDust routes
- *   optional  TONCENTER_API_KEY, TONAPI_KEY, TELEGRAM_BOT_TOKEN, NEXT_PUBLIC_APP_URL
- * Everything else is a constant below or read from the chain.
+ * Deployed contracts are public on-chain addresses, so they live here rather
+ * than in environment variables. Environment variables are only used for
+ * secrets / rate-limit keys (all server-only):
+ *   TONCENTER_API_KEY, TONAPI_KEY, TELEGRAM_BOT_TOKEN   (all optional)
  */
 
-const factoryAddress = process.env.NEXT_PUBLIC_BITPAD_FACTORY ?? "";
+/** BitpadFactory on mainnet (deployed 2026-09-28). */
+export const FACTORY_ADDRESS = "EQCZ9eHWHr6j00Fm3vcFW9kLIyZpPJ9284y7ZzIMQhx3wz1y";
+/** BitpadBundler on mainnet. */
+export const BUNDLER_ADDRESS = "EQCRv-NxbhlN5A9FRne7HhVpq1weRKumxscL6334xu2-xVTY";
+
+const factoryAddress = FACTORY_ADDRESS;
 
 /** Network follows the factory address: testnet addresses carry the test-only flag. */
 export function networkOf(addr: string): "mainnet" | "testnet" {
@@ -19,9 +23,8 @@ export function networkOf(addr: string): "mainnet" | "testnet" {
   }
 }
 
-/** Public URL: explicit override → Vercel production URL → browser origin → local dev. */
+/** Public URL: browser origin → Vercel production URL → local dev. */
 function appUrl() {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   if (typeof window !== "undefined") return window.location.origin;
   if (process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL}`;
   return "http://localhost:3000";
@@ -32,8 +35,10 @@ export const config = {
   appName: "Bitpad",
   appUrl: appUrl(),
   factoryAddress,
+  bundlerAddress: BUNDLER_ADDRESS,
   network: networkOf(factoryAddress),
-  feeWallet: process.env.NEXT_PUBLIC_FEE_WALLET ?? "",
+  /** The factory's fee wallet — read on-chain at startup (see lib/runtime.ts and Providers). */
+  feeWallet: "",
   /** Fee on STON.fi / DeDust routes, in basis points (max 100 = 1%, STON.fi's referral cap).
    *  Bitpad pools charge the fees set in the factory contract instead. */
   swapFeeBps: 50,

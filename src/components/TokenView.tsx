@@ -9,6 +9,8 @@ import { AssetDot, Change, PairBadge, Stat, TokenAvatar, orDash } from "./ui";
 import { CopyButton } from "./CopyButton";
 import { PriceChart } from "./PriceChart";
 import { TradePanel } from "./TradePanel";
+import { BitpadTradePanel } from "./bitpad/BitpadTradePanel";
+import { ReferralPanel } from "./bitpad/ReferralPanel";
 import { PairValuation } from "./PairValuation";
 import { ActivityTabs } from "./ActivityTabs";
 import { TelegramIcon, XIcon } from "./Brand";
@@ -43,8 +45,14 @@ export function TokenView({ token }: { token: MarketToken }) {
             </div>
           </div>
           <div className="flex flex-wrap gap-2 sm:ml-auto">
-            <a className="btn btn-ghost" href={dexUrl} target="_blank" rel="noreferrer">{token.dex?.includes("dedust") ? "DeDust" : "STON.fi"} <ExternalLink className="size-3.5" /></a>
-            {token.poolAddress && <a className="btn btn-ghost" href={`https://www.geckoterminal.com/ton/pools/${token.poolAddress}`} target="_blank" rel="noreferrer">GeckoTerminal <ExternalLink className="size-3.5" /></a>}
+            {token.bitpad?.pool ? (
+              <a className="btn btn-ghost" href={`https://tonviewer.com/${token.bitpad.pool}`} target="_blank" rel="noreferrer">Pool contract <ExternalLink className="size-3.5" /></a>
+            ) : (
+              <>
+                <a className="btn btn-ghost" href={dexUrl} target="_blank" rel="noreferrer">{token.dex?.includes("dedust") ? "DeDust" : "STON.fi"} <ExternalLink className="size-3.5" /></a>
+                {token.poolAddress && <a className="btn btn-ghost" href={`https://www.geckoterminal.com/ton/pools/${token.poolAddress}`} target="_blank" rel="noreferrer">GeckoTerminal <ExternalLink className="size-3.5" /></a>}
+              </>
+            )}
             <a className="btn btn-ghost" href={`https://tonviewer.com/${token.address}`} target="_blank" rel="noreferrer">Tonviewer <ExternalLink className="size-3.5" /></a>
           </div>
         </div>
@@ -66,7 +74,8 @@ export function TokenView({ token }: { token: MarketToken }) {
           <ActivityTabs token={token} />
         </div>
         <aside className="space-y-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-          <TradePanel token={token} livePrice={px} />
+          {token.bitpad?.pool ? <BitpadTradePanel token={token} /> : <TradePanel token={token} livePrice={px} />}
+          {token.bitpad?.pool && <ReferralPanel token={token} />}
           <PairValuation token={token} />
           <div className="card p-4">
             <h3 className="text-sm font-semibold">About</h3>

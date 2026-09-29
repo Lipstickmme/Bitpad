@@ -9,6 +9,8 @@ import { friendly, jettonHolders, jettonInfo, rateChart } from "./data/tonapi";
 import { tcJettonHolders, tcJettonMaster } from "./data/toncenter";
 import { firstOf, memo, safe } from "./data/http";
 import { TON_ASSETS } from "./config";
+import { eventsToCandles, eventsToTrades, poolEvents, readPool } from "./bitpad";
+import { spotPrice } from "./bitpad-math";
 import type { Candle, Holder, MarketToken, PairAsset, Trade } from "./types";
 
 const TON_LIKE = new Set(["TON", "PTON", "WTON", "PROXY_TON"]);
@@ -100,49 +102,73 @@ export async function getTonMarket(): Promise<{ tokens: MarketToken[]; source: s
   return { tokens: res.value ?? [], source: res.source };
 }
 
-/** Bitpad launches enriched with live market data (DexScreener → GeckoTerminal → STON.fi). */
+/** Bitpad launches with market data computed from their pools on-chain. */
 export async function getBitpadTokens(): Promise<{ tokens: MarketToken[]; count: number; factory: string | null; ok: boolean }> {
-  const { launches, count, factory, ok } = await getLaunches();
-  if (!launches.length) return { tokens: [], count, factory, ok };
-  const addrs = launches.map((l) => l.minter);
-  const [ds, gk] = await Promise.all([safe(dsTokenPairs("ton", addrs), [], "ds launches"), safe(tokensMulti("ton", addrs), [], "gecko launches")]);
-  const tokens = await Promise.all(launches.map(async (l) => {
-    const pools = ds.value.filter((p) => p.baseAddress === l.minter || p.quoteAddress === l.minter).sort((a, b) => b.liquidityUsd - a.liquidityUsd);
-    const g = gk.value.find((x) => x.address === l.minter);
-    const top = pools[0];
-    const sa = !top && !g ? await stonAsset(l.minter).catch(() => undefined) : undefined;
-    return launchToken(l, top, g, sa?.dexPriceUsd ? Number(sa.dexPriceUsd) : null);
-  }));
-  return { tokens, count, factory, ok };
+  return memo("bitpad:tokens", 20_000, async () => {
+    const { launches, count, factory, ok } = await getLaunches(30);
+    const tokens = (await Promise.all(launches.map((l) => bitpadToken(l).catch(() => null)))).filter((t): t is MarketToken => !!t);
+    return { tokens, count, factory, ok };
+  });
 }
 
-async function launchToken(l: Launch, top?: GeckoPoolRow, g?: Awaited<ReturnType<typeof tokensMulti>>[number], stonPrice?: number | null): Promise<MarketToken> {
-  const pair = await pairFor(l.meta.bitpad_pair ?? top?.quote ?? "TON", l.pairAddress ?? top?.quoteAddress);
-  const priceUsd = top?.priceUsd || g?.priceUsd || stonPrice || null;
+/** Build a MarketToken for a Bitpad launch from BitpadPool state + Swapped events. */
+async function bitpadToken(l: Launch): Promise<MarketToken> {
+  const [pool, meta] = await Promise.all([l.pool ? readPool(l.pool).catch(() => null) : null, jettonInfo(l.minter).catch(() => null)]);
+  const pair = await pairFor(pool?.pairMaster ? l.meta.bitpad_pair ?? "?" : "TON", pool?.pairMaster ?? TON_ASSETS.TON);
+  const pairUsd = pair.priceUsd;
+  const supply = l.supply ? Number(l.supply) / 1e9 : null;
+  let priceUsd: number | null = null;
+  let liquidityUsd: number | null = null;
+  let volume24h: number | null = null;
+  let change24h: number | null = null;
+  let buys = 0;
+  let sells = 0;
+  let created: number | undefined;
+  let source: string | null = null;
+  if (pool) {
+    const st = { reserveToken: BigInt(pool.reserveToken), reservePair: BigInt(pool.reservePair) };
+    const pxPair = spotPrice(st, pool.pairDecimals);
+    priceUsd = pairUsd != null ? pxPair * pairUsd : null;
+    liquidityUsd = pairUsd != null ? 2 * (Number(st.reservePair) / 10 ** pool.pairDecimals) * pairUsd : null;
+    const ev = await poolEvents(pool.address);
+    source = ev.source;
+    const dayAgo = Date.now() - 86_400_000;
+    const recent = ev.events.filter((e) => e.time >= dayAgo);
+    buys = recent.filter((e) => e.buy).length;
+    sells = recent.length - buys;
+    const pairVol = recent.reduce((acc, e) => acc + Number(e.buy ? e.amountIn : e.amountOut) / 10 ** pool.pairDecimals, 0);
+    volume24h = pairUsd != null ? pairVol * pairUsd : null;
+    // price 24h ago = price after the last trade before the window (or the oldest trade we have)
+    const before = ev.events.find((e) => e.time < dayAgo) ?? ev.events[ev.events.length - 1];
+    if (before && pxPair) change24h = ((pxPair - spotPrice(before, pool.pairDecimals)) / spotPrice(before, pool.pairDecimals)) * 100;
+    created = ev.events.length ? ev.events[ev.events.length - 1].time : undefined;
+  }
   return {
     address: l.minter,
-    symbol: l.meta.symbol ?? g?.symbol ?? "?",
-    name: l.meta.name ?? g?.name ?? "Unnamed",
-    image: l.meta.image || g?.image,
-    description: l.meta.description,
-    decimals: Number(l.meta.decimals ?? 9),
-    totalSupply: g?.totalSupply ?? null,
-    holders: null,
+    symbol: l.meta.symbol ?? meta?.metadata.symbol ?? "?",
+    name: l.meta.name ?? meta?.metadata.name ?? "Unnamed",
+    image: l.meta.image || meta?.metadata.image,
+    description: l.meta.description ?? meta?.metadata.description,
+    decimals: 9,
+    totalSupply: supply,
+    holders: meta?.holders_count ?? null,
     pair,
-    poolAddress: top?.poolAddress,
-    poolSide: top ? (top.baseAddress === l.minter ? "base" : "quote") : undefined,
-    dex: top?.dexId,
+    poolAddress: pool?.address,
+    poolSide: "base",
+    dex: "bitpad",
     priceUsd,
-    marketCap: top?.marketCap ?? g?.marketCap ?? null,
-    fdv: top?.fdv || g?.fdv || null,
-    liquidityUsd: top?.liquidityUsd || g?.liquidityUsd || null,
-    volume24h: top?.volume24h ?? g?.volume24h ?? null,
-    change24h: top?.change24h ?? null,
-    changes: top ? { m5: top.changeM5, h1: top.change1h, h6: top.changeH6, h24: top.change24h } : undefined,
-    buys24h: top?.buys24h ?? null,
-    sells24h: top?.sells24h ?? null,
-    bitpad: { index: l.index, creator: l.creator },
-    sources: ["Bitpad factory", top ? "DexScreener" : g ? "GeckoTerminal" : stonPrice ? "STON.fi" : ""].filter(Boolean),
+    marketCap: priceUsd != null && supply ? priceUsd * supply : null,
+    fdv: priceUsd != null && supply ? priceUsd * supply : null,
+    liquidityUsd,
+    volume24h,
+    change24h,
+    buys24h: pool ? buys : null,
+    sells24h: pool ? sells : null,
+    createdAt: created,
+    bitpad: pool
+      ? { index: l.index, creator: pool.creator, pool: pool.address, pairMaster: pool.pairMaster, pairDecimals: pool.pairDecimals, tradingOpen: pool.tradingOpen, protocolFeeBps: pool.protocolFeeBps, creatorFeeBps: pool.creatorFeeBps }
+      : { index: l.index, creator: l.creator, pool: l.pool },
+    sources: ["Bitpad pool (on-chain)", source ? `trades via ${source}` : ""].filter(Boolean),
   };
 }
 
@@ -176,6 +202,8 @@ export async function getToken(address: string): Promise<MarketToken | undefined
   ]);
   const m = meta.value;
   const launch = launches.launches.find((l) => l.minter === addr);
+  // Bitpad launches trade on their own pool — build the token from chain state
+  if (launch?.pool) return bitpadToken(launch);
   const top = pools.value?.sort((a, b) => b.liquidityUsd - a.liquidityUsd)[0];
   if (!m && !top && !launch) return undefined;
 
@@ -240,6 +268,10 @@ export { TIMEFRAMES, type Timeframe };
 /** Candles: GeckoTerminal OHLCV → TonAPI price chart (line → candles). */
 export async function getCandles(token: MarketToken, tf: Timeframe): Promise<{ candles: Candle[]; source: string | null }> {
   const [unit, agg, step] = TIMEFRAMES[tf];
+  if (token.bitpad?.pool) {
+    const ev = await poolEvents(token.bitpad.pool);
+    return { candles: eventsToCandles(ev.events, token.bitpad.pairDecimals ?? 9, token.pair.priceUsd, step), source: ev.source ? `Bitpad pool · ${ev.source}` : null };
+  }
   const res = await firstOf<Candle[]>("candles", [
     ["GeckoTerminal", async () => {
       if (!token.poolAddress) return [];
@@ -259,6 +291,10 @@ export async function getCandles(token: MarketToken, tf: Timeframe): Promise<{ c
 
 /** Trades: GeckoTerminal → STON.fi operations for the pool. */
 export async function getTrades(token: MarketToken): Promise<{ trades: Trade[]; source: string | null }> {
+  if (token.bitpad?.pool) {
+    const ev = await poolEvents(token.bitpad.pool);
+    return { trades: eventsToTrades(ev.events.slice(0, 100), token.bitpad.pairDecimals ?? 9, token.pair.priceUsd, "Bitpad"), source: ev.source };
+  }
   if (!token.poolAddress) return { trades: [], source: null };
   const res = await firstOf<Trade[]>("trades", [
     ["GeckoTerminal", async () => {

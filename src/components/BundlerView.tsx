@@ -6,6 +6,7 @@ import type { BundleProgress, BundleWallet, SplitMode } from "@/lib/ton/bundler"
 import { shortAddr, num } from "@/lib/format";
 import { toast } from "./Toast";
 import { CopyButton } from "./CopyButton";
+import { OnchainBundle } from "./bitpad/OnchainBundle";
 
 type Lib = typeof import("@/lib/ton/bundler");
 const loadLib = () => import("@/lib/ton/bundler");
@@ -220,8 +221,10 @@ export function BundlerView() {
             <button onClick={fund} disabled={!active.length || fundTotal <= 0} className="btn btn-ghost mt-3 w-full">{wallet ? `Send to ${active.length} wallets` : "Connect TON wallet"}</button>
           </section>
 
+          <OnchainBundle recipients={active.map((w) => ({ address: w.address, label: w.label }))} splits={tradeSplit} slippage={slippage} />
+
           <section className="card p-4">
-            <h3 className="flex items-center gap-2 text-sm font-semibold"><Zap className="size-4" /> Bundle trade</h3>
+            <h3 className="flex items-center gap-2 text-sm font-semibold"><Zap className="size-4" /> Bundle trade (any TON token, STON.fi)</h3>
             <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
               {(["buy", "sell"] as const).map((s) => (
                 <button key={s} onClick={() => setSide(s)} className={`rounded-lg py-1.5 text-sm font-bold capitalize ${side === s ? (s === "buy" ? "bg-up text-white" : "bg-down text-white") : "text-muted"}`}>{s}</button>

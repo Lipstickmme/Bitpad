@@ -4,7 +4,6 @@ import { Cell, toNano } from "@ton/core";
 import { loadLaunch, loadLaunchWithJetton, loadTokenTransfer } from "../contracts/build/BitpadFactory_BitpadFactory";
 import { loadBuyTon, loadSwapIntent } from "../contracts/build/BitpadFactory_BitpadPool";
 
-process.env.NEXT_PUBLIC_BITPAD_FACTORY = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
 process.env.NEXT_PUBLIC_APP_URL = "https://bitpad.example";
 const USER = "EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2";
 const params = { name: "S&P Cat", symbol: "SPYCAT", description: "cat", image: "https://x/y.png", supply: 1_000_000_000n, pairSymbol: "SPYx", creatorBps: 500 };
@@ -28,7 +27,8 @@ test("jetton launch, buy and sell bodies decode", async () => {
   const jl = buildJettonLaunchTx({ ...params, creatorPairWallet: USER, creator: USER, pairUnits: 5000n * 10n ** 6n, launchFee: toNano("1") });
   const t = loadTokenTransfer(Cell.fromBase64(jl.payload!).beginParse());
   assert.equal(t.amount, 5000n * 10n ** 6n);
-  assert.equal(t.destination.toString(), process.env.NEXT_PUBLIC_BITPAD_FACTORY);
+  const { FACTORY_ADDRESS } = await import("../src/lib/config");
+  assert.equal(t.destination.toString(), FACTORY_ADDRESS, "jetton launches go to the mainnet factory");
   const fp = t.forwardPayload;
   assert.equal(fp.loadBit(), true);
   assert.equal(loadLaunchWithJetton(fp.loadRef().beginParse()).creatorBps, 500n);

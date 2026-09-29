@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import { Check, Info, Rocket, Search } from "lucide-react";
 import type { PairAsset, PairKind } from "@/lib/types";
@@ -14,9 +15,12 @@ const KINDS: PairKind[] = ["stock", "commodity", "jetton", "crypto"];
 type Step = "form" | "deploying" | "seeding" | "done";
 
 /** Live factory settings, read on-chain by the server (null when the factory isn't deployed/reachable). */
-export interface FactoryInfo { launchFee: string; minTonLiquidity: string; tradeFeeBps: number }
+export interface FactoryInfo { launchFee: string; minTonLiquidity: string; tradeFeeBps: number; launches: number }
 
-export function LaunchForm({ assets, factory }: { assets: PairAsset[]; factory: FactoryInfo | null }) {
+export interface RegisteredPairInfo { master: string; decimals: number; minLiquidity: string }
+
+export function LaunchForm({ assets, factory, registeredPairs }: { assets: PairAsset[]; factory: FactoryInfo | null; registeredPairs: RegisteredPairInfo[] }) {
+  const router = useRouter();
   const wallet = useTonAddress();
   const [tc] = useTonConnectUI();
   const [kind, setKind] = useState<PairKind>("stock");
@@ -37,9 +41,12 @@ export function LaunchForm({ assets, factory }: { assets: PairAsset[]; factory: 
   const pairAddress = customJetton || pair.tonAddress;
   const onChainPair = !!pairAddress;
   const isTonPair = !pairAddress || pairAddress === TON_ASSETS.TON;
+  // Jetton pairs must be registered + enabled in the factory, else the launch would be refunded
+  const reg = !isTonPair ? registeredPairs.find((r) => r.master === pairAddress) : undefined;
+  const pairUsable = isTonPair || !!reg;
   const minTon = factory ? Number(factory.minTonLiquidity) / 1e9 : 0;
   const belowMin = isTonPair && pairUnits != null && pairUnits < minTon;
-  const valid = !belowMin && f.name.trim().length >= 2 && /^[A-Z0-9]{2,10}$/.test(f.symbol) && supply > 0 && pairUsd > 0 && pairUnits != null;
+  const valid = pairUsable && !belowMin && f.name.trim().length >= 2 && /^[A-Z0-9]{2,10}$/.test(f.symbol) && supply > 0 && pairUsd > 0 && pairUnits != null;
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setF((s) => ({ ...s, [k]: k === "symbol" ? e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") : e.target.value }));
@@ -48,7 +55,7 @@ export function LaunchForm({ assets, factory }: { assets: PairAsset[]; factory: 
     haptic("medium");
     if (!wallet) return tc.openModal();
     if (!config.factoryAddress || !factory) {
-      toast.info("Factory not deployed", "Deploy BitpadFactory (npm run deploy:factory) and set NEXT_PUBLIC_BITPAD_FACTORY to launch on-chain.");
+      toast.error("Factory unreachable", "Couldn't read the Bitpad factory contract just now — refresh and try again.");
       return;
     }
     try {
@@ -66,13 +73,25 @@ export function LaunchForm({ assets, factory }: { assets: PairAsset[]; factory: 
         const { tonClient } = await import("@/lib/ton/client");
         const master = tonClient().open(JettonMaster.create(Address.parse(pairAddress)));
         const myWallet = (await master.getWalletAddress(Address.parse(wallet))).toString();
-        const decimals = pairAddress === TON_ASSETS.USDT ? 6 : 9;
+        const decimals = reg?.decimals ?? 9;
         message = buildJettonLaunchTx({ ...base, creatorPairWallet: myWallet, creator: wallet, pairUnits: BigInt(Math.floor(pairUnits! * 10 ** decimals)) });
       }
       await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [message] });
-      setStep("done");
       haptic("success");
-      toast.success(`$${f.symbol} is launching`, `Token and ${f.symbol}/${pair.symbol} pool deploy in one go — liquidity is locked and trading opens as soon as it lands.`);
+      toast.success(`$${f.symbol} is launching`, `Token and ${f.symbol}/${pair.symbol} pool deploy in one go — liquidity is locked. Waiting for it to land on-chain…`);
+      // Find the new launch in the factory registry, then open its page
+      for (let i = 0; i < 40; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const d = await fetch(`/api/bitpad/launch-of?creator=${encodeURIComponent(wallet)}&since=${factory!.launches}`).then((r) => r.json()).catch(() => null);
+        if (d?.launch?.minter) {
+          setStep("done");
+          toast.success(`$${f.symbol} is live`, "Opening your token page — add referral links there.");
+          router.push(`/token/${d.launch.minter}`);
+          return;
+        }
+      }
+      setStep("done");
+      toast.info("Still confirming", "Your launch was sent; it'll appear under Bitpad launches shortly.");
     } catch (e) {
       setStep("form");
       haptic("error");
@@ -129,11 +148,15 @@ export function LaunchForm({ assets, factory }: { assets: PairAsset[]; factory: 
           <Field label="…or pair with any TON jetton (paste master address)" className="mt-3">
             <input className="input font-mono text-xs" value={customJetton} onChange={(e) => setCustomJetton(e.target.value.trim())} placeholder="EQ…" />
           </Field>
-          <p className={`mt-3 flex items-start gap-2 rounded-lg p-2.5 text-xs ${onChainPair ? "bg-up-soft text-up" : "bg-warn-soft text-warn"}`}>
+          <p className={`mt-3 flex items-start gap-2 rounded-lg p-2.5 text-xs ${pairUsable ? "bg-up-soft text-up" : "bg-warn-soft text-warn"}`}>
             <Info className="mt-0.5 size-3.5 shrink-0" />
-            {onChainPair
-              ? `${pair.symbol} is available as a TON jetton — your pool is created on STON.fi at launch.`
-              : `${pair.symbol} lives on another chain. Bridge it to a TON jetton (or paste one above) to seed the pool; buyers can still route in from ${pair.chain} via cross-chain routes.`}
+            {isTonPair
+              ? "TON pair — your token and its Bitpad pool are created in one transaction, with the liquidity locked."
+              : pairUsable
+                ? `${pair.symbol} is enabled on Bitpad — you send ${pair.symbol} as the pool's liquidity in the launch transaction.`
+                : onChainPair
+                  ? `${pair.symbol} exists on TON but isn't enabled as a Bitpad pair yet (the factory owner registers pairs with npm run pair:add).`
+                  : `${pair.symbol} lives on another chain. It can be paired once a TON version is bridged and registered.`}
           </p>
         </section>
 
@@ -180,7 +203,7 @@ export function LaunchForm({ assets, factory }: { assets: PairAsset[]; factory: 
             <Rocket className="size-4" />
             {!wallet ? "Connect TON wallet" : step === "deploying" ? "Deploying jetton…" : step === "done" ? "Launched ✓" : "Launch & add liquidity"}
           </button>
-          {!valid && <p className="mt-2 text-center text-xs text-muted">{pairUnits == null ? `No live price for ${pair.symbol} right now.` : belowMin ? `Minimum liquidity is ${minTon} TON.` : "Name, a 2–10 character ticker and liquidity are required."}</p>}
+          {!valid && <p className="mt-2 text-center text-xs text-muted">{!pairUsable ? `${pair.symbol} isn't enabled as a pair on Bitpad yet — pick TON or an enabled pair.` : pairUnits == null ? `No live price for ${pair.symbol} right now.` : belowMin ? `Minimum liquidity is ${minTon} TON.` : "Name, a 2–10 character ticker and liquidity are required."}</p>}
         </div>
         <div className="card p-4 text-xs text-ink-2">
           <div className="mb-1 font-bold text-ink">Why direct liquidity?</div>

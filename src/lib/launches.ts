@@ -12,13 +12,16 @@ import { memo } from "./data/http";
 export interface Launch {
   index: number;
   minter: string;
+  pool?: string;
+  /** total supply in raw units */
+  supply?: string;
   creator?: string;
   pairAddress?: string;
   meta: { name?: string; symbol?: string; description?: string; image?: string; decimals?: string; bitpad_pair?: string };
 }
 
 let client: TonClient | undefined;
-function tc() {
+export function tc() {
   client ??= new TonClient({
     endpoint: config.network === "testnet" ? "https://testnet.toncenter.com/api/v2/jsonRPC" : "https://toncenter.com/api/v2/jsonRPC",
     apiKey: process.env.TONCENTER_API_KEY || undefined,
@@ -26,7 +29,7 @@ function tc() {
   return client;
 }
 
-const fmt = (a: Address) => a.toString({ testOnly: config.network === "testnet" });
+export const fmt = (a: Address) => a.toString({ testOnly: config.network === "testnet" });
 
 /** Decode TEP-64 off-chain content (0x01 + URI). Bitpad URIs embed the JSON in `d`. */
 export async function decodeContent(cell: Cell): Promise<Launch["meta"]> {
@@ -53,8 +56,11 @@ async function readLaunch(factory: Address, index: number): Promise<Launch | nul
   const m = await tc().runMethod(factory, "minter", args.build());
   const minter = m.stack.readAddressOpt();
   if (!minter) return null;
+  const pArgs = new TupleBuilder();
+  pArgs.writeNumber(index);
+  const pool = (await tc().runMethod(factory, "pool", pArgs.build())).stack.readAddressOpt();
   const data = await tc().runMethod(minter, "get_jetton_data");
-  data.stack.readBigNumber(); // total supply
+  const supply = data.stack.readBigNumber();
   data.stack.readBoolean(); // mintable
   data.stack.readAddress(); // admin
   const meta = await decodeContent(data.stack.readCell());
@@ -68,7 +74,7 @@ async function readLaunch(factory: Address, index: number): Promise<Launch | nul
   } catch {
     /* older minter without bitpad_info */
   }
-  return { index, minter: fmt(minter), creator, pairAddress, meta };
+  return { index, minter: fmt(minter), pool: pool ? fmt(pool) : undefined, supply: supply.toString(), creator, pairAddress, meta };
 }
 
 /** Latest launches, newest first. Empty when no factory is configured. */
@@ -91,6 +97,7 @@ export async function getLaunches(limit = 60): Promise<{ launches: Launch[]; cou
 }
 
 export interface FactoryConfig {
+  launches: number;
   feeWallet: string;
   launchFee: bigint;
   protocolFeeBps: number;
@@ -102,7 +109,7 @@ export interface FactoryConfig {
 export async function getFactoryConfig(): Promise<FactoryConfig | null> {
   if (!config.factoryAddress) return null;
   try {
-    return await memo("factory:config", 60_000, async () => {
+    return await memo("factory:config", 15_000, async () => {
       const s = (await tc().runMethod(Address.parse(config.factoryAddress), "config")).stack.readTuple();
       s.readAddress(); // owner
       const feeWallet = fmt(s.readAddress());
@@ -110,10 +117,46 @@ export async function getFactoryConfig(): Promise<FactoryConfig | null> {
       const protocolFeeBps = s.readNumber();
       const creatorFeeBps = s.readNumber();
       const minTonLiquidity = s.readBigNumber();
-      return { feeWallet, launchFee, protocolFeeBps, creatorFeeBps, minTonLiquidity };
+      s.readBigNumber(); // tonPythFeedId
+      const launches = s.readNumber();
+      return { launches, feeWallet, launchFee, protocolFeeBps, creatorFeeBps, minTonLiquidity };
     });
   } catch (e) {
     console.warn("[factory] config read failed:", (e as Error).message);
     return null;
   }
+}
+
+export interface RegisteredPair {
+  master: string;
+  symbol: string;
+  decimals: number;
+  minLiquidity: string; // raw units
+  enabled: boolean;
+  ready: boolean; // factory discovered its wallet (TEP-89)
+}
+
+/** Which of these jetton masters are registered as pairs in the factory (pair(master) getter). */
+export async function getRegisteredPairs(masters: string[]): Promise<RegisteredPair[]> {
+  if (!config.factoryAddress || !masters.length) return [];
+  const factory = Address.parse(config.factoryAddress);
+  const out: RegisteredPair[] = [];
+  for (const m of [...new Set(masters)]) {
+    const r = await memo(`pair:${m}`, 300_000, async () => {
+      const t = new TupleBuilder();
+      t.writeAddress(Address.parse(m));
+      const s = (await tc().runMethod(factory, "pair", t.build())).stack.readTupleOpt();
+      if (!s) return null;
+      const symbol = s.readString();
+      const decimals = s.readNumber();
+      s.readNumber(); // kind
+      s.readBigNumber(); // pythFeedId
+      const minLiquidity = s.readBigNumber().toString();
+      const wallet = s.readAddressOpt();
+      const enabled = s.readBoolean();
+      return { master: m, symbol, decimals, minLiquidity, enabled, ready: !!wallet };
+    }).catch(() => null);
+    if (r) out.push(r);
+  }
+  return out;
 }
