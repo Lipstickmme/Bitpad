@@ -49,7 +49,7 @@ Optional, server-only: `TONCENTER_API_KEY` (recommended for mainnet — @tonapib
 | --- | --- |
 | **Deploy the contracts** | [`contracts/README.md`](contracts/README.md): `npm run deploy:factory`, `npm run deploy:bundler`, `npm run pair:add` |
 | Telegram bot | @BotFather → token → `TELEGRAM_BOT_TOKEN` → redeploy → open `https://<site>/api/telegram/setup` once (sets webhook + Mini App button). `/setdomain` in @BotFather enables the web login widget. |
-| Brand | replace `public/brand/logo.svg`, `public/icon-180.png`; edit `src/brand.css` |
+| Brand | replace `public/brand/logo.png` (transparent), `public/icon-180.png`, `public/favicon.png`; edit `src/brand.css` |
 
 ## Free data sources & fallback chains
 

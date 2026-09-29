@@ -30,3 +30,12 @@ export function forgetReferral(token: string) {
     /* storage unavailable */
   }
 }
+
+/** The link remembered for a token (from an earlier visit), without reading the URL. */
+export function storedReferral(token: string): string | null {
+  try {
+    return localStorage.getItem(key(token));
+  } catch {
+    return null;
+  }
+}

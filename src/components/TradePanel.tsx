@@ -105,7 +105,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
     <div className="card p-4">
       <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
         {(["buy", "sell"] as const).map((s) => (
-          <button key={s} onClick={() => setSide(s)} className={`rounded-lg py-2 text-sm font-bold capitalize ${side === s ? (s === "buy" ? "bg-up text-white" : "bg-down text-white") : "text-muted"}`}>
+          <button key={s} onClick={() => setSide(s)} className={`rounded-lg py-2 text-sm font-bold capitalize ${side === s ? (s === "buy" ? "bg-up-soft text-up" : "bg-down-soft text-down") : "text-muted"}`}>
             {s}
           </button>
         ))}

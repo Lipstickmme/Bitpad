@@ -44,10 +44,7 @@ export const config = {
   swapFeeBps: 50,
   /** Referral model enforced by BitpadPool (see contracts/pool.tact) */
   referral: { maxLinksPerToken: 20, referrerShareOfCreatorFee: 50 },
-  links: {
-    telegram: "https://t.me/bitlievers",
-    x: "https://x.com/bitlievers",
-  },
+  links: { telegram: "https://t.co/19wnxJaCAc", x: "https://x.com/BelieveinTon1" },
 };
 
 /** Well-known TON asset addresses */

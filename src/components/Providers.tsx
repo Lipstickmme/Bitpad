@@ -17,13 +17,13 @@ export function Providers({ children, feeWallet }: { children: React.ReactNode; 
     typeof window === "undefined" ? "/tonconnect-manifest.json" : `${window.location.origin}/tonconnect-manifest.json`;
 
   useEffect(() => {
-    // Keep the Telegram Mini App chrome in light mode to match Bitpad
-    window.Telegram?.WebApp?.setHeaderColor?.("#f5f7fa");
+    // Match the Telegram Mini App chrome to Bitpad's dark theme
+    window.Telegram?.WebApp?.setHeaderColor?.("#0a1215");
     window.Telegram?.WebApp?.expand?.();
   }, []);
 
   return (
-    <TonConnectUIProvider manifestUrl={manifestUrl} uiPreferences={{ theme: THEME.LIGHT }}>
+    <TonConnectUIProvider manifestUrl={manifestUrl} uiPreferences={{ theme: THEME.DARK }}>
       <TelegramBridge />
       {children}
       <Toaster />

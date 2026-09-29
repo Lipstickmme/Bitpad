@@ -1,10 +1,10 @@
 import type { ChainId } from "./types";
 
 /**
- * Categorical series palette (validated for CVD separation, fixed order —
- * never cycled). Assigned per venue so a venue keeps its color everywhere.
+ * Series palette for the dark theme: the brand accent first, then greys
+ * stepping in lightness so neighbouring slices stay distinguishable.
  */
-export const SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
+export const SERIES = ["#8cbfd1", "#c9d6da", "#5f8794", "#8a9ca2", "#3f5a63", "#6c7f86", "#b3d6e2", "#4b6069"];
 
 export interface Venue {
   id: string;

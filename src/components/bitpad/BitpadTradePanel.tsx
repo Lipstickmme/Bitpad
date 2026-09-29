@@ -100,7 +100,7 @@ export function BitpadTradePanel({ token, onTraded }: { token: MarketToken; onTr
     <div className="card p-4">
       <div className="grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1">
         {(["buy", "sell"] as const).map((s) => (
-          <button key={s} onClick={() => { setSide(s); setAmount(""); }} className={`rounded-md py-2 text-sm font-semibold capitalize ${side === s ? (s === "buy" ? "bg-up text-white" : "bg-down text-white") : "text-muted"}`}>{s}</button>
+          <button key={s} onClick={() => { setSide(s); setAmount(""); }} className={`rounded-md py-2 text-sm font-semibold capitalize ${side === s ? (s === "buy" ? "bg-up-soft text-up" : "bg-down-soft text-down") : "text-muted"}`}>{s}</button>
         ))}
       </div>
 
@@ -110,7 +110,7 @@ export function BitpadTradePanel({ token, onTraded }: { token: MarketToken; onTr
       </div>
       {showSettings && (
         <div className="mt-2 flex gap-1.5">
-          {[0.5, 1, 3, 10].map((s) => <button key={s} onClick={() => setSlippage(s)} className={`flex-1 rounded-md border py-1.5 text-xs ${slippage === s ? "border-ink bg-surface-2" : "border-line"}`}>{s}%</button>)}
+          {[0.5, 1, 3, 10].map((s) => <button key={s} onClick={() => setSlippage(s)} className={`flex-1 rounded-md border py-1.5 text-xs ${slippage === s ? "border-line-strong bg-surface-2" : "border-line"}`}>{s}%</button>)}
         </div>
       )}
       <div className="mt-2 flex items-center gap-2 rounded-lg border border-line bg-surface px-3 focus-within:border-ink">

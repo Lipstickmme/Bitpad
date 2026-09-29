@@ -3,13 +3,14 @@ import { useRouter } from "next/navigation";
 import type { MarketToken } from "@/lib/types";
 import { ago, price, usd } from "@/lib/format";
 import { AssetDot, Change, TokenAvatar, orDash } from "./ui";
+import { QuickBuyButton } from "./QuickBuy";
 
 /** Dense market table — the default view for traders. */
 export function TokenTable({ tokens }: { tokens: MarketToken[] }) {
   const router = useRouter();
   return (
     <div className="card scroll-x">
-      <table className="w-full min-w-[820px] text-sm">
+      <table className="w-full min-w-[880px] text-sm">
         <thead className="text-left text-xs text-muted">
           <tr className="border-b border-line">
             <th className="px-4 py-2.5 font-medium">Token</th>
@@ -21,7 +22,8 @@ export function TokenTable({ tokens }: { tokens: MarketToken[] }) {
             <th className="text-right font-medium">Liquidity</th>
             <th className="text-right font-medium">Mkt cap</th>
             <th className="text-right font-medium">Txns</th>
-            <th className="px-4 text-right font-medium">Age</th>
+            <th className="text-right font-medium">Age</th>
+            <th className="px-4 text-right font-medium">Buy</th>
           </tr>
         </thead>
         <tbody className="num">
@@ -31,7 +33,7 @@ export function TokenTable({ tokens }: { tokens: MarketToken[] }) {
                 <div className="flex items-center gap-2.5">
                   <TokenAvatar token={t} size={26} />
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 font-medium">{t.symbol}{t.bitpad && <span className="chip border-brand/25 bg-brand-soft text-brand-ink">Bitpad</span>}</div>
+                    <div className="flex items-center gap-1.5 font-medium">{t.symbol}{t.bitpad && <span className="chip">Bitpad</span>}</div>
                     <div className="max-w-[160px] truncate text-xs text-muted">{t.name}</div>
                   </div>
                 </div>
@@ -44,7 +46,8 @@ export function TokenTable({ tokens }: { tokens: MarketToken[] }) {
               <td className="text-right">{orDash(t.liquidityUsd, (v) => usd(v, { compact: true }))}</td>
               <td className="text-right">{orDash(t.marketCap ?? t.fdv, (v) => usd(v, { compact: true }))}</td>
               <td className="text-right text-ink-2">{t.buys24h != null ? <><span className="text-up">{t.buys24h}</span>/<span className="text-down">{t.sells24h}</span></> : "—"}</td>
-              <td className="px-4 text-right text-muted">{t.createdAt ? ago(t.createdAt) : "—"}</td>
+              <td className="text-right text-muted">{t.createdAt ? ago(t.createdAt) : "—"}</td>
+              <td className="px-4 text-right"><QuickBuyButton token={{ address: t.address, symbol: t.symbol, bitpadPool: t.bitpad?.pool }} /></td>
             </tr>
           ))}
         </tbody>

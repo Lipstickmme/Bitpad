@@ -227,7 +227,7 @@ export function BundlerView() {
             <h3 className="flex items-center gap-2 text-sm font-semibold"><Zap className="size-4" /> Bundle trade (any TON token, STON.fi)</h3>
             <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
               {(["buy", "sell"] as const).map((s) => (
-                <button key={s} onClick={() => setSide(s)} className={`rounded-lg py-1.5 text-sm font-bold capitalize ${side === s ? (s === "buy" ? "bg-up text-white" : "bg-down text-white") : "text-muted"}`}>{s}</button>
+                <button key={s} onClick={() => setSide(s)} className={`rounded-lg py-1.5 text-sm font-bold capitalize ${side === s ? (s === "buy" ? "bg-up-soft text-up" : "bg-down-soft text-down") : "text-muted"}`}>{s}</button>
               ))}
             </div>
             <label className="label mt-3 block">Jetton master address</label>

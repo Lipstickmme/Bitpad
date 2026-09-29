@@ -14,6 +14,7 @@ import { ReferralPanel } from "./bitpad/ReferralPanel";
 import { PairValuation } from "./PairValuation";
 import { ActivityTabs } from "./ActivityTabs";
 import { TelegramIcon, XIcon } from "./Brand";
+import { QuickBuyButton } from "./QuickBuy";
 
 export function TokenView({ token }: { token: MarketToken }) {
   const [live, setLive] = useState<number | null>(token.priceUsd);
@@ -36,7 +37,7 @@ export function TokenView({ token }: { token: MarketToken }) {
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-semibold tracking-tight">{token.symbol}</h1>
               <span className="text-ink-2">{token.name}</span>
-              {token.bitpad && <span className="chip border-brand/20 bg-brand-soft text-brand-ink"><Rocket className="size-3" />Bitpad #{token.bitpad.index + 1}</span>}
+              {token.bitpad && <span className="chip"><Rocket className="size-3" />Bitpad #{token.bitpad.index + 1}</span>}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-2">
               <span>Paired with</span> <AssetDot asset={token.pair} /> <span className="font-semibold text-ink">{token.pair.symbol}</span>
@@ -44,7 +45,8 @@ export function TokenView({ token }: { token: MarketToken }) {
               <CopyButton value={token.address} label={`CA ${shortAddr(token.address, 6, 6)}`} />
             </div>
           </div>
-          <div className="flex flex-wrap gap-2 sm:ml-auto">
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+            <QuickBuyButton token={{ address: token.address, symbol: token.symbol, bitpadPool: token.bitpad?.pool }} className="h-9 px-3 text-sm" />
             {token.bitpad?.pool ? (
               <a className="btn btn-ghost" href={`https://tonviewer.com/${token.bitpad.pool}`} target="_blank" rel="noreferrer">Pool contract <ExternalLink className="size-3.5" /></a>
             ) : (

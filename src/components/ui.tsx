@@ -19,19 +19,14 @@ export function AssetDot({ asset, size = 18 }: { asset: Pick<PairAsset, "symbol"
     // eslint-disable-next-line @next/next/no-img-element
     return <img src={asset.image} alt="" width={size} height={size} className="inline-block shrink-0 rounded-full" style={{ width: size, height: size }} loading="lazy" />;
   return (
-    <span className="inline-grid shrink-0 place-items-center rounded-full font-black text-white" style={{ width: size, height: size, background: asset.color, fontSize: size * 0.42 }} aria-hidden>
+    <span className="inline-grid shrink-0 place-items-center rounded-full bg-line-strong font-bold text-ink" style={{ width: size, height: size, fontSize: size * 0.4 }} aria-hidden>
       {asset.symbol.replace(/x$/, "").slice(0, 2)}
     </span>
   );
 }
 
 export function PairBadge({ asset }: { asset: PairAsset }) {
-  const tone =
-    asset.kind === "stock" ? "bg-[#eef3fb] text-[#35557f] border-[#d5e0ef]"
-    : asset.kind === "commodity" ? "bg-warn-soft text-warn border-warn/25"
-    : asset.kind === "jetton" ? "bg-[#eef6fb] text-[#2d6b8f] border-[#d3e6f1]"
-    : "bg-surface-2 text-ink-2 border-line";
-  return <span className={`chip ${tone}`}>{asset.badge}</span>;
+  return <span className="chip">{asset.badge}</span>;
 }
 
 export function Change({ value, className = "" }: { value: number | null | undefined; className?: string }) {
@@ -73,7 +68,7 @@ export function Stat({ label, value, sub, className = "" }: { label: string; val
 }
 
 export function SourceTag({ source }: { source: "live" | "partial" | "unavailable" }) {
-  if (source === "live") return <span className="chip border-up/25 bg-up-soft text-up"><span className="size-1.5 rounded-full bg-up" />Live</span>;
+  if (source === "live") return <span className="chip"><span className="size-1.5 rounded-full bg-up" />Live</span>;
   if (source === "partial") return <span className="chip" title="Protocol volume only — no pools sampled right now">Volume only</span>;
   return <span className="chip text-muted" title="No public source answered">No data</span>;
 }
@@ -89,5 +84,25 @@ export function SectionTitle({ children, right }: { children: React.ReactNode; r
       <h2 className="text-base font-semibold tracking-tight">{children}</h2>
       {right && <div className="ml-auto flex items-center gap-2">{right}</div>}
     </div>
+  );
+}
+
+/** ⓘ with an explanation on hover, focus or tap. */
+export function Hint({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "right" }) {
+  return (
+    <span className="group relative inline-flex align-middle">
+      <button type="button" aria-label="What is this?" className="grid size-4 place-items-center rounded-full text-muted outline-none hover:text-ink focus-visible:text-ink">
+        <svg viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+          <circle cx="8" cy="8" r="6.3" />
+          <path d="M8 7.2v3.6M8 5.1v.1" strokeLinecap="round" />
+        </svg>
+      </button>
+      <span
+        role="tooltip"
+        className={`pointer-events-none invisible absolute top-6 z-30 w-72 max-w-[80vw] rounded-lg border border-line-strong bg-surface-2 p-3 text-left text-xs font-normal normal-case leading-relaxed tracking-normal text-ink-2 opacity-0 shadow-2xl shadow-black/50 transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 ${align === "right" ? "right-0" : "left-0"}`}
+      >
+        {children}
+      </span>
+    </span>
   );
 }

@@ -2,7 +2,7 @@
   "name": "bitpad",
   "version": "0.1.0",
   "private": true,
-  "description": "Bitpad \u2014 the lightweight TON launchpad: pair tokens with stocks, commodities and jettons, trade across chains.",
+  "description": "Bitpad — the lightweight TON launchpad: pair tokens with stocks, commodities and jettons, trade across chains.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -27,6 +27,7 @@
     "@tonconnect/ui-react": "^3.0.2",
     "buffer": "^6.0.3",
     "clsx": "^2.1.1",
+    "geist": "^1.7.2",
     "lightweight-charts": "^5.2.1",
     "lucide-react": "^1.48.0",
     "next": "^16.3.6",

@@ -22,26 +22,25 @@ export function Header({ telegramBot }: { telegramBot: string }) {
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-bg/85 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-4 sm:px-6">
+    <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur">
+      <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-6 px-4 sm:px-6">
         <Logo />
-        <nav className="ml-2 hidden items-center lg:flex">
+        <nav className="hidden items-center gap-1 lg:flex">
           {NAV.map((n) => (
             <Link
               key={n.href}
               href={n.href}
-              className={`relative rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors ${active(n.href) ? "text-ink" : "text-muted hover:text-ink"}`}
+              className={`rounded-md px-3 py-2 text-[15px] font-medium transition-colors ${active(n.href) ? "text-ink" : "text-muted hover:text-ink"}`}
             >
               {n.label}
-              {active(n.href) && <span className="absolute inset-x-2.5 -bottom-[13px] h-0.5 rounded bg-ink" />}
             </Link>
           ))}
         </nav>
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <SearchBox />
-          <a href={config.links.telegram} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 xl:inline-flex" aria-label="Telegram"><TelegramIcon /></a>
-          <a href={config.links.x} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 xl:inline-flex" aria-label="X"><XIcon /></a>
-          <Link href="/launch" className="btn btn-primary hidden sm:inline-flex"><Plus className="size-4" /> <span className="hidden md:inline">Launch</span></Link>
+          <a href={config.links.telegram} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 md:inline-flex" aria-label="Telegram"><TelegramIcon /></a>
+          <a href={config.links.x} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 md:inline-flex" aria-label="X"><XIcon /></a>
+          <Link href="/launch" className="btn btn-primary hidden sm:inline-flex"><Plus className="size-4" /> <span className="hidden md:inline">Launch token</span></Link>
           <ConnectMenu telegramBot={telegramBot} />
           <button className="btn btn-ghost w-10 px-0 lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu">
             {open ? <X className="size-4" /> : <Menu className="size-4" />}
@@ -55,6 +54,10 @@ export function Header({ telegramBot }: { telegramBot: string }) {
               {n.label}
             </Link>
           ))}
+          <div className="flex gap-2 px-3 py-2.5">
+            <a href={config.links.telegram} target="_blank" rel="noreferrer" className="btn btn-ghost w-10 px-0" aria-label="Telegram"><TelegramIcon /></a>
+            <a href={config.links.x} target="_blank" rel="noreferrer" className="btn btn-ghost w-10 px-0" aria-label="X"><XIcon /></a>
+          </div>
         </nav>
       )}
     </header>

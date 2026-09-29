@@ -6,8 +6,8 @@ import type { MarketToken, Candle } from "@/lib/types";
 import { TIMEFRAMES, type Timeframe } from "@/lib/timeframes";
 import { price, usd, pct } from "@/lib/format";
 
-const UP = "#0f9d58";
-const DOWN = "#d93a3a";
+const UP = "#3fbf8f";
+const DOWN = "#f0566f";
 
 export function PriceChart({ token, onPrice }: { token: MarketToken; onPrice?: (p: number) => void }) {
   const box = useRef<HTMLDivElement>(null);
@@ -30,11 +30,11 @@ export function PriceChart({ token, onPrice }: { token: MarketToken; onPrice?: (
     const c = createChart(box.current, {
       autoSize: true,
       localization: { locale: "en-US" },
-      layout: { background: { type: ColorType.Solid, color: "#ffffff" }, textColor: "#8492a6", fontFamily: "Inter, system-ui, sans-serif", fontSize: 11, attributionLogo: false },
-      grid: { vertLines: { color: "#eef1f5" }, horzLines: { color: "#eef1f5" } },
+      layout: { background: { type: ColorType.Solid, color: "#0f191d" }, textColor: "#6c7f86", fontFamily: "var(--font-geist-sans), system-ui, sans-serif", fontSize: 11, attributionLogo: false },
+      grid: { vertLines: { color: "#152227" }, horzLines: { color: "#152227" } },
       crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: "#e3e8ef", scaleMargins: { top: 0.1, bottom: 0.25 } },
-      timeScale: { borderColor: "#e3e8ef", timeVisible: true, secondsVisible: false },
+      rightPriceScale: { borderColor: "#1c2a30", scaleMargins: { top: 0.1, bottom: 0.25 } },
+      timeScale: { borderColor: "#1c2a30", timeVisible: true, secondsVisible: false },
     });
     candleS.current = c.addSeries(CandlestickSeries, { upColor: UP, downColor: DOWN, borderVisible: false, wickUpColor: UP, wickDownColor: DOWN });
     volS.current = c.addSeries(HistogramSeries, { priceScaleId: "vol", priceFormat: { type: "volume" } });
@@ -57,7 +57,7 @@ export function PriceChart({ token, onPrice }: { token: MarketToken; onPrice?: (
     let alive = true;
     const push = (fit: boolean) => {
       candleS.current?.setData(data.current.map((d) => ({ time: d.time as UTCTimestamp, open: d.open * scale, high: d.high * scale, low: d.low * scale, close: d.close * scale })));
-      volS.current?.setData(data.current.map((d) => ({ time: d.time as UTCTimestamp, value: d.volume, color: d.close >= d.open ? "rgba(15,157,88,.35)" : "rgba(217,58,58,.35)" })));
+      volS.current?.setData(data.current.map((d) => ({ time: d.time as UTCTimestamp, value: d.volume, color: d.close >= d.open ? "rgba(63,191,143,.28)" : "rgba(240,86,111,.28)" })));
       if (fit) chart.current?.timeScale().fitContent();
     };
     const load = (fit: boolean) =>

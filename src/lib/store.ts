@@ -14,11 +14,14 @@ interface AppState {
   external: ExternalWallet[];
   payAsset: "TON" | "USDT" | "GRAM" | "USDC";
   slippage: number;
+  /** Quick-buy size in TON, used by the ⚡ buttons on every token */
+  quickBuy: number;
   setTgUser: (u?: TelegramUser) => void;
   addExternal: (w: ExternalWallet) => void;
   removeExternal: (chain: ExternalWallet["chain"]) => void;
   setPayAsset: (a: AppState["payAsset"]) => void;
   setSlippage: (s: number) => void;
+  setQuickBuy: (n: number) => void;
 }
 
 export const useApp = create<AppState>()(
@@ -27,11 +30,13 @@ export const useApp = create<AppState>()(
       external: [],
       payAsset: "TON",
       slippage: 1,
+      quickBuy: 1,
       setTgUser: (tgUser) => set({ tgUser }),
       addExternal: (w) => set((s) => ({ external: [...s.external.filter((x) => x.chain !== w.chain), w] })),
       removeExternal: (chain) => set((s) => ({ external: s.external.filter((x) => x.chain !== chain) })),
       setPayAsset: (payAsset) => set({ payAsset }),
       setSlippage: (slippage) => set({ slippage }),
+      setQuickBuy: (quickBuy) => set({ quickBuy }),
     }),
     { name: "bitpad.app" },
   ),

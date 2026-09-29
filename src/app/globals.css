@@ -1,24 +1,27 @@
 @import "tailwindcss";
 @import "../brand.css";
 
-/* Bitpad light theme — swap these tokens to re-skin the whole app. */
+/* Bitpad dark theme — greys + one accent (see src/brand.css). */
 @theme {
-  --color-bg: #f7f7f5;
-  --color-surface: #ffffff;
-  --color-surface-2: #f3f3f0;
-  --color-line: #e7e6e1;
-  --color-line-strong: #d6d4cd;
-  --color-ink: #16181b;
-  --color-ink-2: #53565c;
-  --color-muted: #8b8d92;
-  --color-up: #16a34a;
-  --color-up-soft: #e6f6ee;
-  --color-down: #dc2626;
-  --color-down-soft: #fdecec;
-  --color-warn: #c98500;
-  --color-warn-soft: #fff5dc;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --radius-card: 10px;
+  --color-bg: #0a1215;
+  --color-surface: #0f191d;
+  --color-surface-2: #142126;
+  --color-line: #1c2a30;
+  --color-line-strong: #2a3c43;
+  --color-ink: #edf2f3;
+  --color-ink-2: #a3b3b9;
+  --color-muted: #6c7f86;
+  --color-up: #3fbf8f;
+  --color-up-soft: #10261f;
+  --color-down: #f0566f;
+  --color-down-soft: #2a141a;
+  --color-warn: #d6a64a;
+  --color-warn-soft: #2a2213;
+  --radius-card: 14px;
+}
+
+:root {
+  color-scheme: dark;
 }
 
 html,
@@ -59,7 +62,7 @@ body {
 }
 .btn-primary {
   background: var(--color-action);
-  color: #fff;
+  color: var(--color-action-ink);
 }
 .btn-primary:hover:not(:disabled) {
   background: var(--color-action-hover);
@@ -75,11 +78,11 @@ body {
 }
 .btn-up {
   background: var(--color-up);
-  color: #fff;
+  color: #06140f;
 }
 .btn-down {
   background: var(--color-down);
-  color: #fff;
+  color: #1a060a;
 }
 
 .chip {
@@ -112,9 +115,8 @@ body {
   color: var(--color-muted);
 }
 .seg > button[data-on="true"] {
-  background: var(--color-surface);
+  background: var(--color-line-strong);
   color: var(--color-ink);
-  box-shadow: 0 1px 2px rgb(12 23 38 / 0.08);
 }
 
 .input {
@@ -128,8 +130,11 @@ body {
   outline: none;
 }
 .input:focus {
-  border-color: var(--color-brand);
+  border-color: var(--color-line-strong);
   box-shadow: 0 0 0 3px var(--color-brand-soft);
+}
+.input::placeholder {
+  color: var(--color-muted);
 }
 
 .label {
@@ -150,3 +155,32 @@ body {
   to { background: transparent; }
 }
 .flash-up { animation: flash-up 1.2s ease-out; }
+
+/* Live price ticker — seamless marquee (content is rendered twice) */
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker 60s linear infinite;
+}
+.ticker:hover .ticker-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track { animation: none; }
+}
+
+/* Hero decoration: dashed line drawing itself */
+@keyframes dash-flow {
+  to { stroke-dashoffset: -200; }
+}
+.hero-dash {
+  animation: dash-flow 12s linear infinite;
+}
+
+::selection {
+  background: var(--color-brand-soft);
+}

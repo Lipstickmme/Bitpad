@@ -90,7 +90,7 @@ export function ConnectMenu({ telegramBot }: { telegramBot: string }) {
       {ok ? (
         <button onClick={onOff} className="text-xs font-semibold text-muted hover:text-down">Disconnect</button>
       ) : (
-        <button onClick={onConnect} className="rounded-lg bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand-ink hover:bg-brand hover:text-white">Connect</button>
+        <button onClick={onConnect} className="rounded-lg bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand-ink hover:bg-brand hover:text-[var(--color-action-ink)]">Connect</button>
       )}
     </div>
   );
@@ -103,13 +103,13 @@ export function ConnectMenu({ telegramBot }: { telegramBot: string }) {
         <ChevronDown className="size-3.5 opacity-60" />
       </button>
       {open && (
-        <div className="card absolute right-0 mt-2 w-[min(340px,calc(100vw-2rem))] p-2 shadow-xl">
+        <div className="card absolute right-0 mt-2 w-[min(340px,calc(100vw-2rem))] p-2 shadow-2xl shadow-black/40">
           <div className="px-2 pb-1 pt-1 text-xs font-bold uppercase tracking-wider text-muted">Sign in & wallets</div>
-          <Row title="TON wallet" sub={ton ? shortAddr(ton, 6, 6) : "Tonkeeper, MyTonWallet, Telegram Wallet"} ok={!!ton} onConnect={() => tc.openModal()} onOff={() => tc.disconnect()} icon={<span className="text-sm font-black text-[#0098ea]">◆</span>} />
-          <Row title="Solana" sub={sol ? shortAddr(sol.address, 6, 6) : "Phantom, Solflare, Backpack"} ok={!!sol} onConnect={connectSolana} onOff={() => removeExternal("solana")} icon={<span className="text-sm font-black text-[#9945ff]">◎</span>} />
-          <Row title="EVM" sub={evm ? shortAddr(evm.address, 6, 4) : "MetaMask, Rabby, Coinbase"} ok={!!evm} onConnect={connectEvm} onOff={() => removeExternal("evm")} icon={<span className="text-sm font-black text-[#627eea]">Ξ</span>} />
+          <Row title="TON wallet" sub={ton ? shortAddr(ton, 6, 6) : "Tonkeeper, MyTonWallet, Telegram Wallet"} ok={!!ton} onConnect={() => tc.openModal()} onOff={() => tc.disconnect()} icon={<span className="text-sm font-black text-ink-2">◆</span>} />
+          <Row title="Solana" sub={sol ? shortAddr(sol.address, 6, 6) : "Phantom, Solflare, Backpack"} ok={!!sol} onConnect={connectSolana} onOff={() => removeExternal("solana")} icon={<span className="text-sm font-black text-ink-2">◎</span>} />
+          <Row title="EVM" sub={evm ? shortAddr(evm.address, 6, 4) : "MetaMask, Rabby, Coinbase"} ok={!!evm} onConnect={connectEvm} onOff={() => removeExternal("evm")} icon={<span className="text-sm font-black text-ink-2">Ξ</span>} />
           <div className="mt-1 border-t border-line px-2 pb-1 pt-3">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><TelegramIcon className="size-4 text-[#229ed9]" /> Telegram</div>
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><TelegramIcon className="size-4 text-ink-2" /> Telegram</div>
             {tgUser ? (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-ink-2">{tgUser.username ? `@${tgUser.username}` : tgUser.first_name}</span>

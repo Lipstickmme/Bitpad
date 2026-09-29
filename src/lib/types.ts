@@ -128,6 +128,8 @@ export interface LaunchpadStat {
   topGainer?: { symbol: string; change: number };
   buySellRatio: number;
   fees24h?: number;
+  /** Where volume24h came from: DefiLlama protocol totals, a sum over sampled pools, or Bitpad's own pools on-chain */
+  volumeSource?: "defillama" | "sampled" | "onchain";
   /** "live" = measured now; "partial" = protocol volume only; "unavailable" = no source answered */
   source: "live" | "partial" | "unavailable";
 }
@@ -138,6 +140,10 @@ export interface ChainStat {
   change24h: number;
   newPools24h: number;
   fomo: number; // 0–100
+  /** FOMO inputs, each normalised 0–1: buy/sell pressure (40%), 1h momentum (30%), volume acceleration (30%) */
+  fomoParts?: { pressure: number; momentum: number; volume: number };
+  /** Pools sampled on this chain */
+  sampled?: number;
   buySellRatio: number;
   source: "live" | "unavailable";
 }
@@ -159,6 +165,8 @@ export interface TrendingPool {
   txns24h: number;
   ageHours: number;
   url?: string;
+  /** Base token contract — lets TON rows quick-buy */
+  baseAddress?: string;
 }
 
 export interface PairTypeStat {

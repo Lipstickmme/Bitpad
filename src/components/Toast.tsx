@@ -28,7 +28,7 @@ export function Toaster() {
         const Icon = t.kind === "success" ? CheckCircle2 : t.kind === "error" ? AlertTriangle : Info;
         const color = t.kind === "success" ? "text-up" : t.kind === "error" ? "text-down" : "text-brand";
         return (
-          <div key={t.id} className="card pointer-events-auto flex items-start gap-3 p-3 shadow-lg" role="status">
+          <div key={t.id} className="card pointer-events-auto flex items-start gap-3 p-3 shadow-2xl shadow-black/40" role="status">
             <Icon className={`mt-0.5 size-5 shrink-0 ${color}`} />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold">{t.title}</div>

@@ -45,14 +45,14 @@ export function SearchBox() {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn btn-ghost hidden w-48 justify-start text-muted 2xl:inline-flex">
+      <button onClick={() => setOpen(true)} className="btn btn-ghost hidden w-48 justify-start text-muted xl:inline-flex">
         <Search className="size-4" /> Search
         <kbd className="ml-auto rounded border border-line px-1.5 font-mono text-[10px]">Ctrl K</kbd>
       </button>
-      <button onClick={() => setOpen(true)} className="btn btn-ghost w-10 px-0 2xl:hidden" aria-label="Search"><Search className="size-4" /></button>
+      <button onClick={() => setOpen(true)} className="btn btn-ghost w-10 px-0 xl:hidden" aria-label="Search"><Search className="size-4" /></button>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-ink/20 p-4 pt-[12vh] backdrop-blur-sm" onMouseDown={() => setOpen(false)}>
-          <div className="card w-full max-w-lg overflow-hidden shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-[12vh] backdrop-blur-sm" onMouseDown={() => setOpen(false)}>
+          <div className="card w-full max-w-lg overflow-hidden shadow-2xl shadow-black/50" onMouseDown={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 border-b border-line px-4">
               <Search className="size-4 text-muted" />
               <input ref={input} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => {

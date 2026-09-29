@@ -21,7 +21,7 @@ export function price(n: number): string {
   if (n === 0) return "$0";
   if (Math.abs(n) < 0.0001) return `$${significant(n)}`;
   if (Math.abs(n) < 1) return `$${n.toFixed(5)}`;
-  return usd(n, { digits: n >= 1000 ? 2 : 4 });
+  return usd(n, { digits: n >= 10 ? 2 : 4 });
 }
 
 /** 0.00000123 → "0.0₅123" — the subscript-zero notation traders expect */

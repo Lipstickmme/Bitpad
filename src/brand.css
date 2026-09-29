@@ -1,14 +1,15 @@
 /*
  * ── Brand tokens ─────────────────────────────────────────────────────────
- * The only file to edit to re-skin Bitpad (plus the logo files in
- * public/brand/). Values below are placeholders until the official Bitlievers
- * palette is supplied.
+ * The only file to edit to re-skin Bitpad (plus public/brand/logo.png).
+ * Dark only: greys + one muted accent. Green/red are reserved for price moves.
  */
 @theme {
-  --color-brand: #f7931a;          /* primary accent (links, active states, highlights) */
-  --color-brand-ink: #b8650a;      /* accent text on light backgrounds */
-  --color-brand-soft: #fff4e6;     /* accent tint (selected rows, chips) */
-  --color-action: #111315;         /* primary buttons */
-  --color-action-hover: #2a2d31;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-brand: #8cbfd1;          /* the one accent (active states, links, highlights) */
+  --color-brand-ink: #b3d6e2;      /* accent text */
+  --color-brand-soft: #16272e;     /* accent tint */
+  --color-action: #8cbfd1;         /* primary buttons */
+  --color-action-hover: #a3cddc;
+  --color-action-ink: #081114;     /* text on primary buttons */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }

@@ -1,18 +1,17 @@
 "use client";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Flame, Trophy, Activity, Globe2, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import type { AnalyticsSnapshot, ChainId, LaunchpadStat } from "@/lib/types";
 import { CHAINS } from "@/lib/chains";
-import { SERIES } from "@/lib/venues";
 import { num, pct, price, usd } from "@/lib/format";
-import { AXIS, ChartCard, GRID, TipBox } from "./ChartCard";
-import { SourceTag } from "../ui";
+import { AXIS, C, ChartCard, GRID, TipBox } from "./ChartCard";
+import { Hint, SourceTag } from "../ui";
+import { QuickBuyAmount, QuickBuyButton } from "../QuickBuy";
 
 const CHAIN_FILTERS: ("all" | ChainId)[] = ["all", "ton", "solana", "ethereum", "base", "bsc"];
-const UP = "#0f9d58";
-const DOWN = "#d93a3a";
 const winRate = (l: LaunchpadStat) => (l.wins + l.losses ? (100 * l.wins) / (l.wins + l.losses) : 0);
+const VOL_SOURCE = { defillama: "DefiLlama protocol volume", sampled: "sum of sampled pools (understates)", onchain: "Bitpad pools, read on-chain" } as const;
 
 export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
   const [chain, setChain] = useState<"all" | ChainId>("all");
@@ -20,8 +19,8 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
   const [quote, setQuote] = useState<"all" | "ton" | "eth" | "sol" | "stable" | "stock">("all");
 
   const allVenues = (venueKind === "launchpads" ? data.launchpads : data.dexes).filter((v) => chain === "all" || v.chain === chain);
-  const venues = allVenues.filter((v) => v.source !== "unavailable");
-  const sampledVenues = venues.filter((v) => v.wins + v.losses > 0);
+  const venues = allVenues.filter((v) => v.source !== "unavailable" && v.volume24h > 0).sort((a, b) => b.volume24h - a.volume24h);
+  const sampledVenues = allVenues.filter((v) => v.wins + v.losses > 0);
   const chains = data.chains.filter((c) => c.source === "live");
   const totalVol = chains.reduce((s, c) => s + c.volume24h, 0);
   const tonVol = chains.find((c) => c.chain === "ton")?.volume24h ?? 0;
@@ -33,28 +32,30 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
     [data.trending, chain, quote],
   );
   const histKeys = Object.keys(data.history[0] ?? {}).filter((k) => k !== "date");
+  const [focus, setFocus] = useState(histKeys.includes("STON.fi") ? "STON.fi" : histKeys[0]);
+  const upd = new Date(data.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Market analytics</h1>
-          <p className="text-sm text-ink-2">Every launchpad and DEX, side by side — where the volume, the wins and the FOMO are right now.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Market analytics</h1>
+          <p className="mt-1 max-w-2xl text-sm text-ink-2">Launchpads and DEXes across TON, Solana, Ethereum, Base and BNB — where the volume is, whether new tokens are winning, and where the FOMO is. Every number is pulled live; hover ⓘ for how it&apos;s measured.</p>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted">
           {data.sources.map((s) => (
-            <span key={s.name} className="chip"><span className={`size-1.5 rounded-full ${s.ok ? "bg-up" : "bg-muted"}`} />{s.name}</span>
+            <span key={s.name} className="chip" title={s.ok ? "Answered" : "Didn't answer — dependent panels show no data"}><span className={`size-1.5 rounded-full ${s.ok ? "bg-up" : "bg-muted"}`} />{s.name}</span>
           ))}
-          <span>Updated {new Date(data.updatedAt).toLocaleTimeString()}</span>
+          <span>Updated {upd}</span>
         </div>
       </div>
 
-      <div className="card flex flex-wrap items-center gap-2 p-2">
-        <div className="seg">
-          {CHAIN_FILTERS.map((c) => (
-            <button key={c} data-on={chain === c} onClick={() => setChain(c)}>{c === "all" ? "All chains" : CHAINS[c].short}</button>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center gap-2 border-y border-line py-3">
+        {CHAIN_FILTERS.map((c) => (
+          <button key={c} onClick={() => setChain(c)} className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${chain === c ? "border-line-strong bg-line-strong text-ink" : "border-line text-ink-2 hover:text-ink"}`}>
+            {c === "all" ? "All chains" : CHAINS[c].name}
+          </button>
+        ))}
         <div className="seg ml-auto">
           <button data-on={venueKind === "launchpads"} onClick={() => setVenueKind("launchpads")}>Launchpads</button>
           <button data-on={venueKind === "dexes"} onClick={() => setVenueKind("dexes")}>DEXes</button>
@@ -63,125 +64,186 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi icon={<Activity className="size-4" />} label="Tracked DEX volume · 24h" value={totalVol ? usd(totalVol, { compact: true }) : "—"} sub={`${chains.length} chains reporting`} />
-        <Kpi icon={<Globe2 className="size-4" />} label="TON share of volume" value={totalVol ? `${((100 * tonVol) / totalVol).toFixed(2)}%` : "—"} sub={tonVol ? usd(tonVol, { compact: true }) : undefined} />
-        <Kpi icon={<Flame className="size-4" />} label="Hottest chain (FOMO)" value={hottest ? CHAINS[hottest.chain].name : "—"} sub={hottest ? `score ${hottest.fomo}/100` : ""} />
-        <Kpi icon={<Trophy className="size-4" />} label="Best launchpad win rate" value={bestLp ? bestLp.name : "—"} sub={bestLp ? `${winRate(bestLp).toFixed(0)}% of sampled tokens up 24h` : ""} />
+        <Kpi
+          label="DEX volume · 24h"
+          value={totalVol ? usd(totalVol, { compact: true }) : "—"}
+          sub={`${chains.length} of ${data.chains.length} chains reporting`}
+          hint="Total 24h DEX volume across the tracked chains, from DefiLlama's per-chain DEX totals. If DefiLlama is down, it falls back to summing the pools GeckoTerminal sampled."
+        />
+        <Kpi
+          label="TON share"
+          value={totalVol ? `${((100 * tonVol) / totalVol).toFixed(2)}%` : "—"}
+          sub={tonVol ? `${usd(tonVol, { compact: true })} on TON` : undefined}
+          hint="TON's 24h DEX volume divided by the total above. It shows how much of the on-chain trading on these chains happens on TON."
+        />
+        <Kpi
+          label="Highest FOMO"
+          value={hottest ? CHAINS[hottest.chain].name : "—"}
+          sub={hottest ? `${hottest.fomo}/100 · ${hottest.buySellRatio.toFixed(2)} buys per sell` : undefined}
+          hint="The chain with the highest FOMO index (see the chart below): more buyers than sellers, prices rising over the last hour, and volume growing day-on-day."
+        />
+        <Kpi
+          label="Best launchpad win rate"
+          value={bestLp ? bestLp.name : "—"}
+          sub={bestLp ? `${winRate(bestLp).toFixed(0)}% up · ${bestLp.wins}/${bestLp.wins + bestLp.losses} tokens` : "needs ≥5 sampled tokens"}
+          hint="Among launchpads with at least 5 sampled tokens: the share of their new and trending tokens trading higher than 24h ago. It's a live sample from GeckoTerminal, not every token."
+          align="right"
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <ChartCard title="FOMO index by chain" sub="Buy/sell pressure, 1h momentum & volume acceleration (0–100)">
-          {!chains.length ? <Empty>No chain data — GeckoTerminal and DefiLlama unavailable.</Empty> : <div className="h-[240px]">
+        <ChartCard
+          title="FOMO index"
+          sub="0–100 per chain"
+          hint={<>FOMO = 40% buy/sell pressure + 30% 1h momentum + 30% volume acceleration.<br /><br />Pressure: buys ÷ sells across sampled pools (0.6 → 0, 1.6 → max). Momentum: average 1h price change (−10% → 0, +20% → max). Acceleration: DefiLlama day-on-day volume change (−30% → 0, +50% → max).</>}
+        >
+          {!chains.length ? <Empty>No chain data — GeckoTerminal and DefiLlama didn&apos;t answer.</Empty> : <div className="h-[240px]">
             <ResponsiveContainer>
-              <BarChart data={chains.map((c) => ({ name: CHAINS[c.chain].short, fomo: c.fomo, ratio: c.buySellRatio }))} layout="vertical" margin={{ left: 0, right: 24 }} barCategoryGap={8}>
+              <BarChart data={[...chains].sort((a, b) => b.fomo - a.fomo).map((c) => ({ name: CHAINS[c.chain].short, chain: c.chain, fomo: c.fomo, ratio: c.buySellRatio, parts: c.fomoParts, n: c.sampled }))} layout="vertical" margin={{ left: 0, right: 28 }} barCategoryGap={8}>
                 <CartesianGrid horizontal={false} stroke={GRID} />
                 <XAxis type="number" domain={[0, 100]} {...AXIS} />
                 <YAxis type="category" dataKey="name" width={44} {...AXIS} />
-                <Tooltip cursor={{ fill: "#f0f3f7" }} content={({ payload }) => payload?.[0] ? <TipBox title={String(payload[0].payload.name)} rows={[{ label: "FOMO", value: `${payload[0].payload.fomo}/100` }, { label: "Buy/sell", value: Number(payload[0].payload.ratio).toFixed(2) }]} /> : null} />
-                <Bar dataKey="fomo" radius={[0, 4, 4, 0]} fill={SERIES[0]} label={{ position: "right", fontSize: 11, fill: "#4a5a6e" }} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>}
-
-        </ChartCard>
-
-        <ChartCard className="lg:col-span-2" title={`24h volume · ${venueKind}`} sub="Protocol volume (DefiLlama), sampled pools where unavailable">
-          {!venues.length ? <Empty>No volume data for these venues right now.</Empty> : <div className="h-[240px]">
-            <ResponsiveContainer>
-              <BarChart data={[...venues].sort((a, b) => b.volume24h - a.volume24h)} margin={{ left: 8, right: 8 }} barCategoryGap="22%">
-                <CartesianGrid vertical={false} stroke={GRID} />
-                <XAxis dataKey="name" {...AXIS} interval={0} tick={{ fontSize: 10 }} />
-                <YAxis {...AXIS} tickFormatter={(v) => usd(v, { compact: true })} width={56} />
-                <Tooltip cursor={{ fill: "#f0f3f7" }} content={({ payload }) => {
-                  const p = payload?.[0]?.payload as LaunchpadStat | undefined;
-                  return p ? <TipBox title={p.name} rows={[{ label: "Volume", value: usd(p.volume24h, { compact: true }), color: p.color }, { label: "Δ 1d", value: pct(p.volumeChange) }, { label: "Chain", value: CHAINS[p.chain].name }]} /> : null;
+                <Tooltip cursor={{ fill: C.cursor }} content={({ payload }) => {
+                  const p = payload?.[0]?.payload;
+                  if (!p) return null;
+                  const rows = [{ label: "FOMO", value: `${p.fomo}/100` }, { label: "Buys per sell", value: Number(p.ratio).toFixed(2) }];
+                  if (p.parts) rows.push({ label: "Pressure", value: `${Math.round(p.parts.pressure * 100)}%` }, { label: "Momentum", value: `${Math.round(p.parts.momentum * 100)}%` }, { label: "Acceleration", value: `${Math.round(p.parts.volume * 100)}%` });
+                  if (p.n) rows.push({ label: "Pools sampled", value: String(p.n) });
+                  return <TipBox title={String(p.name)} rows={rows} />;
                 }} />
-                <Bar dataKey="volume24h" radius={[4, 4, 0, 0]}>
-                  {[...venues].sort((a, b) => b.volume24h - a.volume24h).map((v) => <Cell key={v.id} fill={v.color} />)}
+                <Bar dataKey="fomo" radius={[0, 4, 4, 0]} label={{ position: "right", fontSize: 11, fill: C.label }}>
+                  {[...chains].sort((a, b) => b.fomo - a.fomo).map((c) => <Cell key={c.chain} fill={c.chain === "ton" ? C.accent : C.bar} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>}
+        </ChartCard>
 
+        <ChartCard
+          className="lg:col-span-2"
+          title={`24h volume · ${venueKind === "launchpads" ? "launchpads" : "DEXes"}`}
+          sub="TON venues highlighted"
+          hint={<>Traded volume over the last 24h for each venue. It comes from DefiLlama&apos;s protocol volume where DefiLlama lists the venue. Otherwise it&apos;s the sum of the pools GeckoTerminal sampled, which understates the real total; the tooltip shows which. Bitpad&apos;s volume is read from its own pools on-chain.</>}
+        >
+          {!venues.length ? <Empty>No volume data for these venues right now.</Empty> : <div className="h-[240px]">
+            <ResponsiveContainer>
+              <BarChart data={venues} margin={{ left: 8, right: 8 }} barCategoryGap="22%">
+                <CartesianGrid vertical={false} stroke={GRID} />
+                <XAxis dataKey="name" {...AXIS} interval={0} tick={{ fontSize: 10 }} />
+                <YAxis {...AXIS} tickFormatter={(v) => usd(v, { compact: true })} width={56} />
+                <Tooltip cursor={{ fill: C.cursor }} content={({ payload }) => {
+                  const p = payload?.[0]?.payload as LaunchpadStat | undefined;
+                  return p ? <TipBox title={p.name} rows={[
+                    { label: "Volume", value: usd(p.volume24h, { compact: true }) },
+                    ...(p.volumeChange ? [{ label: "vs yesterday", value: pct(p.volumeChange) }] : []),
+                    ...(p.fees24h ? [{ label: "Fees 24h", value: usd(p.fees24h, { compact: true }) }] : []),
+                    { label: "Chain", value: CHAINS[p.chain].name },
+                    { label: "Source", value: p.volumeSource ? VOL_SOURCE[p.volumeSource] : "—" },
+                  ]} /> : null;
+                }} />
+                <Bar dataKey="volume24h" radius={[4, 4, 0, 0]}>
+                  {venues.map((v) => <Cell key={v.id} fill={v.chain === "ton" ? C.accent : C.bar} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>}
         </ChartCard>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title="Wins vs losses" sub="Sampled new & trending tokens: up vs down over 24h">
+        <ChartCard
+          title="Are new tokens winning?"
+          sub="Share of sampled tokens up vs down over 24h"
+          hint={<>For each venue we take the new and trending pools GeckoTerminal lists right now and count how many trade higher (win) or lower (loss) than 24h ago. The dashed line is 50/50, so anything right of it means most fresh tokens there are green. n is the sample size, and small samples swing a lot.</>}
+        >
           {!sampledVenues.length ? <Empty>No sampled pools right now (GeckoTerminal / DexScreener).</Empty> : <div className="h-[280px]">
             <ResponsiveContainer>
-              <BarChart data={sampledVenues.map((v) => ({ name: v.name, wins: v.wins, losses: v.losses, rate: winRate(v) }))} layout="vertical" stackOffset="expand" margin={{ left: 0, right: 16 }} barCategoryGap={6}>
+              <BarChart data={sampledVenues.map((v) => ({ name: `${v.name} · ${v.wins + v.losses}`, venue: v.name, wins: v.wins, losses: v.losses, rate: winRate(v) }))} layout="vertical" stackOffset="expand" margin={{ left: 0, right: 16 }} barCategoryGap={6}>
                 <CartesianGrid horizontal={false} stroke={GRID} />
                 <XAxis type="number" {...AXIS} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
-                <YAxis type="category" dataKey="name" width={96} {...AXIS} tick={{ fontSize: 11 }} />
-                <ReferenceLine x={0.5} stroke="#8492a6" strokeDasharray="3 3" />
-                <Tooltip cursor={{ fill: "#f0f3f7" }} content={({ payload }) => {
+                <YAxis type="category" dataKey="name" width={118} {...AXIS} tick={{ fontSize: 11 }} />
+                <Tooltip cursor={{ fill: C.cursor }} content={({ payload }) => {
                   const p = payload?.[0]?.payload;
-                  return p ? <TipBox title={p.name} rows={[{ label: "Wins", value: String(p.wins), color: UP }, { label: "Losses", value: String(p.losses), color: DOWN }, { label: "Win rate", value: `${p.rate.toFixed(0)}%` }]} /> : null;
+                  return p ? <TipBox title={p.venue} rows={[{ label: "Up 24h", value: String(p.wins), color: C.up }, { label: "Down 24h", value: String(p.losses), color: C.down }, { label: "Win rate", value: `${p.rate.toFixed(0)}%` }]} /> : null;
                 }} />
-                <Bar dataKey="wins" stackId="a" fill={UP} stroke="#fff" strokeWidth={2} />
-                <Bar dataKey="losses" stackId="a" fill={DOWN} stroke="#fff" strokeWidth={2} radius={[0, 4, 4, 0]} />
+                <Bar dataKey="wins" stackId="a" fill={C.up} fillOpacity={0.85} stroke={C.bg} strokeWidth={2} />
+                <Bar dataKey="losses" stackId="a" fill={C.down} fillOpacity={0.85} stroke={C.bg} strokeWidth={2} radius={[0, 4, 4, 0]} />
+                <ReferenceLine x={0.5} stroke={C.label} strokeDasharray="3 3" />
               </BarChart>
             </ResponsiveContainer>
           </div>}
-
-          {!!sampledVenues.length && <Legend items={[{ label: "Up 24h", color: UP }, { label: "Down 24h", color: DOWN }]} />}
+          {!!sampledVenues.length && <Legend items={[{ label: "Up 24h", color: C.up }, { label: "Down 24h", color: C.down }]} />}
         </ChartCard>
 
-        <ChartCard title="Average 24h return" sub="Mean return of sampled tokens, per venue">
+        <ChartCard
+          title="Typical 24h return"
+          sub="Median of sampled tokens · mean in tooltip"
+          hint={<>The median 24h price change of the same sample, meaning what a typical fresh token on that venue did. The mean (in the tooltip) gets dragged up by a few moonshots, so a high mean with a negative median means most tokens lost and a handful ran.</>}
+        >
           {!sampledVenues.length ? <Empty>No sampled pools right now.</Empty> : <div className="h-[280px]">
             <ResponsiveContainer>
-              <BarChart data={sampledVenues.map((v) => ({ name: v.name, avg: v.avgReturn24h, med: v.medianReturn24h }))} margin={{ left: 0, right: 8 }} barCategoryGap="25%">
+              <BarChart data={sampledVenues.map((v) => ({ name: v.name, avg: v.avgReturn24h, med: v.medianReturn24h, n: v.wins + v.losses }))} margin={{ left: 0, right: 8 }} barCategoryGap="25%">
                 <CartesianGrid vertical={false} stroke={GRID} />
                 <XAxis dataKey="name" {...AXIS} interval={0} tick={{ fontSize: 10 }} />
-                <YAxis {...AXIS} tickFormatter={(v) => `${v}%`} width={44} />
-                <ReferenceLine y={0} stroke="#8492a6" />
-                <Tooltip cursor={{ fill: "#f0f3f7" }} content={({ payload }) => {
+                <YAxis {...AXIS} tickFormatter={(v) => `${Math.round(v)}%`} width={48} />
+                <ReferenceLine y={0} stroke={C.ref} />
+                <Tooltip cursor={{ fill: C.cursor }} content={({ payload }) => {
                   const p = payload?.[0]?.payload;
-                  return p ? <TipBox title={p.name} rows={[{ label: "Average", value: pct(p.avg) }, { label: "Median", value: pct(p.med) }]} /> : null;
+                  return p ? <TipBox title={p.name} rows={[{ label: "Median", value: pct(p.med) }, { label: "Mean", value: pct(p.avg) }, { label: "Tokens", value: String(p.n) }]} /> : null;
                 }} />
-                <Bar dataKey="avg" radius={4}>
-                  {sampledVenues.map((v) => <Cell key={v.id} fill={v.avgReturn24h >= 0 ? UP : DOWN} />)}
+                <Bar dataKey="med" radius={4}>
+                  {sampledVenues.map((v) => <Cell key={v.id} fill={v.medianReturn24h >= 0 ? C.up : C.down} fillOpacity={0.85} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>}
-
         </ChartCard>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <ChartCard className="lg:col-span-2" title="DEX volume · 14 days" sub="Daily volume per protocol">
+        <ChartCard
+          className="lg:col-span-2"
+          title="DEX volume · 14 days"
+          sub="Pick a venue to highlight it"
+          hint={<>Daily traded volume from DefiLlama&apos;s protocol history. The highlighted venue is drawn in color and the rest stay grey for context. The scale is logarithmic so TON&apos;s DEXes stay readable next to Uniswap and Raydium.</>}
+          right={histKeys.length ? <div className="seg">{histKeys.map((k) => <button key={k} data-on={focus === k} onClick={() => setFocus(k)}>{k}</button>)}</div> : undefined}
+        >
           {!data.history.length ? <Empty>DefiLlama history unavailable right now.</Empty> : <div className="h-[280px]">
             <ResponsiveContainer>
               <LineChart data={data.history} margin={{ left: 0, right: 12 }}>
                 <CartesianGrid vertical={false} stroke={GRID} />
                 <XAxis dataKey="date" {...AXIS} />
                 <YAxis {...AXIS} tickFormatter={(v) => usd(v, { compact: true })} width={56} scale="log" domain={["auto", "auto"]} allowDataOverflow />
-                <Tooltip content={({ payload, label }) => payload?.length ? <TipBox title={String(label)} rows={payload.map((p) => ({ label: String(p.dataKey), value: usd(Number(p.value), { compact: true }), color: String(p.color) }))} /> : null} />
-                {histKeys.map((k, i) => <Line key={k} dataKey={k} stroke={SERIES[i % SERIES.length]} strokeWidth={2} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "#fff" }} />)}
+                <Tooltip content={({ payload, label }) => payload?.length ? <TipBox title={String(label)} rows={[...payload].sort((a, b) => Number(b.value) - Number(a.value)).map((p) => ({ label: String(p.dataKey), value: usd(Number(p.value), { compact: true }), color: p.dataKey === focus ? C.accent : C.bar }))} /> : null} />
+                {histKeys.filter((k) => k !== focus).map((k) => <Line key={k} dataKey={k} stroke={C.bar} strokeWidth={1.5} dot={false} activeDot={false} isAnimationActive={false} />)}
+                {focus && <Line key={focus} dataKey={focus} stroke={C.accent} strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: C.bg }} />}
               </LineChart>
             </ResponsiveContainer>
           </div>}
-          {!!data.history.length && <Legend items={histKeys.map((k, i) => ({ label: k, color: SERIES[i % SERIES.length] }))} />}
         </ChartCard>
 
-        <ChartCard title="Pair types" sub="Which quote asset is winning today">
+        <ChartCard
+          title="What's the winning pair?"
+          sub="Sampled pools by quote asset"
+          hint={<>Sampled pools (plus Bitpad launches) grouped by the asset they&apos;re paired against: TON, ETH, SOL, stables or tokenized stocks. For each group you get 24h volume, average 24h return, and the share of pools that are up. It shows which kind of pair is attracting money today.</>}
+        >
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-muted">
-              <tr><th className="py-1.5 font-medium">Pairs</th><th className="text-right font-medium">Vol</th><th className="text-right font-medium">Avg</th><th className="text-right font-medium">Win</th></tr>
+              <tr><th className="py-1.5 font-medium">Pairs</th><th className="text-right font-medium">Vol</th><th className="text-right font-medium">Avg</th><th className="text-right font-medium">Up</th></tr>
             </thead>
             <tbody className="num">
               {data.pairTypes.map((p) => (
                 <tr key={p.kind} className="border-t border-line">
-                  <td className="py-2 font-semibold">{p.label}<div className="text-[11px] font-normal text-muted">{p.pools} pools</div></td>
-                  <td className="text-right">{usd(p.volume24h, { compact: true })}</td>
-                  <td className={`text-right font-semibold ${p.avgReturn24h >= 0 ? "text-up" : "text-down"}`}>{pct(p.avgReturn24h)}</td>
+                  <td className="py-2.5 font-medium">{p.label}<div className="text-[11px] font-normal text-muted">{p.pools} pools</div></td>
+                  <td className="text-right">{p.pools ? usd(p.volume24h, { compact: true }) : "—"}</td>
+                  <td className={`text-right font-medium ${!p.pools ? "text-muted" : p.avgReturn24h >= 0 ? "text-up" : "text-down"}`}>{p.pools ? pct(p.avgReturn24h) : "—"}</td>
                   <td className="text-right">
-                    <div className="ml-auto flex w-20 items-center justify-end gap-1.5">
-                      <div className="h-1.5 w-10 overflow-hidden rounded-full bg-down-soft"><div className="h-full bg-up" style={{ width: `${p.winRate}%` }} /></div>
-                      <span className="text-xs">{p.winRate.toFixed(0)}%</span>
-                    </div>
+                    {p.pools ? (
+                      <div className="ml-auto flex w-20 items-center justify-end gap-1.5">
+                        <div className="h-1.5 w-10 overflow-hidden rounded-full bg-line"><div className="h-full bg-ink-2" style={{ width: `${p.winRate}%` }} /></div>
+                        <span className="text-xs">{p.winRate.toFixed(0)}%</span>
+                      </div>
+                    ) : <span className="text-muted">—</span>}
                   </td>
                 </tr>
               ))}
@@ -190,43 +252,57 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
         </ChartCard>
       </div>
 
-      <ChartCard title={`${venueKind === "launchpads" ? "Launchpad" : "DEX"} comparison`} sub="Full table — sort by what matters to you">
+      <ChartCard
+        title={`${venueKind === "launchpads" ? "Launchpad" : "DEX"} comparison`}
+        sub="Click a column to sort"
+        hint={<>Every metric above side by side. <b>Live</b> means pools were sampled just now. <b>Volume only</b> means DefiLlama reports volume but no pools were sampled, so win rate and returns are blank. <b>No data</b> means no public source answered. Launches counts sampled pools younger than 24h, or Bitpad factory launches in the last 24h.</>}
+      >
         <CompareTable rows={allVenues} />
       </ChartCard>
 
       <ChartCard
-        title="Trending pools across chains"
-        sub="TON, ETH, SOL, stable and stock pairs — ranked by 24h volume"
+        title="Trending pools"
+        sub="Top 24h volume across chains · ⚡ buys TON pools via STON.fi / DeDust"
+        hint={<>GeckoTerminal&apos;s trending pools for each chain, ranked by 24h volume. Filter by what the token is paired against. ⚡ quick-buys TON pools with your quick-buy amount through the best STON.fi or DeDust route. Other chains link out to the pool.</>}
         right={
-          <div className="seg">
-            {(["all", "ton", "eth", "sol", "stable", "stock"] as const).map((q) => (
-              <button key={q} data-on={quote === q} onClick={() => setQuote(q)}>{q === "all" ? "All" : q.toUpperCase()}</button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <QuickBuyAmount />
+            <div className="seg">
+              {(["all", "ton", "eth", "sol", "stable", "stock"] as const).map((q) => (
+                <button key={q} data-on={quote === q} onClick={() => setQuote(q)}>{q === "all" ? "All" : q.toUpperCase()}</button>
+              ))}
+            </div>
           </div>
         }
       >
         <div className="scroll-x">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="w-full min-w-[820px] text-sm">
             <thead className="text-left text-xs text-muted">
               <tr className="border-b border-line">
                 <th className="py-2 font-medium">Pool</th><th className="font-medium">Chain · DEX</th>
                 <th className="text-right font-medium">Price</th><th className="text-right font-medium">1h</th><th className="text-right font-medium">24h</th>
-                <th className="text-right font-medium">Volume</th><th className="text-right font-medium">Liquidity</th><th className="text-right font-medium">Txns</th><th className="text-right font-medium">Age</th><th />
+                <th className="text-right font-medium">Volume</th><th className="text-right font-medium">Liquidity</th><th className="text-right font-medium">Txns</th><th className="text-right font-medium">Age</th><th className="pl-3 text-right font-medium">Buy</th>
               </tr>
             </thead>
             <tbody className="num">
               {trending.slice(0, 25).map((p) => (
                 <tr key={p.id} className="border-b border-line/60 last:border-0 hover:bg-surface-2/60">
-                  <td className="py-2 font-semibold">{p.base}<span className="font-normal text-muted"> / {p.quote}</span></td>
+                  <td className="py-2.5 font-medium">{p.base}<span className="font-normal text-muted"> / {p.quote}</span></td>
                   <td className="text-xs text-ink-2">{CHAINS[p.chain].short} · {p.dex}</td>
                   <td className="text-right">{price(p.priceUsd)}</td>
                   <td className={`text-right ${p.change1h >= 0 ? "text-up" : "text-down"}`}>{pct(p.change1h)}</td>
-                  <td className={`text-right font-semibold ${p.change24h >= 0 ? "text-up" : "text-down"}`}>{pct(p.change24h)}</td>
+                  <td className={`text-right font-medium ${p.change24h >= 0 ? "text-up" : "text-down"}`}>{pct(p.change24h)}</td>
                   <td className="text-right">{usd(p.volume24h, { compact: true })}</td>
                   <td className="text-right">{usd(p.liquidityUsd, { compact: true })}</td>
                   <td className="text-right">{num(p.txns24h, 0)}</td>
                   <td className="text-right text-muted">{p.ageHours < 48 ? `${Math.round(p.ageHours)}h` : `${Math.round(p.ageHours / 24)}d`}</td>
-                  <td className="pl-2 text-right">{p.url && <a href={p.url} target="_blank" rel="noreferrer" className="text-muted hover:text-brand" aria-label="Open pool"><ExternalLink className="size-3.5" /></a>}</td>
+                  <td className="pl-3 text-right">
+                    {p.chain === "ton" && p.baseAddress ? (
+                      <QuickBuyButton token={{ address: p.baseAddress, symbol: p.base }} />
+                    ) : p.url ? (
+                      <a href={p.url} target="_blank" rel="noreferrer" className="inline-flex text-muted hover:text-ink" aria-label="Open pool"><ExternalLink className="size-3.5" /></a>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
               {!trending.length && <tr><td colSpan={10} className="py-6 text-center text-muted">No pools for this filter</td></tr>}
@@ -239,22 +315,22 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="grid h-[240px] place-items-center rounded-lg bg-surface-2/60 text-center text-sm text-muted">{children}</div>;
+  return <div className="grid h-[240px] place-items-center rounded-lg bg-surface-2/60 px-4 text-center text-sm text-muted">{children}</div>;
 }
 
-function Kpi({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
+function Kpi({ label, value, sub, hint, align }: { label: string; value: string; sub?: string; hint: React.ReactNode; align?: "left" | "right" }) {
   return (
-    <div className="card p-4">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted">{icon}{label}</div>
-      <div className="num mt-1 truncate text-xl font-semibold tracking-tight">{value}</div>
-      {sub && <div className="mt-0.5 truncate text-xs text-ink-2">{sub}</div>}
+    <div className="card p-5">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-muted">{label}<Hint align={align}>{hint}</Hint></div>
+      <div className="num mt-2 truncate text-2xl font-semibold tracking-tight">{value}</div>
+      {sub && <div className="mt-1 truncate text-xs text-ink-2">{sub}</div>}
     </div>
   );
 }
 
 function Legend({ items }: { items: { label: string; color: string }[] }) {
   return (
-    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
+    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
       {items.map((i) => (
         <span key={i.label} className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm" style={{ background: i.color }} />{i.label}</span>
       ))}
@@ -262,44 +338,47 @@ function Legend({ items }: { items: { label: string; color: string }[] }) {
   );
 }
 
-type SortKey = "volume24h" | "volumeChange" | "launches24h" | "winRate" | "avgReturn24h" | "buySellRatio";
+type SortKey = "volume24h" | "volumeChange" | "fees24h" | "launches24h" | "winRate" | "medianReturn24h" | "buySellRatio";
 function CompareTable({ rows }: { rows: LaunchpadStat[] }) {
   const [key, setKey] = useState<SortKey>("volume24h");
-  const val = (r: LaunchpadStat) => (key === "winRate" ? winRate(r) : r[key]);
+  const val = (r: LaunchpadStat) => (key === "winRate" ? winRate(r) : r[key] ?? -Infinity);
   const sorted = [...rows].sort((a, b) => val(b) - val(a));
   const H = ({ k, children }: { k: SortKey; children: React.ReactNode }) => (
     <th className="text-right font-medium">
-      <button onClick={() => setKey(k)} className={key === k ? "font-bold text-ink" : "hover:text-ink"}>{children}{key === k ? " ↓" : ""}</button>
+      <button onClick={() => setKey(k)} className={key === k ? "text-ink" : "hover:text-ink"}>{children}{key === k ? " ↓" : ""}</button>
     </th>
   );
+  const sampled = (r: LaunchpadStat) => r.wins + r.losses > 0;
   return (
     <div className="scroll-x">
-      <table className="w-full min-w-[860px] text-sm">
+      <table className="w-full min-w-[920px] text-sm">
         <thead className="text-left text-xs text-muted">
           <tr className="border-b border-line">
             <th className="py-2 font-medium">Venue</th><th className="font-medium">Chain</th><th className="font-medium">Mechanism</th>
-            <H k="volume24h">Volume 24h</H><H k="volumeChange">Δ 1d</H><H k="launches24h">Launches</H><H k="winRate">Win rate</H><H k="avgReturn24h">Avg return</H><H k="buySellRatio">Buy/Sell</H>
+            <H k="volume24h">Volume 24h</H><H k="volumeChange">vs 1d</H><H k="fees24h">Fees 24h</H><H k="launches24h">Launches</H><H k="winRate">Win rate</H><H k="medianReturn24h">Median 24h</H><H k="buySellRatio">Buys/sell</H>
             <th className="text-right font-medium">Top gainer</th><th className="pl-3 font-medium">Data</th>
           </tr>
         </thead>
         <tbody className="num">
           {sorted.map((r) => (
-            <tr key={r.id} className={`border-b border-line/60 last:border-0 ${r.id === "bitpad" ? "bg-brand-soft/40" : ""}`}>
-              <td className="py-2.5 font-semibold"><span className="mr-2 inline-block size-2.5 rounded-sm align-middle" style={{ background: r.color }} />{r.name}</td>
+            <tr key={r.id} className={`border-b border-line/60 last:border-0 ${r.id === "bitpad" ? "bg-surface-2/70" : ""}`}>
+              <td className="py-2.5 font-medium">{r.name}</td>
               <td className="text-ink-2">{CHAINS[r.chain].short}</td>
               <td className="text-xs text-ink-2">{r.mechanism}</td>
-              <td className="text-right">{r.source === "unavailable" ? "—" : usd(r.volume24h, { compact: true })}</td>
-              <td className={`text-right ${r.volumeChange >= 0 ? "text-up" : "text-down"}`}>{r.source === "unavailable" || !r.volumeChange ? "—" : pct(r.volumeChange)}</td>
-              <td className="text-right">{r.kind === "launchpad" ? num(r.launches24h, 0) : "—"}</td>
-              <td className="text-right">{r.wins + r.losses ? <>{winRate(r).toFixed(0)}% <span className="text-xs text-muted">({r.wins}/{r.wins + r.losses})</span></> : "—"}</td>
-              <td className={`text-right font-semibold ${r.avgReturn24h >= 0 ? "text-up" : "text-down"}`}>{r.wins + r.losses ? pct(r.avgReturn24h) : "—"}</td>
-              <td className="text-right">{r.wins + r.losses ? r.buySellRatio.toFixed(2) : "—"}</td>
+              <td className="text-right" title={r.volumeSource ? VOL_SOURCE[r.volumeSource] : undefined}>{r.source === "unavailable" ? "—" : usd(r.volume24h, { compact: true })}{r.volumeSource === "sampled" && <span className="text-muted">*</span>}</td>
+              <td className={`text-right ${!r.volumeChange ? "text-muted" : r.volumeChange >= 0 ? "text-up" : "text-down"}`}>{r.source === "unavailable" || !r.volumeChange ? "—" : pct(r.volumeChange)}</td>
+              <td className="text-right">{r.fees24h ? usd(r.fees24h, { compact: true }) : "—"}</td>
+              <td className="text-right">{r.kind === "launchpad" && r.source !== "unavailable" ? num(r.launches24h, 0) : "—"}</td>
+              <td className="text-right">{sampled(r) ? <>{winRate(r).toFixed(0)}% <span className="text-xs text-muted">({r.wins}/{r.wins + r.losses})</span></> : "—"}</td>
+              <td className={`text-right font-medium ${!sampled(r) ? "text-muted" : r.medianReturn24h >= 0 ? "text-up" : "text-down"}`}>{sampled(r) ? pct(r.medianReturn24h) : "—"}</td>
+              <td className="text-right">{sampled(r) ? r.buySellRatio.toFixed(2) : "—"}</td>
               <td className="text-right text-xs">{r.topGainer ? <>{r.topGainer.symbol} <span className="text-up">{pct(r.topGainer.change, 0)}</span></> : "—"}</td>
               <td className="pl-3"><SourceTag source={r.source} /></td>
             </tr>
           ))}
         </tbody>
       </table>
+      <p className="mt-3 text-[11px] text-muted">* volume summed from sampled pools, so the real total is higher.</p>
     </div>
   );
 }

@@ -57,17 +57,22 @@ function venueStat(v: Venue, sampled: GeckoPoolRow[], dex: LlamaProtocol[], fees
     topGainer: s.top,
     buySellRatio: s.ratio,
     fees24h: fee.reduce((a, p) => a + (p.total24h ?? 0), 0) || undefined,
+    volumeSource: volume ? "defillama" : "sampled",
     source: mine.length ? "live" : "partial",
   };
 }
 
+/** FOMO 0–100 = 40% buy/sell pressure + 30% 1h momentum + 30% volume acceleration, each clamped to 0–1. */
 function fomoScore(pools: GeckoPoolRow[], volChange: number) {
   const s = sampleStats(pools);
   const h1 = pools.reduce((a, p) => a + p.change1h, 0) / pools.length;
-  const ratio = Math.min(1, Math.max(0, (s.ratio - 0.6) / 1.0));
-  const mom = Math.min(1, Math.max(0, (h1 + 10) / 30));
-  const vol = Math.min(1, Math.max(0, (volChange + 30) / 80));
-  return Math.round(100 * (0.4 * ratio + 0.3 * mom + 0.3 * vol));
+  const clamp = (x: number) => Math.min(1, Math.max(0, x));
+  const parts = {
+    pressure: clamp((s.ratio - 0.6) / 1.0), // 0.6 buys per sell → 0, 1.6 → 1
+    momentum: clamp((h1 + 10) / 30), // −10% avg 1h → 0, +20% → 1
+    volume: clamp((volChange + 30) / 80), // −30% day-on-day → 0, +50% → 1
+  };
+  return { score: Math.round(100 * (0.4 * parts.pressure + 0.3 * parts.momentum + 0.3 * parts.volume)), parts };
 }
 
 export function getAnalytics(): Promise<AnalyticsSnapshot> {
@@ -98,8 +103,8 @@ async function build(): Promise<AnalyticsSnapshot> {
   const bv = LAUNCHPADS[0];
   const bitpadRow: LaunchpadStat = {
     id: bv.id, name: bv.name, chain: bv.chain, kind: "launchpad", mechanism: bv.mechanism, color: bv.color,
-    volume24h: bs.volume, volumeChange: 0,
-    launches24h: bitpad.value.tokens.length, wins: bs.wins, losses: bs.losses, avgReturn24h: bs.avg, medianReturn24h: bs.med,
+    volume24h: bs.volume, volumeChange: 0, volumeSource: "onchain",
+    launches24h: bitpad.value.tokens.filter((t) => t.createdAt && t.createdAt >= Date.now() - 86_400_000).length, wins: bs.wins, losses: bs.losses, avgReturn24h: bs.avg, medianReturn24h: bs.med,
     topGainer: bs.top, buySellRatio: bs.ratio,
     source: bitpad.value.factory && bitpad.value.ok ? "live" : "unavailable",
   };
@@ -113,12 +118,15 @@ async function build(): Promise<AnalyticsSnapshot> {
     const pools = geckoOk ? [...s.fresh, ...s.trending] : uniq.filter((p) => p.chain === c);
     if (!pools.length && !cv.ok) return { chain: c, volume24h: 0, change24h: 0, newPools24h: 0, fomo: 0, buySellRatio: 1, source: "unavailable" };
     const st = sampleStats(pools);
+    const f = pools.length ? fomoScore(pools, cv.value.change1d) : null;
     return {
       chain: c,
       volume24h: cv.value.total24h || st.volume,
       change24h: cv.value.change1d,
       newPools24h: s.fresh.filter((p) => p.ageHours <= 24).length,
-      fomo: pools.length ? fomoScore(pools, cv.value.change1d) : 0,
+      fomo: f?.score ?? 0,
+      fomoParts: f?.parts,
+      sampled: pools.length,
       buySellRatio: st.ratio,
       source: "live",
     };

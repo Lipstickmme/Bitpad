@@ -3,6 +3,7 @@ import type { MarketToken } from "@/lib/types";
 import { price, usd } from "@/lib/format";
 import { AssetDot, Change, PairBadge, Sparkline, TokenAvatar, changePath, orDash } from "./ui";
 import { CopyButton } from "./CopyButton";
+import { QuickBuyButton } from "./QuickBuy";
 
 export function TokenCard({ token }: { token: MarketToken }) {
   const cap = token.marketCap ?? token.fdv;
@@ -14,7 +15,7 @@ export function TokenCard({ token }: { token: MarketToken }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="truncate text-sm font-semibold">{token.symbol}</span>
-            {token.bitpad && <span className="chip border-brand/25 bg-brand-soft text-brand-ink">Bitpad</span>}
+            {token.bitpad && <span className="chip">Bitpad</span>}
           </div>
           <div className="truncate text-xs text-muted">{token.name}</div>
         </div>
@@ -35,6 +36,7 @@ export function TokenCard({ token }: { token: MarketToken }) {
         <span className="font-medium text-ink">{token.pair.symbol}</span>
         <PairBadge asset={token.pair} />
         <span className="num ml-auto text-muted">Vol {orDash(token.volume24h, (v) => usd(v, { compact: true }))}</span>
+        <QuickBuyButton token={{ address: token.address, symbol: token.symbol, bitpadPool: token.bitpad?.pool }} className="ml-1" />
       </div>
     </Link>
   );
