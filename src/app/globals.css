@@ -151,6 +151,14 @@ body {
   color: var(--color-ink-2);
 }
 
+/* Accent → gold gradient text, used sparingly for key words */
+.text-accent-gradient {
+  background: linear-gradient(90deg, var(--color-brand) 0%, var(--color-brand-ink) 45%, var(--color-gold) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
 .scroll-x {
   overflow-x: auto;
   scrollbar-width: thin;

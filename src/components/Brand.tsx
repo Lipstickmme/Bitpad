@@ -10,7 +10,7 @@ export function Logo({ size = 44, withText = true }: { size?: number; withText?:
   return (
     <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="Bitpad home">
       <Mark size={size} />
-      {withText && <span className="text-lg font-bold tracking-tight">Bitpad</span>}
+      {withText && <span className="text-lg font-bold tracking-tight max-[420px]:hidden">Bitpad</span>}
     </Link>
   );
 }

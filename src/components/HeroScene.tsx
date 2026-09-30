@@ -6,8 +6,8 @@ import { useEffect, useRef } from "react";
  * up with nearest-neighbour sampling. The world is two screens tall and a
  * camera pans between the ground and the sky.
  *
- *   0–3s    the mascot sits on the hill stargazing; a shooting star passes
- *   3–7s    it walks to the top of the hill
+ *   0–3s    BIT (the logo mascot) stands on the hill stargazing; a shooting star passes
+ *   3–7s    he walks to the top of the hill
  *   7–9s    stops, looks up — "!"
  *   9–12.5s the view drifts up to the ships in the sky, then back down
  *   12.5–14 it hops into its rocket; the engine rumbles
@@ -25,7 +25,6 @@ const GROUND = WH - 20;
 const STAR = ["#4b6069", "#a3b3b9", "#edf2f3", "#b3d6e2"];
 const DRONE = "#b3d6e2";
 const INK = "#edf2f3";
-const EYE = "#0a1215";
 
 /** 5×7 bitmap glyphs for the drone messages. */
 const FONT: Record<string, string[]> = {
@@ -43,21 +42,6 @@ const FONT: Record<string, string[]> = {
   " ": [],
 };
 
-/** The walking mascot (before it boards the rocket): fluffy body, big eyes. */
-const WALKER = [
-  "..#..#..#....",
-  "...#######...",
-  "..#########..",
-  ".###########.",
-  ".##ee###ee##.",
-  ".##ee###ee##.",
-  ".###########.",
-  "############.",
-  ".###########.",
-  "..#########..",
-  "...#######...",
-];
-const FEET = ["...##...##...", "..##.....##.."];
 
 type Star = { x: number; y: number; c: number; p: number };
 type Ship = { x: number; y: number; v: number; kind: 0 | 1 | 2 };
@@ -81,6 +65,9 @@ export function HeroScene() {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const rocket = new Image();
     rocket.src = "/brand/mark.png";
+    // BIT himself (the logo without the rocket), walking before lift-off
+    const bit = new Image();
+    bit.src = "/brand/bit.png";
 
     let W = 320;
     let H = 150; // visible pixel rows — both follow the element so pixels stay square
@@ -107,6 +94,7 @@ export function HeroScene() {
       H = Math.min(WH - 40, Math.max(60, Math.round(r.height / P)));
       canvas.width = W;
       canvas.height = H;
+      ctx.imageSmoothingEnabled = false;
       seed = 42;
       hillX = Math.round(W * (W > 260 ? 0.78 : 0.62));
       stars = Array.from({ length: Math.round((W * WH) / 200) }, () => ({ x: Math.floor(rnd() * W), y: Math.floor(rnd() * (GROUND - 30)), c: Math.floor(rnd() * 3), p: rnd() * 6.28 }));
@@ -164,26 +152,21 @@ export function HeroScene() {
       }
     }
 
-    /** Walker at (x, feet y), 2× scale. look: 0 = right, 1 = up. */
-    function drawWalker(x: number, y: number, look: number, step: number, hop = 0) {
-      const S = 2;
-      const top = y - (WALKER.length + 1) * S - hop;
-      const left = x - (WALKER[0].length * S) / 2;
-      WALKER.forEach((row, ry) => {
-        for (let rx = 0; rx < row.length; rx++) {
-          const ch = row[rx];
-          if (ch === ".") continue;
-          px(left + rx * S, top + ry * S, ch === "e" ? EYE : INK, S, S);
-        }
-      });
-      // pupils: two per eye block, shifted by gaze
-      for (const ex of [3, 8]) {
-        const pxX = left + (ex + (look ? 0.5 : 1)) * S;
-        const pxY = top + (look ? 4 : 4.6) * S;
-        px(pxX, pxY, INK, S, S / 2 + (look ? 0 : 0));
-      }
-      const feet = hop ? FEET[0] : FEET[step % 2];
-      for (let rx = 0; rx < feet.length; rx++) if (feet[rx] === "#") px(left + rx * S, top + WALKER.length * S, "#a3b3b9", S, S);
+    /**
+     * BIT on foot at (x, feet y): the logo mascot without its rocket, tilted
+     * upright. look: 0 = walking right (bob + rock), 1 = gazing up.
+     */
+    function drawBit(x: number, y: number, look: number, step: number, hop = 0) {
+      if (!bit.complete || !bit.naturalWidth) return;
+      const h = 24;
+      const w = Math.round((h * bit.naturalWidth) / bit.naturalHeight);
+      const bob = look ? 0 : step % 2;
+      const tilt = look ? -0.12 : 0.28 + (step % 2 ? 0.05 : -0.05); // radians: upright-ish while walking, leaning back to look up
+      ctx.save();
+      ctx.translate(Math.round(x), Math.round(y - camY - hop - bob));
+      ctx.rotate(tilt);
+      ctx.drawImage(bit, -Math.round(w / 2), -h, w, h);
+      ctx.restore();
     }
 
     function frame(now: number) {
@@ -311,7 +294,7 @@ export function HeroScene() {
       if (mode === "walker") {
         const fade = t > 25 ? seg(t, 25, 26) : 1;
         ctx.globalAlpha = fade;
-        drawWalker(mx, my, look, step, hop);
+        drawBit(mx, my, look, step, hop);
         ctx.globalAlpha = 1;
         // "!" when it notices the sky
         if (t > 7.3 && t < 9 && Math.floor(sec * 4) % 4 !== 0) {

@@ -24,20 +24,20 @@ export function Header({ telegramBot }: { telegramBot: string }) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur">
-      <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-6 px-4 sm:px-6">
-        <Logo />
+      <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-3 px-3 sm:gap-6 sm:px-6">
+        <Logo size={44} />
         <nav className="hidden items-center gap-1 lg:flex">
           {NAV.map((n) => (
             <Link
               key={n.href}
               href={n.href}
-              className={`rounded-md px-3 py-2 text-[15px] font-medium transition-colors ${active(n.href) ? "text-ink" : "text-muted hover:text-ink"}`}
+              className={`relative rounded-md px-3 py-2 text-[15px] font-medium transition-colors ${active(n.href) ? "text-ink after:absolute after:inset-x-3 after:-bottom-[15px] after:h-0.5 after:rounded-full after:bg-brand" : "text-muted hover:text-ink"}`}
             >
               {n.label}
             </Link>
           ))}
         </nav>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">
           <SearchBox />
           <a href={config.links.telegram} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 md:inline-flex" aria-label="Telegram"><TelegramIcon /></a>
           <a href={config.links.x} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 md:inline-flex" aria-label="X"><XIcon /></a>
@@ -55,6 +55,7 @@ export function Header({ telegramBot }: { telegramBot: string }) {
               {n.label}
             </Link>
           ))}
+          <button onClick={() => { setOpen(false); window.dispatchEvent(new Event("bitpad:open-chat")); }} className="block w-full rounded-md px-3 py-2.5 text-left text-sm font-medium text-ink-2">Trench chat</button>
           <div className="flex gap-2 px-3 py-2.5">
             <a href={config.links.telegram} target="_blank" rel="noreferrer" className="btn btn-ghost w-10 px-0" aria-label="Telegram"><TelegramIcon /></a>
             <a href={config.links.x} target="_blank" rel="noreferrer" className="btn btn-ghost w-10 px-0" aria-label="X"><XIcon /></a>

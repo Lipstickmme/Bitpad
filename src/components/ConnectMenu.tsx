@@ -104,7 +104,7 @@ export function ConnectMenu({ telegramBot }: { telegramBot: string }) {
     <div className="relative" ref={box}>
       <button onClick={() => setOpen((o) => !o)} className="btn btn-ghost num">
         <Wallet className="size-4" />
-        <span className="max-w-[9rem] truncate">{label}</span>
+        <span className="max-w-[6.5rem] truncate sm:max-w-[9rem]">{label}</span>
         <ChevronDown className="size-3.5 opacity-60" />
       </button>
       {open && (

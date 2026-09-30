@@ -41,7 +41,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Market analytics</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Market <span className="text-accent-gradient">analytics</span></h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-2">Launchpads and DEXes across TON, Solana, Ethereum, Base and BNB — where the volume is, whether new tokens are winning, and where the FOMO is. Every number is pulled live; hover ⓘ for how it&apos;s measured.</p>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted">

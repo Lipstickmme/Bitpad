@@ -81,7 +81,7 @@ export function orDash<T>(v: T | null | undefined, f: (x: T) => string) {
 export function SectionTitle({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="mb-3 flex flex-wrap items-center gap-3">
-      <h2 className="text-base font-semibold tracking-tight">{children}</h2>
+      <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight"><span className="h-4 w-1 rounded-full bg-brand" aria-hidden />{children}</h2>
       {right && <div className="ml-auto flex items-center gap-2">{right}</div>}
     </div>
   );
@@ -99,7 +99,7 @@ export function Hint({ children, align = "left" }: { children: React.ReactNode; 
       </button>
       <span
         role="tooltip"
-        className={`pointer-events-none invisible absolute top-6 z-30 w-72 max-w-[80vw] rounded-lg border border-line-strong bg-surface-2 p-3 text-left text-xs font-normal normal-case leading-relaxed tracking-normal text-ink-2 opacity-0 shadow-2xl shadow-black/50 transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 ${align === "right" ? "right-0" : "left-0"}`}
+        className={`pointer-events-none absolute top-6 z-30 hidden w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-line-strong bg-surface-2 p-3 text-left text-xs font-normal normal-case leading-relaxed tracking-normal text-ink-2 shadow-2xl shadow-black/50 group-focus-within:block group-hover:block ${align === "right" ? "right-0" : "left-0"}`}
       >
         {children}
       </span>

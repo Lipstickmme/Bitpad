@@ -9,7 +9,7 @@ export function TokenCard({ token }: { token: MarketToken }) {
   const cap = token.marketCap ?? token.fdv;
   const spark = token.priceUsd && token.changes ? changePath(token.priceUsd, token.changes) : null;
   return (
-    <Link href={`/token/${token.address}`} className="card group block p-4 transition-colors hover:border-line-strong">
+    <Link href={`/token/${token.address}`} className="card group block p-4 transition-colors hover:border-brand/40">
       <div className="flex items-center gap-3">
         <TokenAvatar token={token} size={36} />
         <div className="min-w-0 flex-1">

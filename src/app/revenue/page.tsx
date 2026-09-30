@@ -19,7 +19,7 @@ export default async function RevenuePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Revenue & fees</h1>
+        <h1 className="text-3xl font-bold tracking-tight"><span className="text-accent-gradient">Revenue</span> &amp; fees</h1>
         <p className="mt-1 max-w-3xl text-sm text-ink-2">Every trade Bitpad routes pays the platform on-chain, through the route&apos;s own frontend-fee mechanism: Bitpad pools take a protocol fee inside the contract, STON.fi swaps carry Bitpad as referrer (the cut accrues in STON.fi vaults owned by the fee wallet), and DeDust swaps add a separate fee transfer. Figures below are read live from chain and STON.fi.</p>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

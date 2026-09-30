@@ -72,6 +72,20 @@ export function TrenchChat() {
     return () => clearInterval(t);
   }, [load, open]);
 
+  // Open from elsewhere (the phone menu) + on phones, show the floating button only after scrolling past the hero
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const openChat = () => setOpen(true);
+    const onScroll = () => setScrolled(window.scrollY > 160);
+    onScroll();
+    window.addEventListener("bitpad:open-chat", openChat);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("bitpad:open-chat", openChat);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
+
   const latest = msgs[0]?.time ?? 0;
   useEffect(() => {
     if (open) setSeen(latest);
@@ -106,8 +120,8 @@ export function TrenchChat() {
   return (
     <>
       {!open && (
-        <button onClick={() => setOpen(true)} className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full border border-line-strong bg-surface px-4 py-2.5 text-sm font-semibold shadow-2xl shadow-black/50 hover:bg-surface-2">
-          <Mark size={18} /> Trench chat
+        <button onClick={() => setOpen(true)} aria-label="Trench chat" className={`fixed bottom-4 right-4 z-40 items-center gap-2 rounded-full border border-line-strong bg-surface p-3 text-sm font-semibold shadow-2xl shadow-black/50 hover:bg-surface-2 sm:flex sm:px-4 sm:py-2.5 ${scrolled ? "flex" : "hidden"}`}>
+          <Mark size={18} /> <span className="hidden sm:inline">Trench chat</span>
           {unread && <span className="size-2 rounded-full bg-launch" />}
         </button>
       )}

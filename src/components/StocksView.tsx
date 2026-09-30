@@ -36,7 +36,7 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Stocks &amp; gold on TON</h1>
+          <h1 className="text-3xl font-bold tracking-tight"><span className="text-accent-gradient">Stocks &amp; gold</span> on TON</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-2">
             Tokenized shares and gold you can buy with TON and pair your jetton with. Compare what they trade for on TON with the real market price, and see when dividends are due.
           </p>
