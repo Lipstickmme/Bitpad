@@ -10,7 +10,7 @@ import { botUsername } from "@/lib/telegram";
 import { ensureRuntimeConfig } from "@/lib/runtime";
 
 export const metadata: Metadata = {
-  title: { default: "Bitpad — the TON launchpad for paired tokens", template: "%s · Bitpad" },
+  title: { default: "BITPAD · Buy stocks on TON · Launch paired jettons", template: "%s · BITPAD" },
   description: "Launch tokens paired with stocks, commodities and jettons. Liquidity goes straight into the pool — trade from block one. Cross-chain analytics and multi-wallet bundles.",
   icons: { icon: "/favicon.png", apple: "/icon-180.png" },
 };
