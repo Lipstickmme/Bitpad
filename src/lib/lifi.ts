@@ -19,6 +19,21 @@ export const LIFI_CHAIN: Partial<Record<ChainId, { key: string; evmId?: number; 
   arbitrum: { key: "ARB", evmId: 42161, native: "0x0000000000000000000000000000000000000000", symbol: "ETH", decimals: 18 },
 };
 
+/**
+ * LI.FI only accepts an integrator id of 1–23 letters, digits, "-", "_" or "."
+ * (the name registered in the LI.FI partner portal — not a wallet or API key).
+ * An invalid value would make every quote fail, so it's ignored: buys still
+ * work, just without the platform fee, and the server log says why.
+ */
+export const INTEGRATOR_RE = /^[A-Za-z0-9_.-]{1,23}$/;
+export function lifiIntegrator(raw = process.env.LIFI_INTEGRATOR): string | null {
+  const v = raw?.trim();
+  if (!v) return null;
+  if (INTEGRATOR_RE.test(v)) return v;
+  console.warn(`[lifi] LIFI_INTEGRATOR isn't a valid LI.FI integrator id (1–23 of A-Z a-z 0-9 - _ .); quoting without a fee`);
+  return null;
+}
+
 /** Platform fee on LI.FI routes, as a fraction (0.005 = 0.5%). */
 export const LIFI_FEE = 0.005;
 
@@ -69,7 +84,7 @@ export async function quoteNativeBuy(chain: ChainId, token: string, usd: number,
   if (!c) throw new Error(`${chain} isn't routable yet`);
   const px = await nativeUsd(chain);
   const amount = BigInt(Math.floor((usd / px) * 10 ** Math.min(c.decimals, 12))) * 10n ** BigInt(Math.max(0, c.decimals - 12));
-  const integrator = process.env.LIFI_INTEGRATOR;
+  const integrator = lifiIntegrator();
   const qs = new URLSearchParams({
     fromChain: c.key,
     toChain: c.key,

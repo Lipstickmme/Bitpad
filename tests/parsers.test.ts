@@ -104,3 +104,14 @@ test("dividend estimate rolls forward by the usual interval; gap is TON vs oracl
   assert.equal(usMarket(new Date("2026-09-30T15:00:00Z")).open, true); // Wed 11:00 New York
   assert.equal(usMarket(new Date("2026-10-03T15:00:00Z")).label, "Weekend");
 });
+
+test("LI.FI integrator id: valid names pass, wallets/URLs/keys are ignored", async () => {
+  const { lifiIntegrator } = await import("../src/lib/lifi");
+  assert.equal(lifiIntegrator("bitpad"), "bitpad");
+  assert.equal(lifiIntegrator(" bitpad_ton.v1 "), "bitpad_ton.v1");
+  assert.equal(lifiIntegrator(""), null);
+  assert.equal(lifiIntegrator(undefined), null);
+  assert.equal(lifiIntegrator("0x1234567890abcdef1234567890abcdef12345678"), null, "too long");
+  assert.equal(lifiIntegrator("https://bitpad.xyz"), null, "not alphanumeric");
+  assert.equal(lifiIntegrator("my app"), null, "spaces");
+});
