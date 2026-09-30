@@ -1,0 +1,24 @@
+{
+  "_readme": "Starter pair assets for `npm run pairs:add`. Addresses resolve live from STON.fi's verified asset list by symbol; set \"master\" to pin an exact jetton. kind: stable | jetton | stock | commodity | crypto. minUsd = minimum pair liquidity a launch must add, in USD (converted to units at today's price).",
+  "pairs": [
+    { "symbol": "USDT", "kind": "stable", "master": "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs", "minUsd": 50 },
+    { "symbol": "GRAM", "kind": "jetton", "minUsd": 50 },
+    { "symbol": "NOT", "kind": "jetton", "minUsd": 50 },
+    { "symbol": "DOGS", "kind": "jetton", "minUsd": 50 },
+    { "symbol": "STON", "kind": "jetton", "minUsd": 50 },
+    { "symbol": "XAUt0", "kind": "commodity", "minUsd": 50 },
+    { "symbol": "tgBTC", "kind": "crypto", "minUsd": 50 },
+    { "symbol": "SPYx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "QQQx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "AAPLx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "NVDAx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "TSLAx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "GOOGLx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "METAx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "MSFTx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "AMZNx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "MSTRx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "COINx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "HOODx", "kind": "stock", "minUsd": 50 }
+  ]
+}

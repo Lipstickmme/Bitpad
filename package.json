@@ -16,7 +16,8 @@
     "pair:add": "npm run contracts:build && tsx scripts/add-pair.ts",
     "contracts:gas": "npm run contracts:build && tsx contracts/tests/gas-report.ts",
     "status": "npm run contracts:build && tsx scripts/status.ts",
-    "referrals:pay": "tsx scripts/pay-referrals.ts"
+    "referrals:pay": "tsx scripts/pay-referrals.ts",
+    "pairs:add": "npm run contracts:build && tsx scripts/add-pairs.ts"
   },
   "dependencies": {
     "@dedust/sdk": "^0.8.7",
