@@ -8,7 +8,9 @@ import { Address } from "@ton/core";
  */
 
 /** BitpadFactory on mainnet (deployed 2026-09-28). */
-export const FACTORY_ADDRESS = "EQCZ9eHWHr6j00Fm3vcFW9kLIyZpPJ9284y7ZzIMQhx3wz1y";
+export const FACTORY_ADDRESS = "EQAFoeDfXw8dXYea1hUulBncvbm3VLghJgUNNkuCVu46BQJq";
+/** Earlier factories: their launches stay listed and tradable (no staking vaults). */
+export const LEGACY_FACTORIES = ["EQCZ9eHWHr6j00Fm3vcFW9kLIyZpPJ9284y7ZzIMQhx3wz1y"];
 /** BitpadBundler on mainnet. */
 export const BUNDLER_ADDRESS = "EQCRv-NxbhlN5A9FRne7HhVpq1weRKumxscL6334xu2-xVTY";
 

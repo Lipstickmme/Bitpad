@@ -1,7 +1,7 @@
 import "server-only";
 import { Address, Cell } from "@ton/core";
 import { runGet, intArg, addressArg } from "./chain";
-import { config } from "./config";
+import { config, LEGACY_FACTORIES } from "./config";
 import { memo } from "./data/http";
 
 /**
@@ -66,20 +66,27 @@ async function readLaunch(factory: Address, index: number): Promise<Launch | nul
 /** Latest launches, newest first. Empty when no factory is configured. */
 export async function getLaunches(limit = 60): Promise<{ launches: Launch[]; count: number; factory: string | null; ok: boolean }> {
   if (!config.factoryAddress) return { launches: [], count: 0, factory: null, ok: true };
-  const factory = Address.parse(config.factoryAddress);
-  try {
-    const count = await memo("factory:count", 15_000, async () => (await runGet(factory, "launch_count")).readNumber());
-    const out: Launch[] = [];
-    // sequential: toncenter's free tier is ~1 rps without an API key
-    for (let i = count - 1; i >= Math.max(0, count - limit); i--) {
-      const l = await memo(`launch:${config.factoryAddress}:${i}`, 7 * 86_400_000, () => readLaunch(factory, i)).catch(() => null);
-      if (l) out.push(l);
+  // Current factory first, then earlier ones (their launches keep trading)
+  const all = [config.factoryAddress, ...LEGACY_FACTORIES.filter((f) => f !== config.factoryAddress)];
+  const out: Launch[] = [];
+  let count = 0;
+  let ok = false;
+  for (const addr of all) {
+    const factory = Address.parse(addr);
+    try {
+      const n = await memo(`factory:count:${addr}`, 15_000, async () => (await runGet(factory, "launch_count")).readNumber());
+      count += n;
+      ok = true;
+      // sequential: toncenter's free tier is ~1 rps without an API key
+      for (let i = n - 1; i >= Math.max(0, n - limit) && out.length < limit; i--) {
+        const l = await memo(`launch:${addr}:${i}`, 7 * 86_400_000, () => readLaunch(factory, i)).catch(() => null);
+        if (l) out.push(l);
+      }
+    } catch (e) {
+      console.warn(`[launches] factory ${addr} read failed:`, (e as Error).message);
     }
-    return { launches: out, count, factory: config.factoryAddress, ok: true };
-  } catch (e) {
-    console.warn("[launches] factory read failed:", (e as Error).message);
-    return { launches: [], count: 0, factory: config.factoryAddress, ok: false };
   }
+  return { launches: out, count, factory: config.factoryAddress, ok };
 }
 
 export interface FactoryConfig {
