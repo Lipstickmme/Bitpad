@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { PairAsset } from "@/lib/types";
 import { pct, price } from "@/lib/format";
@@ -81,7 +82,7 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
                     <td className="py-2.5">
                       <div className="flex items-center gap-2.5">
                         <AssetDot asset={a} size={24} />
-                        <div><div className="font-medium">{a.symbol}</div><div className="text-[11px] text-muted">{a.name}{a.sector ? ` · ${a.sector}` : ""}</div></div>
+                        <div><Link href={`/stocks/${encodeURIComponent(a.symbol)}`} className="font-medium hover:underline">{a.symbol}</Link><div className="text-[11px] text-muted">{a.name}{a.sector ? ` · ${a.sector}` : ""}</div></div>
                       </div>
                     </td>
                     <td className="text-right" title={a.priceSource ? `via ${a.priceSource}` : undefined}>{a.oraclePriceUsd != null ? price(a.oraclePriceUsd) : "—"}</td>

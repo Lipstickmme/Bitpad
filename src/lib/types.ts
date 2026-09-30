@@ -173,6 +173,8 @@ export interface TrendingPool {
   url?: string;
   /** Base token contract — lets TON rows quick-buy */
   baseAddress?: string;
+  /** Pool contract, for the /pool chart page */
+  poolAddress?: string;
 }
 
 export interface PairTypeStat {

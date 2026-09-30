@@ -48,3 +48,31 @@ export async function yahooQuote(symbol: string): Promise<YahooQuote | null> {
   );
   return parseYahoo(res);
 }
+
+/** Chart ranges for real-market stock candles. */
+export const STOCK_TF = { "15m": ["15m", "5d"], "1h": ["60m", "1mo"], "1D": ["1d", "1y"], "1W": ["1wk", "5y"] } as const;
+export type StockTf = keyof typeof STOCK_TF;
+
+interface YOhlc {
+  chart: { result?: { timestamp?: number[]; indicators?: { quote?: { open?: (number | null)[]; high?: (number | null)[]; low?: (number | null)[]; close?: (number | null)[]; volume?: (number | null)[] }[] } }[] };
+}
+
+export function parseYahooCandles(res: YOhlc) {
+  const r = res.chart.result?.[0];
+  const q = r?.indicators?.quote?.[0];
+  if (!r?.timestamp || !q) return [];
+  return r.timestamp
+    .map((time, i) => ({ time, open: q.open?.[i], high: q.high?.[i], low: q.low?.[i], close: q.close?.[i], volume: q.volume?.[i] ?? 0 }))
+    .filter((c): c is { time: number; open: number; high: number; low: number; close: number; volume: number } => c.open != null && c.high != null && c.low != null && c.close != null)
+    .map((c) => ({ ...c, volume: c.volume ?? 0 }));
+}
+
+/** Real-market OHLC for a stock / futures symbol (Yahoo chart endpoint). */
+export async function yahooCandles(symbol: string, tf: StockTf) {
+  const [interval, range] = STOCK_TF[tf];
+  const res = await getJson<YOhlc>(
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}`,
+    { revalidate: tf === "15m" ? 60 : 600, headers: { "user-agent": "Mozilla/5.0 (compatible; Bitpad/1.0)" } },
+  );
+  return parseYahooCandles(res);
+}

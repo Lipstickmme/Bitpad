@@ -30,7 +30,7 @@ export function StockBoard({ assets }: { assets: PairAsset[] }) {
             <div className="flex items-center gap-2">
               <AssetDot asset={a} size={24} />
               <div className="min-w-0">
-                <div className="text-sm font-semibold">{a.symbol}</div>
+                <Link href={`/stocks/${encodeURIComponent(a.symbol)}`} className="text-sm font-semibold hover:underline">{a.symbol}</Link>
                 <div className="truncate text-[11px] text-muted">{a.name}</div>
               </div>
             </div>

@@ -127,6 +127,12 @@ const net = (chain: ChainId) => {
   return g;
 };
 
+/** One pool with its tokens and DEX. */
+export async function poolInfo(chain: ChainId, pool: string): Promise<GeckoPoolRow | null> {
+  const res = await getJson<{ data: GeckoPool; included?: GeckoToken[] }>(`${BASE}/networks/${net(chain)}/pools/${pool}?${INC}`, { revalidate: 30 });
+  return mapPools({ data: [res.data], included: res.included }, chain)[0] ?? null;
+}
+
 export const trendingPools = (chain: ChainId) => pools(`/networks/${net(chain)}/trending_pools?duration=24h`, chain);
 export const newPools = (chain: ChainId) => pools(`/networks/${net(chain)}/new_pools`, chain);
 export const topPools = (chain: ChainId, page = 1) => pools(`/networks/${net(chain)}/pools?sort=h24_volume_usd_desc&page=${page}`, chain, 180);

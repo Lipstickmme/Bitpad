@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ExternalLink } from "lucide-react";
@@ -288,7 +289,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
             <tbody className="num">
               {trending.slice(0, 25).map((p) => (
                 <tr key={p.id} className="border-b border-line/60 last:border-0 hover:bg-surface-2/60">
-                  <td className="py-2.5 font-medium">{p.base}<span className="font-normal text-muted"> / {p.quote}</span></td>
+                  <td className="py-2.5 font-medium">{p.poolAddress ? <Link href={`/pool/${p.chain}/${p.poolAddress}`} className="hover:underline">{p.base}<span className="font-normal text-muted"> / {p.quote}</span></Link> : <>{p.base}<span className="font-normal text-muted"> / {p.quote}</span></>}</td>
                   <td className="text-xs text-ink-2">{CHAINS[p.chain].short} · {p.dex}</td>
                   <td className="text-right">{price(p.priceUsd)}</td>
                   <td className={`text-right ${p.change1h >= 0 ? "text-up" : "text-down"}`}>{pct(p.change1h)}</td>
