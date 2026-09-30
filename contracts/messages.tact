@@ -296,3 +296,39 @@ inline fun jettonTransfer(queryId: Int, amount: Int, to: Address, response: Addr
         forwardPayload: beginCell().storeBit(false).endCell().beginParse()
     }.toCell();
 }
+
+// ── StakeVault (holders stake the jetton, earn TON from pool fees) ─────────
+
+/// TON rewards for stakers. Sent by the pool on ClaimFees, or by anyone
+/// topping the vault up. Everything attached above VAULT_GAS is distributed.
+message(0x42504c70) StakeRewards {
+    queryId: Int as uint64;
+}
+
+/// Withdraw `amount` staked jettons (and the pending TON). Attach ~0.1 TON.
+message(0x42504c71) Unstake {
+    queryId: Int as uint64;
+    amount: Int as coins;
+}
+
+/// Collect pending TON rewards without unstaking.
+message(0x42504c72) ClaimRewards {
+    queryId: Int as uint64;
+}
+
+struct StakerInfo {
+    amount: Int as coins;      // jettons staked
+    debt: Int;                 // amount × accPerShare at the last update
+    pending: Int as coins;     // TON earned, not yet paid
+}
+
+struct VaultData {
+    pool: Address;
+    tokenMaster: Address;
+    tokenWallet: Address;
+    totalStaked: Int;
+    stakers: Int;
+    accPerShare: Int;
+    rewardsTotal: Int;         // TON ever distributed to stakers
+    carry: Int;                // TON received while nobody was staked
+}

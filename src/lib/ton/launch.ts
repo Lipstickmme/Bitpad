@@ -17,10 +17,13 @@ export const OP = {
   RemoveReferrer: 0x42504c56,
   ClaimReferral: 0x42504c57,
   BundleBuy: 0x42504c60,
+  StakeRewards: 0x42504c70,
+  Unstake: 0x42504c71,
+  ClaimRewards: 0x42504c72,
   JettonTransfer: 0x0f8a7ea5,
 } as const;
 
-/** Gas the factory needs on top of fee + liquidity (LAUNCH_GAS 0.45 + margin; excess is refunded). */
+/** Gas the factory needs on top of fee + liquidity (LAUNCH_GAS 0.5 + margin; excess is refunded). */
 export const LAUNCH_GAS = toNano("0.6");
 /** Extra gas for jetton-paired launches (PAIR_SEND_GAS). */
 export const PAIR_SEND_GAS = toNano("0.15");
@@ -149,7 +152,7 @@ export function buildClaimReferralTx(pool: string): TcMessage {
 /** Anyone: pay a pool's accrued protocol fees → fee wallet and creator fees → creator. */
 export function buildClaimFeesTx(pool: string, jettonPair = false): TcMessage {
   const b = beginCell().storeUint(OP.ClaimFees, 32).storeUint(0, 64).endCell();
-  return { address: pool, amount: toNano(jettonPair ? "0.25" : "0.1").toString(), payload: b.toBoc().toString("base64") };
+  return { address: pool, amount: toNano(jettonPair ? "0.35" : "0.12").toString(), payload: b.toBoc().toString("base64") };
 }
 
 /** Per-leg gas the bundler requires (LEG_GAS in contracts/bundler.tact). */
@@ -188,4 +191,36 @@ export function buildBundleBuyTx(p: { pool: string; referrer: string; legs: Bund
   const total = p.legs.reduce((s, l) => s + l.amount, 0n);
   const fee = (total * BigInt(p.feeBps ?? 0)) / 10_000n;
   return { address: config.bundlerAddress, amount: (total + BigInt(p.legs.length) * LEG_GAS + fee + toNano("0.05")).toString(), payload: body.toBoc().toString("base64") };
+}
+
+/** Stake: a plain jetton transfer to the launch's vault (0.05 TON forwarded so it can book the stake). */
+export function buildStakeTx(p: { vault: string; userJettonWallet: string; user: string; amount: bigint }): TcMessage {
+  const body = beginCell()
+    .storeUint(OP.JettonTransfer, 32)
+    .storeUint(BigInt(Date.now()), 64)
+    .storeCoins(p.amount)
+    .storeAddress(Address.parse(p.vault))
+    .storeAddress(Address.parse(p.user))
+    .storeBit(false)
+    .storeCoins(toNano("0.05"))
+    .storeBit(false)
+    .endCell();
+  return { address: p.userJettonWallet, amount: toNano("0.15").toString(), payload: body.toBoc().toString("base64") };
+}
+
+/** Withdraw staked jettons (any time) — pending TON is paid out too. */
+export function buildUnstakeTx(vault: string, amount: bigint): TcMessage {
+  const b = beginCell().storeUint(OP.Unstake, 32).storeUint(0, 64).storeCoins(amount).endCell();
+  return { address: vault, amount: toNano("0.12").toString(), payload: b.toBoc().toString("base64") };
+}
+
+export function buildClaimRewardsTx(vault: string): TcMessage {
+  const b = beginCell().storeUint(OP.ClaimRewards, 32).storeUint(0, 64).endCell();
+  return { address: vault, amount: toNano("0.05").toString(), payload: b.toBoc().toString("base64") };
+}
+
+/** Anyone can add TON rewards for a launch's stakers. */
+export function buildTopUpVaultTx(vault: string, ton: bigint): TcMessage {
+  const b = beginCell().storeUint(OP.StakeRewards, 32).storeUint(0, 64).endCell();
+  return { address: vault, amount: (ton + toNano("0.01")).toString(), payload: b.toBoc().toString("base64") };
 }

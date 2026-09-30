@@ -11,6 +11,7 @@ import { PriceChart } from "./PriceChart";
 import { TradePanel } from "./TradePanel";
 import { BitpadTradePanel } from "./bitpad/BitpadTradePanel";
 import { ReferralPanel } from "./bitpad/ReferralPanel";
+import { StakePanel } from "./bitpad/StakePanel";
 import { PairValuation } from "./PairValuation";
 import { ActivityTabs } from "./ActivityTabs";
 import { TelegramIcon, XIcon } from "./Brand";
@@ -77,6 +78,7 @@ export function TokenView({ token }: { token: MarketToken }) {
         </div>
         <aside className="space-y-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
           {token.bitpad?.pool ? <BitpadTradePanel token={token} /> : <TradePanel token={token} livePrice={px} />}
+          {token.bitpad?.pool && <StakePanel token={token} />}
           {token.bitpad?.pool && <ReferralPanel token={token} />}
           <PairValuation token={token} />
           <div className="card p-4">

@@ -96,6 +96,28 @@ would grow the pool's storage without bound, and TON caps contract storage, so a
 freeze its pool. The app remembers the link a user arrived through (per token) and attaches it to their trades
 automatically.
 
+## 3b. Holder staking (StakeVault)
+
+Every launch gets its own `StakeVault`, deployed by the pool in `PoolInit`
+(address: `pool.vault()`).
+
+- **Stake:** send the jetton to the vault with a plain jetton transfer
+  (forward ≥ 0.05 TON). **Withdraw any time** with `Unstake{amount}` (attach
+  ~0.1 TON); pending rewards are paid in the same transaction.
+- **Rewards are TON.** On every `ClaimFees` the pool sends `STAKER_SHARE_BPS`
+  (30%) of the protocol fee and 30% of the creator's fee to the vault as
+  `StakeRewards`. Anyone can also top a vault up with `StakeRewards`.
+- **Split:** reward-per-share accumulator, so each reward goes to stakers
+  pro-rata to what they had staked when it arrived. TON that arrives while
+  nothing is staked is carried to the first staker. `ClaimRewards` pays out
+  without unstaking.
+- **Jetton-paired pools** (USDT, AAPLx…): fees are in the pair jetton, so the
+  stakers' 30% is sent to the fee wallet, which swaps it to TON and tops up
+  the vault with `StakeRewards`. That conversion step is run by the platform,
+  not enforced by the contract.
+- Pools deployed before this change have no vault. Vaults exist only for
+  launches from a factory deployed with this code.
+
 ## 4. Multichain: what's possible
 
 TON contracts can only hold TON-chain assets. Three consequences:

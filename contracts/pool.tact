@@ -1,5 +1,6 @@
 import "./messages";
 import "./jetton";
+import "./vault";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  BitpadPool — one constant-product pool per launch: TOKEN ⟷ PAIR
@@ -17,6 +18,11 @@ import "./jetton";
 //    valid one the creator keeps the whole creator fee.
 //  • Fees accrue in the pool; ClaimFees pays protocol + creator, and each
 //    referrer pulls their own share with ClaimReferral.
+//  • Holder rewards: on every ClaimFees, STAKER_SHARE_BPS of the protocol fee
+//    and of the creator's fee goes to this launch's StakeVault, where holders
+//    who stake the jetton earn it pro-rata. TON pools pay the vault directly;
+//    jetton pools send the stakers' share to the fee wallet, which converts it
+//    to TON and tops the vault up.
 //  • Any swap that can't be honoured (slippage, bad payload, pool not open)
 //    is refunded in full.
 // ═══════════════════════════════════════════════════════════════════════════
@@ -27,6 +33,8 @@ const JETTON_OUT_GAS: Int = ton("0.1"); // min forward TON for jetton-in swaps
 const BPS: Int = 10000;
 const MAX_REFERRERS: Int = 20;          // referral links per token
 const REFERRER_SHARE_BPS: Int = 5000;   // referrer's share of the creator fee
+const STAKER_SHARE_BPS: Int = 3000;     // stakers' share of the protocol fee and of the creator's fee
+const VAULT_DEPLOY: Int = ton("0.05");
 
 struct Quote {
     out: Int;
@@ -40,6 +48,7 @@ contract BitpadPool {
     index: Int as uint64;
     tokenMaster: Address;
     tokenWallet: Address;          // derived: the pool's own wallet for TOKEN
+    vault: Address;                // derived: this launch's StakeVault
 
     initialized: Bool = false;
     pairMaster: Address?;          // null = TON
@@ -64,6 +73,7 @@ contract BitpadPool {
         self.index = index;
         self.tokenMaster = tokenMaster;
         self.tokenWallet = contractAddress(initOf BitpadJettonWallet(myAddress(), tokenMaster));
+        self.vault = contractAddress(initOf StakeVault(myAddress(), tokenMaster));
     }
 
     // Plain TON top-ups (e.g. for storage rent)
@@ -82,6 +92,9 @@ contract BitpadPool {
         self.feeWallet = msg.feeWallet;
         self.protocolFeeBps = msg.protocolFeeBps;
         self.creatorFeeBps = msg.creatorFeeBps;
+        // Deploy the holders' staking vault
+        let vi: StateInit = initOf StakeVault(myAddress(), self.tokenMaster);
+        send(SendParameters{ to: self.vault, value: VAULT_DEPLOY, mode: SendPayGasSeparately, bounce: false, code: vi.code, data: vi.data });
         if (msg.pairMaster == null) {
             self.reservePair = msg.pairAmount;
             self.pairSeeded = true;
@@ -211,13 +224,24 @@ contract BitpadPool {
         require(p + c > 0, "Nothing to claim");
         self.protocolAcc = 0;
         self.creatorAcc = 0;
+        let sp: Int = p * STAKER_SHARE_BPS / BPS;
+        let sc: Int = c * STAKER_SHARE_BPS / BPS;
+        let st: Int = sp + sc;
+        p -= sp;
+        c -= sc;
         if (self.pairMaster == null) {
             if (p > 0) { send(SendParameters{ to: self.feeWallet!!, value: p, mode: SendPayGasSeparately, bounce: false, body: "Bitpad protocol fees".asComment() }); }
             if (c > 0) { send(SendParameters{ to: self.creator!!, value: c, mode: SendPayGasSeparately, bounce: false, body: "Bitpad creator fees".asComment() }); }
+            if (st > 0) {
+                let vi: StateInit = initOf StakeVault(myAddress(), self.tokenMaster);
+                send(SendParameters{ to: self.vault, value: st, mode: SendPayGasSeparately, bounce: false, code: vi.code, data: vi.data, body: StakeRewards{ queryId: msg.queryId }.toCell() });
+            }
         } else {
-            require(context().value >= ton("0.2"), "Attach 0.2 TON for jetton transfers");
+            require(context().value >= ton("0.3"), "Attach 0.3 TON for jetton transfers");
             if (p > 0) { send(SendParameters{ to: self.pairWallet!!, value: ton("0.08"), mode: SendPayGasSeparately, bounce: true, body: jettonTransfer(msg.queryId, p, self.feeWallet!!, self.feeWallet!!, 0) }); }
             if (c > 0) { send(SendParameters{ to: self.pairWallet!!, value: ton("0.08"), mode: SendPayGasSeparately, bounce: true, body: jettonTransfer(msg.queryId, c, self.creator!!, self.creator!!, 0) }); }
+            // Stakers' share → fee wallet, which swaps it to TON and tops up the vault
+            if (st > 0) { send(SendParameters{ to: self.pairWallet!!, value: ton("0.08"), mode: SendPayGasSeparately, bounce: true, body: jettonTransfer(msg.queryId, st, self.feeWallet!!, self.feeWallet!!, 0) }); }
         }
     }
 
@@ -388,6 +412,11 @@ contract BitpadPool {
 
     /// Spot price: raw PAIR units per 1 whole TOKEN (10^9 raw units).
     /// USD price = price / 10^pairDecimals × USD price of the pair asset.
+    /// This launch's StakeVault (holders stake the jetton here to earn TON).
+    get fun vault(): Address {
+        return self.vault;
+    }
+
     get fun price(): Int {
         if (self.reserveToken == 0) { return 0; }
         return self.reservePair * 1000000000 / self.reserveToken;

@@ -17,9 +17,9 @@ import "./pool";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const MINTER_VALUE: Int = ton("0.2");     // minter deploy + two wallet deploys
-const POOL_VALUE: Int = ton("0.15");      // pool deploy + rent + TEP-89 query
+const POOL_VALUE: Int = ton("0.2");       // pool deploy + rent + TEP-89 query + vault deploy
 const PAIR_SEND_GAS: Int = ton("0.15");   // later transfer of pair jettons to the pool
-const LAUNCH_GAS: Int = ton("0.45");      // MINTER_VALUE + POOL_VALUE + fees/overhead
+const LAUNCH_GAS: Int = ton("0.5");       // MINTER_VALUE + POOL_VALUE + fees/overhead
 const MAX_CREATOR_BPS: Int = 2000;        // creator may keep at most 20% of supply
 const FACTORY_STORAGE: Int = ton("0.1");
 

@@ -246,3 +246,47 @@ export async function bundlerFeeBps(): Promise<number> {
   const { config } = await import("./config");
   return memo("bundler:fee", 300_000, async () => (await runGet(config.bundlerAddress, "fee_bps")).readNumber()).catch(() => 0);
 }
+
+export interface VaultInfo {
+  address: string;
+  totalStaked: string;
+  stakers: number;
+  rewardsTotal: string; // nanoTON ever distributed
+  carry: string; // nanoTON waiting for the first staker
+}
+
+/** The launch's StakeVault, or null for pools deployed before vaults existed. */
+export async function readVault(pool: string): Promise<VaultInfo | null> {
+  return memo(`vault:${pool}`, 8_000, async () => {
+    let vault: string;
+    try {
+      vault = fmt((await runGet(pool, "vault")).readAddress());
+    } catch {
+      return null; // older pool without a vault getter
+    }
+    try {
+      const s = await runGet(vault, "vault_data"); // flat struct on the stack
+      s.readAddress(); // pool
+      s.readAddress(); // tokenMaster
+      s.readAddress(); // tokenWallet
+      const totalStaked = s.readBigNumber();
+      const stakers = s.readNumber();
+      s.readBigNumber(); // accPerShare
+      return { address: vault, totalStaked: totalStaked.toString(), stakers, rewardsTotal: s.readBigNumber().toString(), carry: s.readBigNumber().toString() };
+    } catch {
+      return { address: vault, totalStaked: "0", stakers: 0, rewardsTotal: "0", carry: "0" }; // not deployed yet
+    }
+  });
+}
+
+/** Staked jettons and claimable TON for one wallet. */
+export async function readStaker(vault: string, who: string): Promise<{ amount: string; pending: string }> {
+  try {
+    const s = await runGet(vault, "staker", [addressArg(who)]);
+    const amount = s.readBigNumber();
+    s.readBigNumber(); // debt
+    return { amount: amount.toString(), pending: s.readBigNumber().toString() };
+  } catch {
+    return { amount: "0", pending: "0" };
+  }
+}

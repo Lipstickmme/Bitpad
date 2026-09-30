@@ -7,6 +7,7 @@ import { BitpadJetton } from "../build/BitpadFactory_BitpadJetton";
 import { BitpadJettonWallet } from "../build/BitpadFactory_BitpadJettonWallet";
 import { BitpadPool, storeSwapIntent } from "../build/BitpadFactory_BitpadPool";
 import { BitpadBundler } from "../build/BitpadBundler_BitpadBundler";
+import { StakeVault } from "../build/BitpadFactory_StakeVault";
 
 const content = beginCell().storeUint(1, 8).storeStringTail("https://bitpad.example/api/jetton/metadata?d=x").endCell();
 const SUPPLY = 1_000_000_000n * 10n ** 9n;
@@ -81,7 +82,7 @@ describe("TON-paired launch", () => {
 
     assert.ok((await c.feeWallet.getBalance()) - feeBefore >= toNano("0.99"), "launch fee forwarded");
     const spent = creatorBefore - (await c.creator.getBalance());
-    assert.ok(spent < LAUNCH_FEE + toNano("10") + toNano("0.5"), `excess returned (spent ${spent})`);
+    assert.ok(spent < LAUNCH_FEE + toNano("10") + toNano("0.55"), `excess returned (spent ${spent})`); // LAUNCH_GAS 0.5 incl. vault deploy
 
     // on-chain price: 10 TON / 900M tokens
     assert.equal(await pool.getPrice(), (toNano("10") * 10n ** 9n) / pd.reserveToken);
@@ -147,15 +148,15 @@ describe("TON-paired launch", () => {
     assert.ok(tonBal >= pd.reservePair + pd.protocolFeesAccrued + pd.creatorFeesAccrued, "pool stays solvent after sell");
   });
 
-  test("ClaimFees pays protocol → fee wallet and creator → creator", async () => {
+  test("ClaimFees pays protocol → fee wallet and creator → creator (70% each; 30% to stakers)", async () => {
     const c = await setup();
     const { pool } = await launchTon(c);
     await pool.send(c.alice.getSender(), { value: toNano("10.2") }, { $$type: "BuyTon", queryId: 2n, amountIn: toNano("10"), minOut: 0n, recipient: null, referrer: c.creator.address });
     const fee0 = await c.feeWallet.getBalance();
     const cr0 = await c.creator.getBalance();
     await pool.send(c.bob.getSender(), { value: toNano("0.1") }, { $$type: "ClaimFees", queryId: 3n });
-    assert.ok((await c.feeWallet.getBalance()) - fee0 >= toNano("0.049"));
-    assert.ok((await c.creator.getBalance()) - cr0 >= toNano("0.049"));
+    assert.ok((await c.feeWallet.getBalance()) - fee0 >= toNano("0.034"));
+    assert.ok((await c.creator.getBalance()) - cr0 >= toNano("0.034"));
     const pd = await pool.getPoolData();
     assert.equal(pd.protocolFeesAccrued + pd.creatorFeesAccrued, 0n);
   });
@@ -428,3 +429,82 @@ describe("admin", () => {
 });
 
 void (null as unknown as Cell);
+
+describe("holder staking vault", () => {
+  const buy = (c: Chain, pool: SandboxContract<BitpadPool>, who: SandboxContract<TreasuryContract>, ton: string) =>
+    pool.send(who.getSender(), { value: toNano(ton) + toNano("0.2") }, { $$type: "BuyTon", queryId: 1n, amountIn: toNano(ton), minOut: 0n, recipient: null, referrer: c.creator.address });
+  const claim = (c: Chain, pool: SandboxContract<BitpadPool>) => pool.send(c.bob.getSender(), { value: toNano("0.1") }, { $$type: "ClaimFees", queryId: 9n });
+
+  test("deployed at launch; 30% of both fees reach stakers pro-rata; withdraw any time", async () => {
+    const c = await setup();
+    const { minter, pool } = await launchTon(c);
+    const vault = c.chain.openContract(StakeVault.fromAddress(await pool.getVault()));
+    const v0 = await vault.getVaultData();
+    assert.equal(v0.pool.toString(), pool.address.toString());
+    assert.equal(v0.totalStaked, 0n);
+
+    // Alice and Bob buy, then stake 3:1
+    await buy(c, pool, c.alice, "10");
+    await buy(c, pool, c.bob, "10");
+    const a = await balanceOf(c, minter, c.alice.address);
+    const b = await balanceOf(c, minter, c.bob.address);
+    const aStake = (a / 4n) * 3n;
+    const bStake = aStake / 3n;
+    assert.ok(b >= bStake);
+    await sendJetton(c, minter, c.alice, vault.address, aStake, toNano("0.05"), emptyPayload());
+    await sendJetton(c, minter, c.bob, vault.address, bStake, toNano("0.05"), emptyPayload());
+    assert.equal((await vault.getVaultData()).totalStaked, aStake + bStake);
+    assert.equal((await vault.getVaultData()).stakers, 2n);
+
+    // Fees: 2 buys × 10 TON × (0.5% + 0.5%) = 0.2 TON; stakers get 30% = 0.06 TON (minus vault gas)
+    const pd = await pool.getPoolData();
+    const expected = ((pd.protocolFeesAccrued * 3000n) / 10000n) + ((pd.creatorFeesAccrued * 3000n) / 10000n) - toNano("0.01");
+    await claim(c, pool);
+    const va = await vault.getStaker(c.alice.address);
+    const vb = await vault.getStaker(c.bob.address);
+    const total = va.pending + vb.pending;
+    assert.ok(total <= expected && total >= expected - 10n, `distributed ${total} vs ${expected}`);
+    // 3:1 split (integer rounding aside)
+    assert.ok(va.pending - 3n * vb.pending <= 3n && 3n * vb.pending - va.pending <= 3n);
+
+    // Claim TON without unstaking
+    const before = await c.alice.getBalance();
+    await vault.send(c.alice.getSender(), { value: toNano("0.05") }, { $$type: "ClaimRewards", queryId: 1n });
+    assert.ok((await c.alice.getBalance()) - before >= va.pending - toNano("0.01"));
+    assert.equal((await vault.getStaker(c.alice.address)).pending, 0n);
+
+    // Withdraw any time: Bob unstakes everything, gets jettons + pending TON back
+    const bJ = await balanceOf(c, minter, c.bob.address);
+    await vault.send(c.bob.getSender(), { value: toNano("0.1") }, { $$type: "Unstake", queryId: 2n, amount: bStake });
+    assert.equal(await balanceOf(c, minter, c.bob.address), bJ + bStake);
+    assert.equal((await vault.getStaker(c.bob.address)).amount, 0n);
+    const vd = await vault.getVaultData();
+    assert.equal(vd.totalStaked, aStake);
+    assert.equal(vd.stakers, 1n);
+
+    // Can't unstake more than staked, or someone else's stake
+    assert.ok(failed(await vault.send(c.bob.getSender(), { value: toNano("0.1") }, { $$type: "Unstake", queryId: 3n, amount: 1n })));
+    assert.ok(failed(await vault.send(c.alice.getSender(), { value: toNano("0.1") }, { $$type: "Unstake", queryId: 3n, amount: aStake + 1n })));
+  });
+
+  test("rewards arriving with nobody staked carry over to the first staker; foreign jettons are returned", async () => {
+    const c = await setup();
+    const { minter, pool } = await launchTon(c);
+    const vault = c.chain.openContract(StakeVault.fromAddress(await pool.getVault()));
+    await buy(c, pool, c.alice, "10");
+    await claim(c, pool);
+    const carry = (await vault.getVaultData()).carry;
+    assert.ok(carry > 0n);
+    await sendJetton(c, minter, c.alice, vault.address, 1000n * 10n ** 9n, toNano("0.05"), emptyPayload());
+    const s = await vault.getStaker(c.alice.address);
+    assert.ok(s.pending >= carry - 1n);
+    assert.equal((await vault.getVaultData()).carry, 0n);
+
+    // A second launch's jetton sent to this vault is handed back
+    const other = await launchTon(c);
+    await buy(c, other.pool, c.bob, "5");
+    const held = await balanceOf(c, other.minter, c.bob.address);
+    await sendJetton(c, other.minter, c.bob, vault.address, held, toNano("0.05"), emptyPayload());
+    assert.equal(await balanceOf(c, other.minter, c.bob.address), held);
+  });
+});
