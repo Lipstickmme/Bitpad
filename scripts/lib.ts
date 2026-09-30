@@ -20,9 +20,9 @@ import { readOnlyOpener, runGetV3 } from "../src/lib/ton/v3-get";
 })();
 
 /** Shared deploy helpers: network client + deployer wallet from env. */
-export async function deployer() {
-  const words = process.env.DEPLOYER_MNEMONIC?.trim().split(/\s+/);
-  if (!words || words.length < 12) throw new Error("Set DEPLOYER_MNEMONIC (24 words)");
+export async function deployer(mnemonicVar = "DEPLOYER_MNEMONIC") {
+  const words = process.env[mnemonicVar]?.trim().split(/\s+/);
+  if (!words || words.length < 12) throw new Error(`Set ${mnemonicVar} (24 words)`);
   const network = process.env.NETWORK === "mainnet" ? "mainnet" : "testnet";
   const client = new TonClient({
     endpoint: network === "mainnet" ? "https://toncenter.com/api/v2/jsonRPC" : "https://testnet.toncenter.com/api/v2/jsonRPC",

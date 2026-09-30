@@ -3,6 +3,7 @@ import { Buffer } from "buffer";
 import { TonConnectUIProvider, THEME } from "@tonconnect/ui-react";
 import { useEffect } from "react";
 import { TelegramBridge } from "./TelegramBridge";
+import { captureGeneralReferral } from "@/lib/referral";
 import { Toaster } from "./Toast";
 import { config } from "@/lib/config";
 
@@ -20,6 +21,7 @@ export function Providers({ children, feeWallet }: { children: React.ReactNode; 
     // Match the Telegram Mini App chrome to Bitpad's dark theme
     window.Telegram?.WebApp?.setHeaderColor?.("#0a1215");
     window.Telegram?.WebApp?.expand?.();
+    captureGeneralReferral(); // ?r=<wallet> on any page
   }, []);
 
   return (

@@ -85,3 +85,35 @@ export async function accountEvents(address: string, limit = 100) {
   const res = await get<{ events: TonApiEvent[] }>(`/accounts/${encodeURIComponent(address)}/events?limit=${limit}`, 60);
   return res.events;
 }
+
+/** Up to `max` most recent events, following TonAPI's `next_from` cursor. */
+export async function accountEventsPaged(address: string, max = 1000) {
+  const out: TonApiEvent[] = [];
+  let before = "";
+  while (out.length < max) {
+    const res = await get<{ events: TonApiEvent[]; next_from?: number }>(
+      `/accounts/${encodeURIComponent(address)}/events?limit=100${before ? `&before_lt=${before}` : ""}`,
+      60,
+    );
+    out.push(...res.events);
+    if (!res.next_from || !res.events.length) break;
+    before = String(res.next_from);
+  }
+  return out;
+}
+
+/** Every TON transfer in an account's events, in user-friendly addresses. */
+export function tonTransfers(events: TonApiEvent[]) {
+  return events.flatMap((e) =>
+    e.actions
+      .filter((a) => a.type === "TonTransfer" && a.status === "ok" && a.TonTransfer)
+      .map((a) => ({
+        time: e.timestamp * 1000,
+        amount: a.TonTransfer!.amount / 1e9,
+        from: friendly(a.TonTransfer!.sender.address),
+        to: friendly(a.TonTransfer!.recipient.address),
+        comment: a.TonTransfer!.comment,
+        hash: e.event_id,
+      })),
+  );
+}

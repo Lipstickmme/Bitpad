@@ -6,7 +6,7 @@ import { Zap } from "lucide-react";
 import { toNano } from "@ton/core";
 import type { RouteQuote } from "@/lib/types";
 import { useApp } from "@/lib/store";
-import { storedReferral } from "@/lib/referral";
+import { generalReferrer, storedReferral } from "@/lib/referral";
 import { minOutFor, quoteBuy } from "@/lib/bitpad-math";
 import type { TcMessage } from "@/lib/ton/client";
 import { toast } from "./Toast";
@@ -53,10 +53,10 @@ async function buildQuickBuy(t: QuickBuyTarget, ton: number, wallet: string, sli
   const slip = slippagePct / 100;
   if (best.id === "dedust") {
     const { buildDedustBuyTx } = await import("@/lib/ton/dedust");
-    return { messages: await buildDedustBuyTx({ wallet, token: t.address, tonAmount: ton, slippage: slip }), via: "DeDust" };
+    return { messages: await buildDedustBuyTx({ wallet, token: t.address, tonAmount: ton, slippage: slip, referrer: generalReferrer(wallet) }), via: "DeDust" };
   }
   const { buildBuyTx } = await import("@/lib/ton/swap");
-  return { messages: (await buildBuyTx({ wallet, jetton: t.address, amount: ton, payWith: "TON", slippage: slip })).messages, via: best.venue };
+  return { messages: (await buildBuyTx({ wallet, jetton: t.address, amount: ton, payWith: "TON", slippage: slip, referrer: generalReferrer(wallet) })).messages, via: best.venue };
 }
 
 export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarget; className?: string }) {

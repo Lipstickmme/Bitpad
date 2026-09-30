@@ -2,7 +2,8 @@ import { StonApiClient } from "@ston-fi/api";
 import { dexFactory } from "@ston-fi/sdk";
 import type { SenderArguments } from "@ton/core";
 import { Address, toNano } from "@ton/core";
-import { simulateWithFee, type StonSim } from "./ston-sim";
+import { simulateWithFee, type FeeMode, type StonSim } from "./ston-sim";
+import { commentCell, feeComment } from "../gref";
 import { config, TON_ASSETS } from "../config";
 import { tonClient, type TcMessage } from "./client";
 
@@ -48,6 +49,8 @@ export interface BuyParams {
   /** Resolved pay asset (from /api/quote); overrides env lookup */
   payAsset?: { address: string; decimals: number };
   slippage?: number;
+  /** General-referral wallet, written into the on-chain fee transfer */
+  referrer?: string | null;
 }
 
 export async function buildBuyTx(params: BuyParams): Promise<{ messages: TcMessage[]; expectedOut: string; minOut: string; priceImpact: number }> {
@@ -64,13 +67,19 @@ export async function buildBuyArgs(params: BuyParams) {
   const isTon = info.address === TON_ASSETS.TON;
   const total = isTon ? toNano(params.amount.toFixed(9)) : BigInt(Math.floor(params.amount * 10 ** info.decimals));
   const q = { offerAddress, askAddress: params.jetton, offerUnits: total.toString(), slippageTolerance: String(params.slippage ?? 0.01) };
-  let { sim, fee } = await simulateWithFee(q);
-  // Router refused our referral: pay the platform fee as a TON transfer out of the same total
+  // TON buys: the platform fee is its own transfer, tagged on-chain with the
+  // route and the general referrer (see lib/gref.ts). Jetton-paid buys use
+  // STON.fi's in-swap referral fee instead.
+  let sim: StonSim;
+  let fee: FeeMode;
   let feeTx: SenderArguments | undefined;
-  if (fee === "transfer" && isTon) {
+  if (isTon && config.feeWallet && config.swapFeeBps > 0) {
     const cut = (total * BigInt(config.swapFeeBps)) / 10_000n;
     sim = await api.simulateSwap({ ...q, offerUnits: (total - cut).toString() });
-    feeTx = { to: Address.parse(config.feeWallet), value: cut };
+    fee = "transfer";
+    feeTx = { to: Address.parse(config.feeWallet), value: cut, body: commentCell(feeComment("stonfi", params.referrer)) };
+  } else {
+    ({ sim, fee } = await simulateWithFee(q));
   }
   const { Router, pTON } = dexFactory(sim.router);
   const router = tonClient().open(Router.create(sim.router.address));

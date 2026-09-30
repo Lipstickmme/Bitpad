@@ -3,6 +3,7 @@ import { Address, toNano, type Sender, type SenderArguments } from "@ton/core";
 import { config } from "../config";
 import { tonClient, type TcMessage } from "./client";
 import { toTcMessage } from "./swap";
+import { commentCell, feeComment } from "../gref";
 
 /**
  * DeDust v2 — quotes via on-chain get-methods (free, through toncenter) and
@@ -42,13 +43,14 @@ export function platformFee(tonAmount: bigint) {
   return (tonAmount * BigInt(config.swapFeeBps)) / 10_000n;
 }
 
-function feeMessage(tonAmount: bigint): TcMessage[] {
+/** Platform fee transfer, tagged on-chain with the route and general referrer. */
+function feeMessage(tonAmount: bigint, route: string, referrer?: string | null): TcMessage[] {
   const fee = platformFee(tonAmount);
-  return fee > 0n ? [{ address: config.feeWallet, amount: fee.toString() }] : [];
+  return fee > 0n ? [{ address: config.feeWallet, amount: fee.toString(), payload: commentCell(feeComment(route, referrer)).toBoc().toString("base64") }] : [];
 }
 
 /** TON → jetton on DeDust (+ platform fee message). */
-export async function buildDedustBuyTx(params: { wallet: string; token: string; tonAmount: number; slippage: number }): Promise<TcMessage[]> {
+export async function buildDedustBuyTx(params: { wallet: string; token: string; tonAmount: number; slippage: number; referrer?: string | null }): Promise<TcMessage[]> {
   const total = toNano(params.tonAmount.toFixed(9));
   const fee = platformFee(total);
   const amount = total - fee; // same total spend as the STON.fi route
@@ -62,11 +64,11 @@ export async function buildDedustBuyTx(params: { wallet: string; token: string; 
     limit: (q.amountOut * BigInt(Math.floor((1 - params.slippage) * 10_000))) / 10_000n,
     gasAmount: toNano("0.25"),
   });
-  return [...s.sent.map(toTcMessage), ...(fee > 0n ? [{ address: config.feeWallet, amount: fee.toString() }] : [])];
+  return [...s.sent.map(toTcMessage), ...feeMessage(total, "dedust", params.referrer)];
 }
 
 /** Jetton → TON on DeDust. Platform fee is taken from the TON received estimate, paid alongside. */
-export async function buildDedustSellTx(params: { wallet: string; token: string; units: bigint; slippage: number }): Promise<TcMessage[]> {
+export async function buildDedustSellTx(params: { wallet: string; token: string; units: bigint; slippage: number; referrer?: string | null }): Promise<TcMessage[]> {
   const q = await dedustQuote({ pay: params.token, token: "TON", amountIn: params.units }).catch(() => null)
     ?? (await (async () => {
       const p = await pool("TON", params.token);
@@ -89,7 +91,7 @@ export async function buildDedustSellTx(params: { wallet: string; token: string;
       limit: (q.amountOut * BigInt(Math.floor((1 - params.slippage) * 10_000))) / 10_000n,
     }),
   });
-  return [...s.sent.map(toTcMessage), ...feeMessage(q.amountOut)];
+  return [...s.sent.map(toTcMessage), ...feeMessage(q.amountOut, "dedust-sell", params.referrer)];
 }
 
 export { VaultNative };

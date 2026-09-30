@@ -4,6 +4,7 @@ import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import { ArrowRightLeft, Route, Settings2, Zap } from "lucide-react";
 import type { MarketToken, RouteQuote } from "@/lib/types";
 import { useApp } from "@/lib/store";
+import { generalReferrer } from "@/lib/referral";
 import { num, usd } from "@/lib/format";
 import { config } from "@/lib/config";
 import { toast } from "./Toast";
@@ -74,16 +75,16 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
         if (!route) throw new Error("No executable route — try a different amount or pay asset");
         if (route.id === "dedust") {
           const { buildDedustBuyTx } = await import("@/lib/ton/dedust");
-          messages = await buildDedustBuyTx({ wallet, token: token.address, tonAmount: Number(amount), slippage: slip });
+          messages = await buildDedustBuyTx({ wallet, token: token.address, tonAmount: Number(amount), slippage: slip, referrer: generalReferrer(wallet) });
         } else {
           const { buildBuyTx } = await import("@/lib/ton/swap");
-          messages = (await buildBuyTx({ wallet, jetton: token.address, amount: Number(amount), payWith: payAsset, payAsset: payResolved ?? undefined, slippage: slip })).messages;
+          messages = (await buildBuyTx({ wallet, jetton: token.address, amount: Number(amount), payWith: payAsset, payAsset: payResolved ?? undefined, slippage: slip, referrer: generalReferrer(wallet) })).messages;
         }
       } else {
         const units = BigInt(Math.floor(Number(amount) * 10 ** token.decimals));
         if (token.dex?.includes("dedust")) {
           const { buildDedustSellTx } = await import("@/lib/ton/dedust");
-          messages = await buildDedustSellTx({ wallet, token: token.address, units, slippage: slip });
+          messages = await buildDedustSellTx({ wallet, token: token.address, units, slippage: slip, referrer: generalReferrer(wallet) });
         } else {
           const { buildSellTx } = await import("@/lib/ton/swap");
           messages = [(await buildSellTx({ wallet, jetton: token.address, units, slippage: slip })).message];

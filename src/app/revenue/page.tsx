@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { config } from "@/lib/config";
 import { getFeeRevenue, getReferralFees } from "@/lib/fees";
 import { WithdrawVault } from "@/components/WithdrawVault";
+import { ReferralProgram } from "@/components/ReferralProgram";
 import { Hint } from "@/components/ui";
 import { getFactoryConfig } from "@/lib/launches";
 import { getPairAssets } from "@/lib/prices";
@@ -27,6 +28,8 @@ export default async function RevenuePage() {
         <Tile label="Received · 24h" value={rev.configured ? `${num(rev.received24h, 2)} TON` : "—"} sub={rev.configured ? `${inUsd(rev.received24h).slice(3) || "fee wallet"}` : "factory not reachable"} />
         <Tile label="Received · 7d" value={rev.configured ? `${num(rev.received7d, 2)} TON` : "—"} sub={rev.configured ? `balance ${rev.balance != null ? num(rev.balance, 2) : "—"} TON${inUsd(rev.balance)}` : "—"} />
       </div>
+
+      <ReferralProgram />
 
       <section className="card overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">

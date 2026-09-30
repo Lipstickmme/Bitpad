@@ -115,3 +115,30 @@ test("LI.FI integrator id: valid names pass, wallets/URLs/keys are ignored", asy
   assert.equal(lifiIntegrator("https://bitpad.xyz"), null, "not alphanumeric");
   assert.equal(lifiIntegrator("my app"), null, "spaces");
 });
+
+test("general referrals: fee tags parse, 20% share, self-referrals ignored, payouts net off", async () => {
+  const { feeComment, parseFeeComment, aggregate, norm } = await import("../src/lib/gref");
+  const REF = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
+  const A = "EQAFoeDfXw8dXYea1hUulBncvbm3VLghJgUNNkuCVu46BQJq";
+  const FEE = "EQCZ9eHWHr6j00Fm3vcFW9kLIyZpPJ9284y7ZzIMQhx3wz1y";
+  const c = feeComment("stonfi", REF);
+  assert.deepEqual(parseFeeComment(c), { route: "stonfi", referrer: norm(REF) });
+  assert.deepEqual(parseFeeComment("bitpad:fee:dedust"), { route: "dedust", referrer: null });
+  assert.equal(parseFeeComment("hello"), null);
+  const m = aggregate(
+    [
+      { time: 1, amount: 1, from: A, to: FEE, comment: c },
+      { time: 2, amount: 0.5, from: A, to: FEE, comment: c },
+      { time: 3, amount: 9, from: REF, to: FEE, comment: c }, // self-referral
+      { time: 4, amount: 2, from: A, to: FEE, comment: "bitpad:fee:dedust" },
+    ],
+    [{ time: 5, amount: 0.1, from: FEE, to: REF, comment: "bitpad:refpay" }],
+  );
+  const s = m.get(norm(REF)!)!;
+  assert.equal(s.buys, 2);
+  assert.equal(s.traders, 1);
+  assert.ok(Math.abs(s.fees - 1.5) < 1e-9);
+  assert.ok(Math.abs(s.earned - 0.3) < 1e-9);
+  assert.ok(Math.abs(s.owed - 0.2) < 1e-9);
+  assert.equal(s.history[0].kind, "paid");
+});

@@ -2,7 +2,7 @@
   "name": "bitpad",
   "version": "0.1.0",
   "private": true,
-  "description": "Bitpad — the lightweight TON launchpad: pair tokens with stocks, commodities and jettons, trade across chains.",
+  "description": "Bitpad \u2014 the lightweight TON launchpad: pair tokens with stocks, commodities and jettons, trade across chains.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -15,7 +15,8 @@
     "deploy:bundler": "npm run contracts:build && tsx scripts/deploy-bundler.ts",
     "pair:add": "npm run contracts:build && tsx scripts/add-pair.ts",
     "contracts:gas": "npm run contracts:build && tsx contracts/tests/gas-report.ts",
-    "status": "npm run contracts:build && tsx scripts/status.ts"
+    "status": "npm run contracts:build && tsx scripts/status.ts",
+    "referrals:pay": "tsx scripts/pay-referrals.ts"
   },
   "dependencies": {
     "@dedust/sdk": "^0.8.7",
