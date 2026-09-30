@@ -72,10 +72,21 @@ async function load(): Promise<{ assets: PairAsset[]; live: boolean }> {
       priceSource: hit?.[0],
       tonAddress,
       solanaMint: j?.id,
+      oraclePriceUsd: def.kind === "stock" || def.kind === "commodity" ? p?.price ?? y?.price ?? null : undefined,
+      tonPriceUsd: tonAddress ? (ston?.dexPriceUsd ? Number(ston.dexPriceUsd) : tr?.prices?.USD ?? null) : null,
+      nextDividendEst: y?.lastDividend && y.dividendsPerYear > 0 ? nextDividend(y.lastDividend.date * 1000, y.dividendsPerYear) : null,
       dividendYield: def.kind === "stock" ? y?.dividendYield ?? null : undefined,
       lastDividend: y?.lastDividend,
       dividendsPerYear: y?.dividendsPerYear,
     };
   });
   return { assets, live: anyLive };
+}
+
+/** Next payment ≈ last one + the usual interval, rolled forward past today. */
+export function nextDividend(lastMs: number, perYear: number, now = Date.now()) {
+  const step = (365.25 / perYear) * 86_400_000;
+  let t = lastMs + step;
+  while (t < now - 86_400_000) t += step;
+  return t;
 }

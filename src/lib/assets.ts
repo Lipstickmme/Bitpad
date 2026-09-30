@@ -9,17 +9,20 @@ type Def = Omit<PairAsset, "priceUsd" | "change24h"> & { tonSymbols?: string[] }
  * live in `prices.ts`.
  */
 export const ASSET_DEFS: Def[] = [
-  // Tokenized stocks & ETFs (xStocks on Solana; resolved on TON via STON.fi when bridged)
-  { symbol: "SPYx", name: "S&P 500 ETF", kind: "stock", chain: "solana", badge: "XSTOCKS", color: "#d6293b", pythSymbol: "SPY", pythType: "equity", yahoo: "SPY", sector: "Index ETF" },
-  { symbol: "QQQx", name: "Nasdaq 100 ETF", kind: "stock", chain: "solana", badge: "XSTOCKS", color: "#1d6fd8", pythSymbol: "QQQ", pythType: "equity", yahoo: "QQQ", sector: "Index ETF" },
-  { symbol: "AAPLx", name: "Apple", kind: "stock", chain: "solana", badge: "XSTOCKS", color: "#111111", pythSymbol: "AAPL", pythType: "equity", yahoo: "AAPL", sector: "Technology" },
-  { symbol: "NVDAx", name: "NVIDIA", kind: "stock", chain: "solana", badge: "XSTOCKS", color: "#76b900", pythSymbol: "NVDA", pythType: "equity", yahoo: "NVDA", sector: "Semiconductors" },
-  { symbol: "TSLAx", name: "Tesla", kind: "stock", chain: "solana", badge: "XSTOCKS", color: "#cc0000", pythSymbol: "TSLA", pythType: "equity", yahoo: "TSLA", sector: "Automotive" },
-  { symbol: "MSTRx", name: "Strategy", kind: "stock", chain: "solana", badge: "XSTOCKS", color: "#f7931a", pythSymbol: "MSTR", pythType: "equity", yahoo: "MSTR", sector: "Bitcoin treasury" },
-  { symbol: "COINx", name: "Coinbase", kind: "stock", chain: "solana", badge: "XSTOCKS", color: "#0052ff", pythSymbol: "COIN", pythType: "equity", yahoo: "COIN", sector: "Exchanges" },
-  { symbol: "GOOGLx", name: "Alphabet", kind: "stock", chain: "solana", badge: "XSTOCKS", color: "#4285f4", pythSymbol: "GOOGL", pythType: "equity", yahoo: "GOOGL", sector: "Technology" },
-  { symbol: "HOODx", name: "Robinhood", kind: "stock", chain: "solana", badge: "XSTOCKS", color: "#00c805", pythSymbol: "HOOD", pythType: "equity", yahoo: "HOOD", sector: "Brokerage" },
-  { symbol: "KOx", name: "Coca-Cola", kind: "stock", chain: "solana", badge: "XSTOCKS", color: "#f40009", pythSymbol: "KO", pythType: "equity", yahoo: "KO", sector: "Consumer staples" },
+  // Tokenized stocks & ETFs — xStocks (Backed Finance), live on TON via STON.fi and on Solana
+  { symbol: "METAx", name: "Meta", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#0866ff", pythSymbol: "META", pythType: "equity", yahoo: "META", sector: "Technology" },
+  { symbol: "MSFTx", name: "Microsoft", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#00a4ef", pythSymbol: "MSFT", pythType: "equity", yahoo: "MSFT", sector: "Technology" },
+  { symbol: "AMZNx", name: "Amazon", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#ff9900", pythSymbol: "AMZN", pythType: "equity", yahoo: "AMZN", sector: "Consumer" },
+  { symbol: "SPYx", name: "S&P 500 ETF", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#d6293b", pythSymbol: "SPY", pythType: "equity", yahoo: "SPY", sector: "Index ETF" },
+  { symbol: "QQQx", name: "Nasdaq 100 ETF", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#1d6fd8", pythSymbol: "QQQ", pythType: "equity", yahoo: "QQQ", sector: "Index ETF" },
+  { symbol: "AAPLx", name: "Apple", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#111111", pythSymbol: "AAPL", pythType: "equity", yahoo: "AAPL", sector: "Technology" },
+  { symbol: "NVDAx", name: "NVIDIA", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#76b900", pythSymbol: "NVDA", pythType: "equity", yahoo: "NVDA", sector: "Semiconductors" },
+  { symbol: "TSLAx", name: "Tesla", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#cc0000", pythSymbol: "TSLA", pythType: "equity", yahoo: "TSLA", sector: "Automotive" },
+  { symbol: "MSTRx", name: "Strategy", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#f7931a", pythSymbol: "MSTR", pythType: "equity", yahoo: "MSTR", sector: "Bitcoin treasury" },
+  { symbol: "COINx", name: "Coinbase", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#0052ff", pythSymbol: "COIN", pythType: "equity", yahoo: "COIN", sector: "Exchanges" },
+  { symbol: "GOOGLx", name: "Alphabet", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#4285f4", pythSymbol: "GOOGL", pythType: "equity", yahoo: "GOOGL", sector: "Technology" },
+  { symbol: "HOODx", name: "Robinhood", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#00c805", pythSymbol: "HOOD", pythType: "equity", yahoo: "HOOD", sector: "Brokerage" },
+  { symbol: "KOx", name: "Coca-Cola", kind: "stock", chain: "ton", badge: "XSTOCKS", color: "#f40009", pythSymbol: "KO", pythType: "equity", yahoo: "KO", sector: "Consumer staples" },
 
   // Commodities
   { symbol: "XAUt", name: "Tether Gold", kind: "commodity", chain: "ton", badge: "GOLD", color: "#c9a227", pythSymbol: "XAU", pythType: "metal", yahoo: "GC=F", coingecko: "tether-gold", tonSymbols: ["XAUt0", "XAUt", "XAUT"], sector: "Precious metals" },

@@ -91,3 +91,16 @@ test("Bitpad on-chain content decodes the embedded metadata", async () => {
   assert.deepEqual(await decodeContent(cell), meta);
   assert.deepEqual(await decodeContent(beginCell().storeUint(0, 8).endCell()), {});
 });
+
+test("dividend estimate rolls forward by the usual interval; gap is TON vs oracle", async () => {
+  const { nextDividend } = await import("../src/lib/prices");
+  const { priceGap, usMarket } = await import("../src/lib/market-hours");
+  const day = 86_400_000;
+  const now = Date.UTC(2026, 8, 30);
+  const next = nextDividend(now - 200 * day, 4, now); // quarterly, last paid 200 days ago
+  assert.ok(next >= now - day && next < now + 92 * day);
+  assert.equal(priceGap(101, 100), 1);
+  assert.equal(priceGap(null, 100), null);
+  assert.equal(usMarket(new Date("2026-09-30T15:00:00Z")).open, true); // Wed 11:00 New York
+  assert.equal(usMarket(new Date("2026-10-03T15:00:00Z")).label, "Weekend");
+});

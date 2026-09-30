@@ -27,6 +27,12 @@ export interface PairAsset {
   tonAddress?: string;
   /** Solana mint (e.g. xStocks), resolved live from Jupiter */
   solanaMint?: string;
+  /** Real-market reference price (Pyth oracle, else Yahoo) — stocks & commodities */
+  oraclePriceUsd?: number | null;
+  /** What the TON jetton trades at on-chain (STON.fi / TonAPI) */
+  tonPriceUsd?: number | null;
+  /** Estimated next dividend date (ms): last payment + the usual interval */
+  nextDividendEst?: number | null;
   /** Price source ids */
   pythSymbol?: string;
   pythType?: "equity" | "metal" | "crypto" | "commodities";

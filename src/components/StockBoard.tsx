@@ -1,6 +1,8 @@
 "use client";
 import type { PairAsset } from "@/lib/types";
-import { price } from "@/lib/format";
+import Link from "next/link";
+import { pct, price } from "@/lib/format";
+import { priceGap } from "@/lib/market-hours";
 import { AssetDot, Change, Hint } from "./ui";
 import { QuickBuyButton } from "./QuickBuy";
 import { XBuyButton } from "./XBuy";
@@ -20,6 +22,7 @@ export function StockBoard({ assets }: { assets: PairAsset[] }) {
         <Hint>
           Tokenized equities (xStocks by Backed Finance, each backed 1:1 by the real share held by a regulated custodian) and gold, the same assets you can pair a jetton with. Prices come from Pyth&apos;s oracle, with Yahoo and Jupiter as fallbacks. ⚡ buys the TON jetton through STON.fi, or the Solana version through Jupiter when there&apos;s no TON listing. xStocks aren&apos;t available to US persons, and STON.fi may check eligibility.
         </Hint>
+        <Link href="/stocks" className="ml-auto text-sm text-muted hover:text-ink">Price gaps &amp; dividends →</Link>
       </div>
       <div className="scroll-x flex gap-3 pb-1">
         {rows.map((a) => (
@@ -35,6 +38,15 @@ export function StockBoard({ assets }: { assets: PairAsset[] }) {
               <span className="num text-sm">{price(a.priceUsd!)}</span>
               <Change value={a.change24h} className="text-xs" />
             </div>
+            {(() => {
+              const gap = priceGap(a.tonPriceUsd, a.oraclePriceUsd);
+              return (
+                <div className="num flex justify-between text-[11px] text-muted">
+                  <span>{a.dividendYield ? `${a.dividendYield.toFixed(2)}% div.` : a.kind === "stock" ? "no dividend" : a.sector}</span>
+                  {gap != null && <span title="On-TON price vs real-market price">{pct(gap)} gap</span>}
+                </div>
+              );
+            })()}
             <div className="flex items-center justify-between text-[11px] text-muted">
               {a.tonAddress ? (
                 <>
