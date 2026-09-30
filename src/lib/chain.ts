@@ -1,14 +1,15 @@
 import { Address, TupleReader, type TupleItem } from "@ton/core";
 import { TonClient, TonClient4 } from "@ton/ton";
 import { config } from "./config";
+import { runGetV3 } from "./ton/v3-get";
 
 /**
- * Get-method reads for Bitpad contracts.
- *
- * Primary: TON v4 API (TonClient4) — returns fully typed stacks, including the
- * tuples Tact uses for struct getters (pool_data, config, pair, referrer).
- * Fallback: toncenter v2 — fine for flat results, but @ton/ton's v2 parser
- * leaves tuple members untyped ("Not a cell: -1"), so it's never used first.
+ * Get-method reads for Bitpad contracts, in order:
+ *  1. toncenter v3 — typed stacks incl. the tuples Tact uses for optional
+ *     structs; uses TONCENTER_API_KEY when set
+ *  2. tonhub v4 (TonClient4) — typed too, but its public endpoint can 403
+ *  3. toncenter v2 — fine for flat results only (@ton/ton's v2 parser leaves
+ *     tuple members untyped: "Not a cell: -1")
  */
 export type Runner = (address: Address, method: string, args: TupleItem[]) => Promise<TupleReader>;
 
@@ -38,17 +39,25 @@ async function seqno() {
 export async function runGet(address: Address | string, method: string, args: TupleItem[] = []): Promise<TupleReader> {
   const addr = typeof address === "string" ? Address.parse(address) : address;
   if (testRunner) return testRunner(addr, method, args);
+  const errors: string[] = [];
+  try {
+    return await runGetV3({ network: config.network, apiKey: process.env.TONCENTER_API_KEY || undefined }, addr, method, args);
+  } catch (e) {
+    if (/exited with/.test((e as Error).message)) throw e; // the contract answered: don't retry elsewhere
+    errors.push((e as Error).message);
+  }
   try {
     const r = await client4().runMethod(await seqno(), addr, method, args);
     if (r.exitCode !== 0 && r.exitCode !== 1) throw new Error(`${method} exited with ${r.exitCode}`);
     return r.reader;
   } catch (e) {
-    // v2 fallback — only safe for flat results
-    try {
-      return (await client2().runMethod(addr, method, args)).stack;
-    } catch {
-      throw e;
-    }
+    errors.push(`tonhub v4: ${(e as Error).message}`);
+  }
+  try {
+    return (await client2().runMethod(addr, method, args)).stack;
+  } catch (e) {
+    errors.push(`toncenter v2: ${(e as Error).message}`);
+    throw new Error(`${method} unavailable — ${errors.join(" · ")}`);
   }
 }
 

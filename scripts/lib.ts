@@ -2,6 +2,7 @@ import { mnemonicToPrivateKey } from "@ton/crypto";
 import { TonClient, TonClient4, WalletContractV4, WalletContractV5R1, internal, SendMode, type Cell, type StateInit, type Address } from "@ton/ton";
 
 import { existsSync, readFileSync } from "node:fs";
+import { readOnlyOpener, runGetV3 } from "../src/lib/ton/v3-get";
 
 /**
  * Load settings from .env.deploy (gitignored) so the same commands work in any
@@ -27,9 +28,7 @@ export async function deployer() {
     endpoint: network === "mainnet" ? "https://toncenter.com/api/v2/jsonRPC" : "https://testnet.toncenter.com/api/v2/jsonRPC",
     apiKey: process.env.TONCENTER_API_KEY,
   });
-  // Getter reads go through the v4 API: @ton/ton's toncenter-v2 parser mangles
-  // tuple results (e.g. "Not a cell: -1" from the factory's pair() getter).
-  const reader = new TonClient4({ endpoint: network === "mainnet" ? "https://mainnet-v4.tonhubapi.com" : "https://sandbox-v4.tonhubapi.com", timeout: 15_000 });
+  const reader = makeReader(network);
   const key = await mnemonicToPrivateKey(words);
   const wallet = process.env.WALLET_VERSION === "v4"
     ? WalletContractV4.create({ workchain: 0, publicKey: key.publicKey })
@@ -63,3 +62,25 @@ export const env = (k: string, fallback?: string) => {
   if (v === undefined) throw new Error(`Set ${k}`);
   return v;
 };
+
+/**
+ * Read-only contract opener for getters: toncenter v3 first (typed stacks, uses
+ * TONCENTER_API_KEY), then tonhub v4. Not v2: @ton/ton's v2 parser mangles
+ * tuples ("Not a cell: -1").
+ */
+export function makeReader(network: "mainnet" | "testnet") {
+  const v4 = new TonClient4({ endpoint: network === "mainnet" ? "https://mainnet-v4.tonhubapi.com" : "https://sandbox-v4.tonhubapi.com", timeout: 15_000 });
+  return readOnlyOpener(async (address, method, args) => {
+    try {
+      return await runGetV3({ network, apiKey: process.env.TONCENTER_API_KEY }, address, method, args);
+    } catch (e) {
+      if (/exited with/.test((e as Error).message)) throw e;
+      try {
+        const last = await v4.getLastBlock();
+        return (await v4.runMethod(last.last.seqno, address, method, args)).reader;
+      } catch (e4) {
+        throw new Error(`Couldn't read ${method}: ${(e as Error).message} · tonhub v4: ${(e4 as Error).message}. Set TONCENTER_API_KEY in .env.deploy (free from @tonapibot on Telegram).`);
+      }
+    }
+  });
+}

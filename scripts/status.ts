@@ -4,15 +4,15 @@
  *   npm run status -- EQ…pairMaster1 EQ…pairMaster2     (also check pair registrations)
  */
 import { Address, fromNano } from "@ton/core";
-import { TonClient4 } from "@ton/ton";
 import { BitpadFactory } from "../contracts/build/BitpadFactory_BitpadFactory";
 import { BitpadBundler } from "../contracts/build/BitpadBundler_BitpadBundler";
 import { BitpadPool } from "../contracts/build/BitpadFactory_BitpadPool";
 import { FACTORY_ADDRESS, BUNDLER_ADDRESS, networkOf } from "../src/lib/config";
+import { makeReader } from "./lib";
 
 (async () => {
   const network = networkOf(FACTORY_ADDRESS);
-  const client = new TonClient4({ endpoint: network === "mainnet" ? "https://mainnet-v4.tonhubapi.com" : "https://sandbox-v4.tonhubapi.com", timeout: 15_000 });
+  const client = makeReader(network);
   const f = client.open(BitpadFactory.fromAddress(Address.parse(FACTORY_ADDRESS)));
   const c = await f.getConfig();
   console.log(`Network         ${network}`);
