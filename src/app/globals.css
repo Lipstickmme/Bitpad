@@ -76,6 +76,14 @@ body {
   border-color: var(--color-line-strong);
   background: var(--color-surface-2);
 }
+.btn-launch {
+  background: var(--color-launch);
+  color: #fff;
+  font-weight: 600;
+}
+.btn-launch:hover:not(:disabled) {
+  background: var(--color-launch-hover);
+}
 .btn-up {
   background: var(--color-up);
   color: #06140f;

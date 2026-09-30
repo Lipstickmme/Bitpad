@@ -77,7 +77,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
           messages = await buildDedustBuyTx({ wallet, token: token.address, tonAmount: Number(amount), slippage: slip });
         } else {
           const { buildBuyTx } = await import("@/lib/ton/swap");
-          messages = [(await buildBuyTx({ wallet, jetton: token.address, amount: Number(amount), payWith: payAsset, payAsset: payResolved ?? undefined, slippage: slip })).message];
+          messages = (await buildBuyTx({ wallet, jetton: token.address, amount: Number(amount), payWith: payAsset, payAsset: payResolved ?? undefined, slippage: slip })).messages;
         }
       } else {
         const units = BigInt(Math.floor(Number(amount) * 10 ** token.decimals));

@@ -1,6 +1,6 @@
 import "server-only";
 import { toNano } from "@ton/core";
-import { ston } from "./data/stonfi";
+import { simulateWithFee } from "./ton/ston-sim";
 import { config, TON_ASSETS } from "./config";
 import { dedustQuote, platformFee } from "./ton/dedust";
 import { getPairAssets } from "./prices";
@@ -43,13 +43,7 @@ export async function quoteBuy(token: MarketToken, pay: string, amount: number):
   const routes: RouteQuote[] = [];
 
   const [stonRes, dedustRes] = await Promise.allSettled([
-    ston.simulateSwap({
-      offerAddress: info.address,
-      askAddress: token.address,
-      offerUnits: units.toString(),
-      slippageTolerance: "0.01",
-      ...(config.feeWallet && config.swapFeeBps ? { referralAddress: config.feeWallet, referralFeeBps: String(config.swapFeeBps) } : {}),
-    }),
+    simulateWithFee({ offerAddress: info.address, askAddress: token.address, offerUnits: units.toString(), slippageTolerance: "0.01" }).then((r) => r.sim),
     pay === "TON" ? dedustQuote({ pay: "TON", token: token.address, amountIn: toNano(amount.toFixed(9)) - platformFee(toNano(amount.toFixed(9))) }) : Promise.resolve(null),
   ]);
 

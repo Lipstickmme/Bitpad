@@ -1,7 +1,8 @@
 import { StonApiClient } from "@ston-fi/api";
 import { dexFactory } from "@ston-fi/sdk";
 import type { SenderArguments } from "@ton/core";
-import { toNano } from "@ton/core";
+import { Address, toNano } from "@ton/core";
+import { simulateWithFee, type StonSim } from "./ston-sim";
 import { config, TON_ASSETS } from "../config";
 import { tonClient, type TcMessage } from "./client";
 
@@ -15,10 +16,12 @@ export function toTcMessage(tx: SenderArguments): TcMessage {
   };
 }
 
-function referral() {
-  return config.feeWallet && config.swapFeeBps > 0
-    ? { referralAddress: config.feeWallet, referralValue: config.swapFeeBps }
-    : {};
+/** Referral args for the router; v1 routers take the address only (their fee is fixed at 0.1%). */
+function referral(sim: StonSim) {
+  if (!config.feeWallet || config.swapFeeBps <= 0) return {};
+  return Number(sim.router.majorVersion) >= 2
+    ? { referralAddress: config.feeWallet, referralValue: Math.min(100, config.swapFeeBps) }
+    : { referralAddress: config.feeWallet };
 }
 
 /**
@@ -47,9 +50,9 @@ export interface BuyParams {
   slippage?: number;
 }
 
-export async function buildBuyTx(params: BuyParams): Promise<{ message: TcMessage; expectedOut: string; minOut: string; priceImpact: number }> {
-  const { tx, sim } = await buildBuyArgs(params);
-  return { message: toTcMessage(tx), expectedOut: sim.askUnits, minOut: sim.minAskUnits, priceImpact: Number(sim.priceImpact) * 100 };
+export async function buildBuyTx(params: BuyParams): Promise<{ messages: TcMessage[]; expectedOut: string; minOut: string; priceImpact: number }> {
+  const { tx, feeTx, sim } = await buildBuyArgs(params);
+  return { messages: [toTcMessage(tx), ...(feeTx ? [toTcMessage(feeTx)] : [])], expectedOut: sim.askUnits, minOut: sim.minAskUnits, priceImpact: Number(sim.priceImpact) * 100 };
 }
 
 /** Raw sender arguments — used by the multi-wallet bundler, which signs locally. */
@@ -58,14 +61,17 @@ export async function buildBuyArgs(params: BuyParams) {
   const info = params.payAsset ?? payAssetInfo(payWith);
   if (!info) throw new Error(`${payWith} jetton address is not configured`);
   const offerAddress = info.address;
-  const offerUnits = info.address === TON_ASSETS.TON ? toNano(params.amount.toFixed(9)) : BigInt(Math.floor(params.amount * 10 ** info.decimals));
-  const sim = await api.simulateSwap({
-    offerAddress,
-    askAddress: params.jetton,
-    offerUnits: offerUnits.toString(),
-    slippageTolerance: String(params.slippage ?? 0.01),
-    ...(config.feeWallet ? { referralAddress: config.feeWallet, referralFeeBps: String(config.swapFeeBps) } : {}),
-  });
+  const isTon = info.address === TON_ASSETS.TON;
+  const total = isTon ? toNano(params.amount.toFixed(9)) : BigInt(Math.floor(params.amount * 10 ** info.decimals));
+  const q = { offerAddress, askAddress: params.jetton, offerUnits: total.toString(), slippageTolerance: String(params.slippage ?? 0.01) };
+  let { sim, fee } = await simulateWithFee(q);
+  // Router refused our referral: pay the platform fee as a TON transfer out of the same total
+  let feeTx: SenderArguments | undefined;
+  if (fee === "transfer" && isTon) {
+    const cut = (total * BigInt(config.swapFeeBps)) / 10_000n;
+    sim = await api.simulateSwap({ ...q, offerUnits: (total - cut).toString() });
+    feeTx = { to: Address.parse(config.feeWallet), value: cut };
+  }
   const { Router, pTON } = dexFactory(sim.router);
   const router = tonClient().open(Router.create(sim.router.address));
   const proxyTon = pTON.create(sim.router.ptonMasterAddress);
@@ -74,7 +80,7 @@ export async function buildBuyArgs(params: BuyParams) {
     userWalletAddress: params.wallet,
     offerAmount: sim.offerUnits,
     minAskAmount: sim.minAskUnits,
-    ...referral(),
+    ...(fee === "referral" ? referral(sim) : {}),
   };
   // Both routers expose the same method names across v1/v2 in practice; cast
   // keeps us independent of the union returned by dexFactory.
@@ -87,7 +93,7 @@ export async function buildBuyArgs(params: BuyParams) {
       ? await r.getSwapTonToJettonTxParams({ ...common, proxyTon, askJettonAddress: params.jetton })
       : await r.getSwapJettonToJettonTxParams({ ...common, offerJettonAddress: offerAddress, askJettonAddress: params.jetton });
 
-  return { tx, sim };
+  return { tx, feeTx, sim };
 }
 
 /** Sell a jetton back to TON on STON.fi v2. `units` is raw jetton units. */
@@ -97,12 +103,11 @@ export async function buildSellTx(params: { wallet: string; jetton: string; unit
 }
 
 export async function buildSellArgs(params: { wallet: string; jetton: string; units: bigint; slippage?: number }) {
-  const sim = await api.simulateSwap({
+  const { sim, fee } = await simulateWithFee({
     offerAddress: params.jetton,
     askAddress: TON_ASSETS.TON,
     offerUnits: params.units.toString(),
     slippageTolerance: String(params.slippage ?? 0.01),
-    ...(config.feeWallet ? { referralAddress: config.feeWallet, referralFeeBps: String(config.swapFeeBps) } : {}),
   });
   const { Router, pTON } = dexFactory(sim.router);
   const router = tonClient().open(Router.create(sim.router.address)) as unknown as {
@@ -114,7 +119,7 @@ export async function buildSellArgs(params: { wallet: string; jetton: string; un
     offerAmount: sim.offerUnits,
     minAskAmount: sim.minAskUnits,
     proxyTon: pTON.create(sim.router.ptonMasterAddress),
-    ...referral(),
+    ...(fee === "referral" ? referral(sim) : {}),
   });
   return { tx, sim };
 }

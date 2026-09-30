@@ -56,7 +56,7 @@ async function buildQuickBuy(t: QuickBuyTarget, ton: number, wallet: string, sli
     return { messages: await buildDedustBuyTx({ wallet, token: t.address, tonAmount: ton, slippage: slip }), via: "DeDust" };
   }
   const { buildBuyTx } = await import("@/lib/ton/swap");
-  return { messages: [(await buildBuyTx({ wallet, jetton: t.address, amount: ton, payWith: "TON", slippage: slip })).message], via: best.venue };
+  return { messages: (await buildBuyTx({ wallet, jetton: t.address, amount: ton, payWith: "TON", slippage: slip })).messages, via: best.venue };
 }
 
 export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarget; className?: string }) {

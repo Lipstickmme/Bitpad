@@ -130,7 +130,7 @@ export function fundingMessages(wallets: BundleWallet[], amounts: number[]): TcM
   return wallets.map((w, i) => ({ address: w.address, amount: toNano(amounts[i].toFixed(9)).toString() }));
 }
 
-async function sendSigned(w: BundleWallet, password: string, tx: SenderArguments) {
+async function sendSigned(w: BundleWallet, password: string, tx: SenderArguments, extra: SenderArguments[] = []) {
   const words = (await decrypt(w.secret, password)).split(" ");
   const { key, contract } = await walletFromMnemonic(words);
   const opened = tonClient().open(contract);
@@ -139,7 +139,7 @@ async function sendSigned(w: BundleWallet, password: string, tx: SenderArguments
     seqno,
     secretKey: key.secretKey,
     sendMode: SendMode.PAY_GAS_SEPARATELY | SendMode.IGNORE_ERRORS,
-    messages: [internal({ to: tx.to, value: tx.value, body: tx.body ?? undefined, bounce: true })],
+    messages: [tx, ...extra].map((m) => internal({ to: m.to, value: m.value, body: m.body ?? undefined, bounce: m === tx })),
   });
 }
 
@@ -168,11 +168,12 @@ export async function runBundle(opts: {
     const w = opts.wallets[i];
     opts.onProgress({ walletId: w.id, status: "pending" });
     try {
-      const { tx } =
+      const built =
         opts.side === "buy"
           ? await buildBuyArgs({ wallet: w.address, jetton: opts.jetton, amount: opts.amounts[i], slippage: opts.slippage })
           : await buildSellArgs({ wallet: w.address, jetton: opts.jetton, units: BigInt(Math.floor(opts.amounts[i] * 1e9)), slippage: opts.slippage });
-      await sendSigned(w, opts.password, tx);
+      // Routers that refuse our referral get the platform fee as a plain transfer in the same message batch
+      await sendSigned(w, opts.password, built.tx, "feeTx" in built && built.feeTx ? [built.feeTx as SenderArguments] : []);
       opts.onProgress({ walletId: w.id, status: "sent" });
     } catch (e) {
       opts.onProgress({ walletId: w.id, status: "error", error: (e as Error).message });

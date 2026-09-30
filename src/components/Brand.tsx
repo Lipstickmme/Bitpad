@@ -1,11 +1,15 @@
 import Link from "next/link";
 
-/** Transparent white mark (720×785). `size` is the rendered height. */
-export function Logo({ size = 50, withText = true }: { size?: number; withText?: boolean }) {
+/** The rocket mascot on its own: transparent white mark (720×567). `size` is the rendered height. */
+export function Mark({ size = 18, className = "" }: { size?: number; className?: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/brand/mark.png" height={size} width={Math.round((size * 720) / 567)} alt="" className={`shrink-0 select-none ${className}`} draggable={false} />;
+}
+
+export function Logo({ size = 44, withText = true }: { size?: number; withText?: boolean }) {
   return (
-    <Link href="/" className="flex shrink-0 items-center gap-2" aria-label="Bitpad home">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/brand/logo.png" height={size} width={Math.round((size * 720) / 785)} alt="" className="select-none" draggable={false} />
+    <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="Bitpad home">
+      <Mark size={size} />
       {withText && <span className="text-lg font-bold tracking-tight">Bitpad</span>}
     </Link>
   );

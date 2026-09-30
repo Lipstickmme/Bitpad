@@ -8,6 +8,7 @@ import { num, pct, price, usd } from "@/lib/format";
 import { AXIS, C, ChartCard, GRID, TipBox } from "./ChartCard";
 import { Hint, SourceTag } from "../ui";
 import { QuickBuyAmount, QuickBuyButton } from "../QuickBuy";
+import { XBuyButton, xBuyable } from "../XBuy";
 
 const CHAIN_FILTERS: ("all" | ChainId)[] = ["all", "ton", "solana", "ethereum", "base", "bsc"];
 const winRate = (l: LaunchpadStat) => (l.wins + l.losses ? (100 * l.wins) / (l.wins + l.losses) : 0);
@@ -262,8 +263,8 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
 
       <ChartCard
         title="Trending pools"
-        sub="Top 24h volume across chains · ⚡ buys TON pools via STON.fi / DeDust"
-        hint={<>GeckoTerminal&apos;s trending pools for each chain, ranked by 24h volume. Filter by what the token is paired against. ⚡ quick-buys TON pools with your quick-buy amount through the best STON.fi or DeDust route. Other chains link out to the pool.</>}
+        sub="Top 24h volume across chains · ⚡ buys on any chain"
+        hint={<>GeckoTerminal&apos;s trending pools for each chain, ranked by 24h volume. Filter by what the token is paired against. ⚡ spends your quick-buy amount. TON pools go through the best STON.fi or DeDust route from your TON wallet. Solana, Ethereum, Base and BNB tokens are paid in that chain&apos;s coin (the same USD value) from Phantom or MetaMask, on LI.FI&apos;s best route (Jupiter, Uniswap, PancakeSwap…).</>}
         right={
           <div className="flex flex-wrap items-center gap-2">
             <QuickBuyAmount />
@@ -299,6 +300,8 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
                   <td className="pl-3 text-right">
                     {p.chain === "ton" && p.baseAddress ? (
                       <QuickBuyButton token={{ address: p.baseAddress, symbol: p.base }} />
+                    ) : p.baseAddress && xBuyable(p.chain) ? (
+                      <XBuyButton chain={p.chain} token={p.baseAddress} symbol={p.base} />
                     ) : p.url ? (
                       <a href={p.url} target="_blank" rel="noreferrer" className="inline-flex text-muted hover:text-ink" aria-label="Open pool"><ExternalLink className="size-3.5" /></a>
                     ) : null}
