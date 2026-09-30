@@ -9,9 +9,9 @@
   --color-brand-soft: #16272e;     /* accent tint */
   --color-action: #8cbfd1;         /* primary buttons */
   --color-action-hover: #a3cddc;
-  --color-action-ink: #081114;
-  --color-launch: #e5484d;
-  --color-launch-hover: #ef5f63;     /* text on primary buttons */
+  --color-action-ink: #081114;     /* text on primary buttons */
+  --color-launch: #e5484d;         /* launch buttons */
+  --color-launch-hover: #ef5f63;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }

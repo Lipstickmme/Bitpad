@@ -118,6 +118,20 @@ Every launch gets its own `StakeVault`, deployed by the pool in `PoolInit`
 - Pools deployed before this change have no vault. Vaults exist only for
   launches from a factory deployed with this code.
 
+## 3c. Trench Chat (TrenchChat)
+
+`contracts/chat.tact` is Bitpad's on-chain chat room. A post is a message to
+the contract, and its body is the permanent record (layout in
+`src/lib/chat.ts`: kind post/reply/like/call, parent tx, token, text,
+optional GIF link / ≤3 KB image / sticker). The contract parses and stores
+nothing, so each post only pays the minimum compute fee. Posts attach
+0.005 TON; the remainder accumulates and the owner (the fee wallet) can sweep
+it with the text message `withdraw`. The room is deployed by the first post
+(the app attaches the stateInit), so there is nothing to deploy by hand. The
+address is `contractAddress(0, TrenchChat(owner = fee wallet))`. Calls are
+theses on a jetton; the app only lets holders post them and re-checks the
+✓ holder badge against current balances.
+
 ## 4. Multichain: what's possible
 
 TON contracts can only hold TON-chain assets. Three consequences:

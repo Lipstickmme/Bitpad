@@ -1,6 +1,19 @@
 {
   "projects": [
-    { "name": "BitpadFactory", "path": "./bitpad_factory.tact", "output": "./build" },
-    { "name": "BitpadBundler", "path": "./bundler.tact", "output": "./build" }
+    {
+      "name": "BitpadFactory",
+      "path": "./bitpad_factory.tact",
+      "output": "./build"
+    },
+    {
+      "name": "BitpadBundler",
+      "path": "./bundler.tact",
+      "output": "./build"
+    },
+    {
+      "name": "TrenchChat",
+      "path": "./chat.tact",
+      "output": "./build"
+    }
   ]
 }

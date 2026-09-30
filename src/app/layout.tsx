@@ -6,6 +6,7 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { TrenchChat } from "@/components/TrenchChat";
 import { botUsername } from "@/lib/telegram";
 import { ensureRuntimeConfig } from "@/lib/runtime";
 
@@ -27,6 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Header telegramBot={bot} />
           <main className="mx-auto w-full max-w-[1400px] px-4 pb-16 pt-5 sm:px-6">{children}</main>
           <Footer />
+          <TrenchChat />
         </Providers>
       </body>
     </html>
