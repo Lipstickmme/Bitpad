@@ -9,6 +9,7 @@ import { Hint } from "../ui";
 import { toast } from "../Toast";
 import { haptic } from "../TelegramBridge";
 import { jettonWallet, refreshSoon } from "./usePool";
+import { sendTx } from "@/lib/ton/send";
 
 interface VaultRes {
   vault: { address: string; totalStaked: string; stakers: number; rewardsTotal: string; carry: string } | null;
@@ -61,7 +62,7 @@ export function StakePanel({ token }: { token: MarketToken }) {
     if (!wallet) return tc.openModal();
     setBusy(true);
     try {
-      await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: await build() });
+      await sendTx(tc, await build());
       haptic("success");
       toast.success(done, "Updates in a few seconds.");
       setAmount("");

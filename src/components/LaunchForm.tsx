@@ -10,6 +10,7 @@ import { num, price, usd } from "@/lib/format";
 import { AssetDot, Change, PairBadge } from "./ui";
 import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
+import { sendTx } from "@/lib/ton/send";
 
 const KINDS: PairKind[] = ["stock", "commodity", "jetton", "crypto"];
 type Step = "form" | "deploying" | "seeding" | "done";
@@ -76,7 +77,7 @@ export function LaunchForm({ assets, factory, registeredPairs }: { assets: PairA
         const decimals = reg?.decimals ?? 9;
         message = buildJettonLaunchTx({ ...base, creatorPairWallet: myWallet, creator: wallet, pairUnits: BigInt(Math.floor(pairUnits! * 10 ** decimals)) });
       }
-      await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [message] });
+      await sendTx(tc, [message]);
       haptic("success");
       toast.success(`$${f.symbol} is launching`, `Token and ${f.symbol}/${pair.symbol} pool deploy in one go — liquidity is locked. Waiting for it to land on-chain…`);
       // Find the new launch in the factory registry, then open its page

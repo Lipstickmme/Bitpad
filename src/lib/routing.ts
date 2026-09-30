@@ -42,13 +42,15 @@ export async function quoteBuy(token: MarketToken, pay: string, amount: number):
   const r = await quoteWith(token, first, amount, errors);
   if (r.length || !first.priceUsd) return { routes: r, pay: first, errors };
   const usdValue = amount * first.priceUsd;
-  for (const alt of ["TON", "USDT"].filter((a) => a !== pay)) {
+  // Re-quote in TON and USDT at the same time (not one after the other) and keep the first that has a route
+  const alts = await Promise.all(["TON", "USDT"].filter((a) => a !== pay).map(async (alt) => {
     const info = await payInfo(alt);
-    if (!info?.priceUsd) continue;
+    if (!info?.priceUsd) return null;
     const altAmount = Number((usdValue / info.priceUsd).toFixed(info.decimals === 6 ? 2 : 4));
-    const routes = await quoteWith(token, info, altAmount, errors);
-    if (routes.length) return { routes, pay: info, errors: [], switchedFrom: pay };
-  }
+    return { info, routes: await quoteWith(token, info, altAmount, errors) };
+  }));
+  const hit = alts.find((a) => a?.routes.length);
+  if (hit) return { routes: hit.routes, pay: hit.info, errors: [], switchedFrom: pay };
   return { routes: [], pay: first, errors };
 }
 

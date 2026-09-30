@@ -7,6 +7,7 @@ import { shortAddr, num } from "@/lib/format";
 import { toast } from "./Toast";
 import { CopyButton } from "./CopyButton";
 import { OnchainBundle } from "./bitpad/OnchainBundle";
+import { sendTx } from "@/lib/ton/send";
 
 type Lib = typeof import("@/lib/ton/bundler");
 const loadLib = () => import("@/lib/ton/bundler");
@@ -92,7 +93,7 @@ export function BundlerView() {
     try {
       // 4 messages per request keeps older wallet contracts (v4) compatible
       for (let i = 0; i < msgs.length; i += 4) {
-        await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: msgs.slice(i, i + 4) });
+        await sendTx(tc, msgs.slice(i, i + 4));
       }
       toast.success("Funding sent", `${active.length} wallets funded from ${shortAddr(wallet)}`);
       setTimeout(refresh, 8000);

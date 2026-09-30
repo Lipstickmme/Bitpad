@@ -24,7 +24,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="min-h-screen">
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
-        <Providers feeWallet={runtime?.feeWallet ?? ""}>
+        <Providers feeWallet={runtime?.feeWallet ?? ""} twaReturnUrl={bot ? `https://t.me/${bot}${process.env.TELEGRAM_APP_NAME ? `/${process.env.TELEGRAM_APP_NAME}` : ""}` : undefined}>
           <Header telegramBot={bot} />
           <main className="mx-auto w-full max-w-[1400px] px-4 pb-16 pt-5 sm:px-6">{children}</main>
           <Footer />

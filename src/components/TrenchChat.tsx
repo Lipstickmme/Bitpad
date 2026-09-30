@@ -11,6 +11,7 @@ import { Mark } from "./Brand";
 import { Hint } from "./ui";
 import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
+import { sendTx } from "@/lib/ton/send";
 
 interface Msg {
   id: string;
@@ -109,10 +110,7 @@ export function TrenchChat() {
     }
     if (!room.address || !config.feeWallet) throw new Error("Chat room unavailable right now");
     const init = room.deployed ? undefined : beginCell().store(storeStateInit(chatInit(config.feeWallet))).endCell().toBoc().toString("base64");
-    await tc.sendTransaction({
-      validUntil: Math.floor(Date.now() / 1000) + 300,
-      messages: [{ address: room.address, amount: POST_VALUE.toString(), payload: encodePost(p).toBoc().toString("base64"), ...(init ? { stateInit: init } : {}) }],
-    });
+    await sendTx(tc, [{ address: room.address, amount: POST_VALUE.toString(), payload: encodePost(p).toBoc().toString("base64"), ...(init ? { stateInit: init } : {}) }]);
     haptic("success");
     [4000, 9000, 16000].forEach((ms) => setTimeout(load, ms));
   }

@@ -9,6 +9,7 @@ import { referralLink } from "@/lib/referral";
 import { CopyButton } from "../CopyButton";
 import { toast } from "../Toast";
 import { refreshSoon, usePool } from "./usePool";
+import { sendTx } from "@/lib/ton/send";
 
 const MAX_LINKS = config.referral.maxLinksPerToken;
 
@@ -34,7 +35,7 @@ export function ReferralPanel({ token }: { token: MarketToken }) {
     if (!wallet) return tc.openModal();
     setBusy(label);
     try {
-      await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [await build()] });
+      await sendTx(tc, [await build()]);
       toast.success(`${label} sent`, "Updates here in a few seconds.");
       refreshSoon(reload);
     } catch (e) {

@@ -11,7 +11,7 @@ if (typeof window !== "undefined") {
   (window as unknown as { Buffer: typeof Buffer }).Buffer ??= Buffer;
 }
 
-export function Providers({ children, feeWallet }: { children: React.ReactNode; feeWallet: string }) {
+export function Providers({ children, feeWallet, twaReturnUrl }: { children: React.ReactNode; feeWallet: string; twaReturnUrl?: string }) {
   // Fee wallet comes from the factory contract (read on the server)
   if (feeWallet && !config.feeWallet) config.feeWallet = feeWallet;
   const manifestUrl =
@@ -25,7 +25,12 @@ export function Providers({ children, feeWallet }: { children: React.ReactNode; 
   }, []);
 
   return (
-    <TonConnectUIProvider manifestUrl={manifestUrl} uiPreferences={{ theme: THEME.DARK }}>
+    <TonConnectUIProvider
+      manifestUrl={manifestUrl}
+      uiPreferences={{ theme: THEME.DARK }}
+      // In the Telegram Mini App the wallet (e.g. @wallet) must know how to come back after approving
+      actionsConfiguration={{ returnStrategy: "back", modals: ["before"], notifications: ["before", "success", "error"], ...(twaReturnUrl ? { twaReturnUrl: twaReturnUrl as `${string}://${string}` } : {}) }}
+    >
       <TelegramBridge />
       {children}
       <Toaster />

@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import { Zap } from "lucide-react";
 import { toNano } from "@ton/core";
-import type { RouteQuote } from "@/lib/types";
 import { useApp } from "@/lib/store";
 import { generalReferrer, storedReferral } from "@/lib/referral";
 import { minOutFor, quoteBuy } from "@/lib/bitpad-math";
@@ -12,6 +11,7 @@ import type { TcMessage } from "@/lib/ton/client";
 import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
 import { bigState, refreshSoon, type PoolResponse } from "./bitpad/usePool";
+import { sendTx } from "@/lib/ton/send";
 
 /** False during SSR and hydration, true after — the persisted amount only exists in the browser. */
 const useHydrated = () => useSyncExternalStore(() => () => {}, () => true, () => false);
@@ -72,22 +72,12 @@ async function buildQuickBuy(t: QuickBuyTarget, amount: number, asset: QuickAsse
     return { messages: [buildPoolBuyTx(d.pool.address, inU, minOutFor(q.out, slippagePct), referrer)], via: "Bitpad pool", spent: `${ton.toFixed(3)} TON${asset === "GRAM" ? ` (≈ ${amount} GRAM; this pool is TON-paired)` : ""}` };
   }
 
-  const d = await fetch(`/api/quote?token=${t.address}&pay=${asset}&amount=${amount}`).then((r) => r.json());
-  const routes: RouteQuote[] = (d.routes ?? []).filter((r: RouteQuote) => r.kind === "onchain");
-  const best = routes.find((r) => r.best) ?? routes[0];
-  if (!best) throw new Error(d.errors?.length ? `No live route: ${d.errors.join(" · ")}` : "No live route for this token");
-  const slip = slippagePct / 100;
-  // The quote may have switched currency (no pool for the chosen one): spend what it quoted
-  const payWith = best.payAsset as "TON" | "USDT" | "GRAM";
-  const payAmount = best.payAmount;
-  const note = d.switchedFrom ? ` (no ${d.switchedFrom} pool for this token)` : "";
-  if (best.id === "dedust") {
-    const { buildDedustBuyTx } = await import("@/lib/ton/dedust");
-    return { messages: await buildDedustBuyTx({ wallet, token: t.address, tonAmount: payAmount, slippage: slip, referrer: generalReferrer(wallet) }), via: "DeDust", spent: `${payAmount} TON${note}` };
-  }
-  const { buildBuyTx } = await import("@/lib/ton/swap");
-  const pay = d.pay ? { address: d.pay.address, decimals: d.pay.decimals } : undefined;
-  return { messages: (await buildBuyTx({ wallet, jetton: t.address, amount: payAmount, payWith, payAsset: pay, slippage: slip, referrer: generalReferrer(wallet) })).messages, via: best.venue, spent: `${payAmount} ${payWith}${note}` };
+  // Quote + transaction built on the server in one round trip (fast, keyed RPC)
+  const ref = generalReferrer(wallet);
+  const qs = new URLSearchParams({ token: t.address, pay: asset, amount: String(amount), wallet, slippage: String(slippagePct), ...(ref && { ref }) });
+  const d = await fetch(`/api/buy-tx?${qs}`).then((r) => r.json());
+  if (d.error) throw new Error(d.error);
+  return { messages: d.messages, via: d.via, spent: d.spent };
 }
 
 export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarget; className?: string }) {
@@ -108,7 +98,7 @@ export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarge
     setBusy(true);
     try {
       const { messages, via, spent } = await buildQuickBuy(token, amount, asset, wallet, slippage);
-      await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages });
+      await sendTx(tc, messages);
       haptic("success");
       toast.success(`Buying $${token.symbol}`, `${spent} via ${via}. If the price moves past ${slippage}% slippage the swap refunds.`);
       if (token.bitpadPool) refreshSoon(() => router.refresh());

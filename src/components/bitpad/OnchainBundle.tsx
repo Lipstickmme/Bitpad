@@ -8,6 +8,7 @@ import { captureReferral } from "@/lib/referral";
 import { num, shortAddr } from "@/lib/format";
 import { toast } from "../Toast";
 import { bigState, usePool } from "./usePool";
+import { sendTx } from "@/lib/ton/send";
 
 /**
  * On-chain bundle for Bitpad pools: one TON Connect signature → BitpadBundler
@@ -58,7 +59,7 @@ export function OnchainBundle({ recipients, splits, slippage }: { recipients: { 
     try {
       const { buildBundleBuyTx } = await import("@/lib/ton/launch");
       const msg = buildBundleBuyTx({ pool: data.pool.address, referrer, legs: plan.filter((l) => l.amount > 0n), feeBps: data.bundlerFeeBps });
-      await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [msg] });
+      await sendTx(tc, [msg]);
       toast.success("Bundle sent", `${plan.length} wallets buy $${token!.symbol} in one transaction. Legs that would slip are refunded to their wallet.`);
     } catch (e) {
       toast.error("Bundle not sent", (e as Error).message);

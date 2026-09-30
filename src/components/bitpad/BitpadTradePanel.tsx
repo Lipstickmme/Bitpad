@@ -10,6 +10,7 @@ import { num, shortAddr, usd } from "@/lib/format";
 import { toast } from "../Toast";
 import { haptic } from "../TelegramBridge";
 import { bigState, jettonWallet, refreshSoon, usePool } from "./usePool";
+import { sendTx } from "@/lib/ton/send";
 
 const toUnits = (v: string, dec: number) => {
   const [i, f = ""] = v.split(".");
@@ -77,7 +78,7 @@ export function BitpadTradePanel({ token, onTraded }: { token: MarketToken; onTr
       } else {
         message = buildPoolSwapTx({ pool: pool.address, userJettonWallet: await jettonWallet(token.address, wallet), user: wallet, amount: q.inU, minOut, referrer: linkValid ? ref! : undefined });
       }
-      await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages: [message] });
+      await sendTx(tc, [message]);
       haptic("success");
       toast.success(side === "buy" ? `Buying $${token.symbol}` : `Selling $${token.symbol}`, "Sent. If the price moves past your slippage, the pool refunds you in full.");
       setAmount("");

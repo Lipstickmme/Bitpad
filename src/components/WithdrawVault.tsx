@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import { Address, beginCell, toNano } from "@ton/core";
 import { toast } from "./Toast";
+import { sendTx } from "@/lib/ton/send";
 
 /** STON.fi v2 Vault `withdraw_fee` (op 0x354bcdf4): sends the accrued referral fees to the vault owner. */
 const WITHDRAW_FEE = 0x354bcdf4;
@@ -26,10 +27,7 @@ export function WithdrawVault({ vault, owner, label }: { vault: string; owner: s
     setBusy(true);
     try {
       const body = beginCell().storeUint(WITHDRAW_FEE, 32).storeUint(0, 64).endCell();
-      await tc.sendTransaction({
-        validUntil: Math.floor(Date.now() / 1000) + 300,
-        messages: [{ address: vault, amount: toNano("0.3").toString(), payload: body.toBoc().toString("base64") }],
-      });
+      await sendTx(tc, [{ address: vault, amount: toNano("0.3").toString(), payload: body.toBoc().toString("base64") }]);
       toast.success(`Withdrawing ${label}`, "The vault sends the balance to the fee wallet; unused gas is refunded.");
     } catch (e) {
       toast.error("Withdraw not sent", (e as Error).message);

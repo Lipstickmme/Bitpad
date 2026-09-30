@@ -10,6 +10,7 @@ import { config } from "@/lib/config";
 import { toast } from "./Toast";
 // Platform fee: STON.fi routes take it on-chain via referral; DeDust routes add a separate fee transfer.
 import { haptic } from "./TelegramBridge";
+import { sendTx } from "@/lib/ton/send";
 
 const PAY = ["TON", "USDT", "GRAM", "USDC"] as const;
 const PRESETS: Record<(typeof PAY)[number], number[]> = { TON: [5, 25, 100, 500], USDT: [10, 50, 250, 1000], GRAM: [5000, 25000, 100000, 500000], USDC: [10, 50, 250, 1000] };
@@ -18,7 +19,6 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("");
   const [routes, setRoutes] = useState<RouteQuote[]>([]);
-  const [payResolved, setPayResolved] = useState<{ address: string; decimals: number } | null>(null);
   const [quoteErr, setQuoteErr] = useState<string[]>([]);
   const [switched, setSwitched] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
@@ -53,7 +53,6 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
         .then((r) => r.json())
         .then((d) => {
           setRoutes(d.routes ?? []);
-          setPayResolved(d.pay ? { address: d.pay.address, decimals: d.pay.decimals } : null);
           setQuoteErr(d.errors ?? (d.error ? [d.error] : []));
           setSwitched(d.switchedFrom && d.pay ? `No ${d.switchedFrom} pool for $${token.symbol}: this buy pays ${d.routes?.[0]?.payAmount ?? ""} ${d.pay.symbol} (same value).` : null);
           setRouteId((d.routes ?? []).find((r: RouteQuote) => r.best)?.id);
@@ -75,13 +74,11 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
       let messages;
       if (side === "buy") {
         if (!route) throw new Error("No executable route — try a different amount or pay asset");
-        if (route.id === "dedust") {
-          const { buildDedustBuyTx } = await import("@/lib/ton/dedust");
-          messages = await buildDedustBuyTx({ wallet, token: token.address, tonAmount: route.payAmount, slippage: slip, referrer: generalReferrer(wallet) });
-        } else {
-          const { buildBuyTx } = await import("@/lib/ton/swap");
-          messages = (await buildBuyTx({ wallet, jetton: token.address, amount: route.payAmount, payWith: route.payAsset as typeof payAsset, payAsset: payResolved ?? undefined, slippage: slip, referrer: generalReferrer(wallet) })).messages;
-        }
+        const ref = generalReferrer(wallet);
+        const qs = new URLSearchParams({ token: token.address, pay: payAsset, amount: String(amount), wallet, slippage: String(slippage), route: route.id, ...(ref && { ref }) });
+        const d = await fetch(`/api/buy-tx?${qs}`).then((r) => r.json());
+        if (d.error) throw new Error(d.error);
+        messages = d.messages;
       } else {
         const units = BigInt(Math.floor(Number(amount) * 10 ** token.decimals));
         if (token.dex?.includes("dedust")) {
@@ -92,7 +89,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
           messages = [(await buildSellTx({ wallet, jetton: token.address, units, slippage: slip })).message];
         }
       }
-      await tc.sendTransaction({ validUntil: Math.floor(Date.now() / 1000) + 300, messages });
+      await sendTx(tc, messages);
       haptic("success");
       toast.success(`${side === "buy" ? "Buy" : "Sell"} submitted`, "Your wallet broadcast the transaction.");
       setAmount("");
