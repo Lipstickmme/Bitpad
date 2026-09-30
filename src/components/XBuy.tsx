@@ -3,6 +3,7 @@ import { useState, useSyncExternalStore } from "react";
 import { Zap } from "lucide-react";
 import type { ChainId } from "@/lib/types";
 import { useApp } from "@/lib/store";
+import { useQuickBuy } from "./QuickBuy";
 import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
 
@@ -16,7 +17,8 @@ export const xBuyable = (chain: ChainId) => chain in NATIVE;
  * connected Phantom / MetaMask-style wallet, on LI.FI's best route.
  */
 export function XBuyButton({ chain, token, symbol, className = "" }: { chain: ChainId; token: string; symbol: string; className?: string }) {
-  const { quickBuy, slippage, external, addExternal } = useApp();
+  const { slippage, external, addExternal } = useApp();
+  const { asset, amount } = useQuickBuy();
   const hydrated = useHydrated();
   const [busy, setBusy] = useState(false);
   const isSol = chain === "solana";
@@ -44,7 +46,7 @@ export function XBuyButton({ chain, token, symbol, className = "" }: { chain: Ch
     setBusy(true);
     try {
       const from = await wallet();
-      const qs = new URLSearchParams({ chain, token, from, ton: String(quickBuy), slippage: String(slippage) });
+      const qs = new URLSearchParams({ chain, token, from, amount: String(amount), asset, slippage: String(slippage) });
       const q = await fetch(`/api/xquote?${qs}`).then((r) => r.json());
       if (q.error) throw new Error(q.error);
       if (isSol) {
@@ -74,12 +76,12 @@ export function XBuyButton({ chain, token, symbol, className = "" }: { chain: Ch
     <button
       onClick={go}
       disabled={busy}
-      title={`Buy ~${quickBuy} TON worth of $${symbol}, paid in ${NATIVE[chain]}`}
+      title={`Buy ~${amount} ${asset} worth of $${symbol}, paid in ${NATIVE[chain]}`}
       className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-line bg-surface-2 px-2 text-xs font-semibold text-ink transition-colors hover:border-brand/50 hover:text-brand-ink disabled:opacity-50 ${className}`}
     >
       <Zap className="size-3.5 text-brand" />
-      <span className="num">{busy ? "…" : hydrated ? `${quickBuy}` : ""}</span>
-      <span className="text-[10px] text-muted">TON in {NATIVE[chain]}</span>
+      <span className="num">{busy ? "…" : hydrated ? `${amount}` : ""}</span>
+      <span className="text-[10px] text-muted">{hydrated ? asset : ""} in {NATIVE[chain]}</span>
     </button>
   );
 }
