@@ -1,8 +1,9 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
-import { Check, Info, Rocket, Search } from "lucide-react";
+import { BadgeCheck, Check, Info, Rocket, Search, UserRound } from "lucide-react";
+import { useApp } from "@/lib/store";
 import type { PairAsset, PairKind } from "@/lib/types";
 import { PAIR_KIND_LABEL } from "@/lib/assets";
 import { config, TON_ASSETS } from "@/lib/config";
@@ -12,7 +13,8 @@ import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
 import { sendTx } from "@/lib/ton/send";
 
-const KINDS: PairKind[] = ["stock", "commodity", "jetton", "crypto"];
+const KINDS: PairKind[] = ["creator", "stock", "commodity", "jetton", "crypto"];
+type Mode = "creator" | "token";
 type Step = "form" | "deploying" | "seeding" | "done";
 
 /** Live factory settings, read on-chain by the server (null when the factory isn't deployed/reachable). */
@@ -20,13 +22,17 @@ export interface FactoryInfo { launchFee: string; minTonLiquidity: string; trade
 
 export interface RegisteredPairInfo { master: string; decimals: number; minLiquidity: string }
 
-export function LaunchForm({ assets, factory, registeredPairs }: { assets: PairAsset[]; factory: FactoryInfo | null; registeredPairs: RegisteredPairInfo[] }) {
+export function LaunchForm({ assets, factory, registeredPairs, initialMode = "token", initialPair }: { assets: PairAsset[]; factory: FactoryInfo | null; registeredPairs: RegisteredPairInfo[]; initialMode?: Mode; initialPair?: string }) {
   const router = useRouter();
   const wallet = useTonAddress();
   const [tc] = useTonConnectUI();
-  const [kind, setKind] = useState<PairKind>("stock");
+  const { tgUser } = useApp();
+  const preset = initialPair ? assets.find((a) => a.tonAddress === initialPair) : undefined;
+  const tonAsset = assets.find((a) => a.symbol === "TON");
+  const [mode, setModeState] = useState<Mode>(initialMode);
+  const [kind, setKind] = useState<PairKind>(preset?.kind ?? (initialMode === "creator" ? "jetton" : assets.some((a) => a.kind === "creator") ? "creator" : "stock"));
   const [q, setQ] = useState("");
-  const [pair, setPair] = useState<PairAsset>(assets.find((a) => a.symbol === "SPYx") ?? assets[0]);
+  const [pair, setPair] = useState<PairAsset>(preset || (initialMode === "creator" && tonAsset) || assets.find((a) => a.symbol === "SPYx") || assets[0]);
   const [customJetton, setCustomJetton] = useState("");
   const [f, setF] = useState({ name: "", symbol: "", image: "", description: "", telegram: "", x: "", website: "" });
   const [supply, setSupply] = useState(1_000_000_000);
@@ -49,6 +55,30 @@ export function LaunchForm({ assets, factory, registeredPairs }: { assets: PairA
   const belowMin = isTonPair && pairUnits != null && pairUnits < minTon;
   const valid = pairUsable && !belowMin && f.name.trim().length >= 2 && /^[A-Z0-9]{2,10}$/.test(f.symbol) && supply > 0 && pairUsd > 0 && pairUnits != null;
 
+  function prefillFromTelegram() {
+    if (!tgUser) return;
+    setF((s) => ({
+      ...s,
+      name: s.name || [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "),
+      symbol: s.symbol || (tgUser.username ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10),
+      telegram: s.telegram || (tgUser.username ? `https://t.me/${tgUser.username}` : ""),
+    }));
+  }
+  // Opened as /launch?mode=creator, or logged in while on the page
+  useEffect(() => {
+    if (mode === "creator") prefillFromTelegram();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tgUser]);
+
+  function setMode(m: Mode) {
+    setModeState(m);
+    if (m === "creator") {
+      // A creator jetton is its own base asset: default to a TON pool, prefill from Telegram
+      if (tonAsset) { setPair(tonAsset); setKind("jetton"); }
+      prefillFromTelegram();
+    }
+  }
+
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setF((s) => ({ ...s, [k]: k === "symbol" ? e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") : e.target.value }));
 
@@ -63,7 +93,19 @@ export function LaunchForm({ assets, factory, registeredPairs }: { assets: PairA
       setStep("deploying");
       const { buildLaunchTx, buildJettonLaunchTx } = await import("@/lib/ton/launch");
       const { toNano } = await import("@ton/core");
-      const base = { name: f.name, symbol: f.symbol, description: f.description, image: f.image, supply: BigInt(supply), creatorBps: Math.round((100 - poolPct) * 100), pairSymbol: pair.symbol, launchFee: BigInt(factory!.launchFee) };
+      const extra: Record<string, string> = {};
+      if (/^https:\/\//.test(f.telegram)) extra.telegram = f.telegram;
+      if (/^https:\/\//.test(f.x)) extra.x = f.x;
+      if (mode === "creator") {
+        extra.bitpad_type = "creator";
+        if (tgUser) {
+          // Bitpad signs your Telegram identity + this wallet + ticker (verified badge)
+          const proof = await fetch("/api/creator", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ wallet, symbol: f.symbol }) }).then((r) => r.json());
+          if (proof.error) throw new Error(proof.error);
+          Object.assign(extra, proof);
+        }
+      }
+      const base = { name: f.name, symbol: f.symbol, description: f.description, image: f.image, supply: BigInt(supply), creatorBps: Math.round((100 - poolPct) * 100), pairSymbol: pair.symbol, launchFee: BigInt(factory!.launchFee), extra };
       let message;
       if (!pairAddress || pairAddress === TON_ASSETS.TON) {
         // One transaction: jetton + pool deployed, TON liquidity locked, trading open
@@ -103,10 +145,40 @@ export function LaunchForm({ assets, factory, registeredPairs }: { assets: PairA
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Launch a token</h1>
-          <p className="text-sm text-ink-2">Pick what backs your pool, add liquidity, go live. No bonding curve, no graduation — the pool is the market.</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">{mode === "creator" ? "Launch your creator jetton" : "Launch a token"}</h1>
+            <p className="text-sm text-ink-2">{mode === "creator" ? "Your own coin, tied to your Telegram. Fans buy it, other launches can pair with it, and you earn the creator fee on every trade." : "Pick what backs your pool (a creator's jetton, a stock, gold…), add liquidity, go live. The pool is the market."}</p>
+          </div>
+          <div className="seg ml-auto">
+            <button data-on={mode === "creator"} onClick={() => setMode("creator")}>Creator jetton</button>
+            <button data-on={mode === "token"} onClick={() => setMode("token")}>Token</button>
+          </div>
         </div>
+
+        {mode === "creator" && (
+          <section className="card flex flex-wrap items-center gap-3 p-4">
+            {tgUser?.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={tgUser.photo_url} alt="" className="size-10 rounded-full" />
+            ) : (
+              <span className="grid size-10 place-items-center rounded-full bg-surface-2"><UserRound className="size-5 text-muted" /></span>
+            )}
+            <div className="min-w-0 flex-1 text-sm">
+              {tgUser ? (
+                <>
+                  <div className="flex items-center gap-1.5 font-semibold">{[tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ")} <BadgeCheck className="size-4 text-brand" /></div>
+                  <div className="text-xs text-ink-2">{tgUser.username ? `@${tgUser.username} · Bitpad signs this identity into your jetton, so it shows as verified.` : "Set a Telegram username, then log in again, to get the verified badge."}</div>
+                </>
+              ) : (
+                <>
+                  <div className="font-semibold">Not verified</div>
+                  <div className="text-xs text-ink-2">Log in with Telegram (top right) so your creator jetton carries a verified link to your account. You can still launch without it, but it will show as unverified.</div>
+                </>
+              )}
+            </div>
+          </section>
+        )}
 
         <section className="card p-5">
           <h2 className="text-sm font-semibold">1 · Token details</h2>
@@ -124,20 +196,21 @@ export function LaunchForm({ assets, factory, registeredPairs }: { assets: PairA
           <h2 className="text-sm font-semibold">2 · Pair with</h2>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <div className="seg">
-              {KINDS.map((k) => <button key={k} data-on={kind === k} onClick={() => setKind(k)}>{PAIR_KIND_LABEL[k]}</button>)}
+              {KINDS.filter((k) => mode === "token" || k !== "creator").map((k) => <button key={k} data-on={kind === k} onClick={() => setKind(k)}>{PAIR_KIND_LABEL[k]}</button>)}
             </div>
             <div className="relative ml-auto w-full sm:w-52">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
               <input className="input h-9 pl-9 text-sm" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter assets" />
             </div>
           </div>
+          {kind === "creator" && !list.length && <p className="mt-3 rounded-lg bg-surface-2 p-3 text-xs text-ink-2">No creator jettons yet. Launch yours with the Creator jetton tab above, then tokens can pair with it once it&apos;s enabled as a pair.</p>}
           <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {list.map((a) => (
               <button key={a.symbol} onClick={() => { setPair(a); setCustomJetton(""); }} className={`flex items-center gap-3 rounded-xl border p-3 text-left ${pair.symbol === a.symbol ? "border-brand bg-brand-soft/50 ring-2 ring-brand-soft" : "border-line hover:border-line-strong"}`}>
                 <AssetDot asset={a} size={32} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 text-sm font-bold">{a.symbol} {pair.symbol === a.symbol && <Check className="size-3.5 text-brand" />}</div>
-                  <div className="truncate text-xs text-muted">{a.name}{a.dividendYield ? ` · ${a.dividendYield}% div` : ""}</div>
+                  <div className="truncate text-xs text-muted">{a.name}{a.dividendYield ? ` · ${a.dividendYield}% div` : ""}{a.kind === "creator" ? ` · ${a.badge.includes("✓") ? "verified" : "unverified"}` : ""}</div>
                 </div>
                 <div className="text-right">
                   <div className="num text-xs font-semibold">{a.priceUsd != null ? price(a.priceUsd) : "—"}</div>
@@ -202,7 +275,7 @@ export function LaunchForm({ assets, factory, registeredPairs }: { assets: PairA
           </div>
           <button onClick={launch} disabled={!valid || step === "deploying" || step === "seeding"} className="btn btn-primary mt-4 h-12 w-full text-base">
             <Rocket className="size-4" />
-            {!wallet ? "Connect TON wallet" : step === "deploying" ? "Deploying jetton…" : step === "done" ? "Launched ✓" : "Launch & add liquidity"}
+            {!wallet ? "Connect TON wallet" : step === "deploying" ? "Deploying jetton…" : step === "done" ? "Launched ✓" : mode === "creator" ? "Launch creator jetton" : "Launch & add liquidity"}
           </button>
           {!valid && <p className="mt-2 text-center text-xs text-muted">{!pairUsable ? `${pair.symbol} isn't enabled as a pair on Bitpad yet — pick TON or an enabled pair.` : pairUnits == null ? `No live price for ${pair.symbol} right now.` : belowMin ? `Minimum liquidity is ${minTon} TON.` : "Name, a 2–10 character ticker and liquidity are required."}</p>}
         </div>

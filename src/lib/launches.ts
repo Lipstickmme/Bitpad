@@ -17,7 +17,7 @@ export interface Launch {
   supply?: string;
   creator?: string;
   pairAddress?: string;
-  meta: { name?: string; symbol?: string; description?: string; image?: string; decimals?: string; bitpad_pair?: string };
+  meta: { name?: string; symbol?: string; description?: string; image?: string; decimals?: string; bitpad_pair?: string; bitpad_type?: string; creator_tg?: string; creator_tg_id?: string; creator_name?: string; creator_sig?: string; telegram?: string; x?: string };
 }
 
 export const fmt = (a: Address) => a.toString({ testOnly: config.network === "testnet" });
@@ -91,6 +91,7 @@ export async function getLaunches(limit = 60): Promise<{ launches: Launch[]; cou
 
 export interface FactoryConfig {
   launches: number;
+  owner: string;
   feeWallet: string;
   launchFee: bigint;
   protocolFeeBps: number;
@@ -105,7 +106,7 @@ export async function getFactoryConfig(): Promise<FactoryConfig | null> {
     return await memo("factory:config", 15_000, async () => {
       // non-optional struct getters return their fields directly on the stack (Tact)
       const s = await runGet(config.factoryAddress, "config");
-      s.readAddress(); // owner
+      const owner = fmt(s.readAddress());
       const feeWallet = fmt(s.readAddress());
       const launchFee = s.readBigNumber();
       const protocolFeeBps = s.readNumber();
@@ -113,7 +114,7 @@ export async function getFactoryConfig(): Promise<FactoryConfig | null> {
       const minTonLiquidity = s.readBigNumber();
       s.readBigNumber(); // tonPythFeedId
       const launches = s.readNumber();
-      return { launches, feeWallet, launchFee, protocolFeeBps, creatorFeeBps, minTonLiquidity };
+      return { launches, owner, feeWallet, launchFee, protocolFeeBps, creatorFeeBps, minTonLiquidity };
     });
   } catch (e) {
     console.warn("[factory] config read failed:", (e as Error).message);

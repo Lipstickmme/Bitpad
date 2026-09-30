@@ -11,6 +11,7 @@ import { config } from "@/lib/config";
 const NAV = [
   { href: "/", label: "Markets" },
   { href: "/stocks", label: "Stocks" },
+  { href: "/creators", label: "Creators" },
   { href: "/analytics", label: "Analytics" },
   { href: "/bundler", label: "Bundler" },
   { href: "/portfolio", label: "Portfolio" },

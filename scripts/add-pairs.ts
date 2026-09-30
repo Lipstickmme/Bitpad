@@ -17,7 +17,7 @@ import { BitpadFactory, storeAddPair } from "../contracts/build/BitpadFactory_Bi
 import { FACTORY_ADDRESS } from "../src/lib/config";
 import { deployer, env } from "./lib";
 
-const KINDS: Record<string, bigint> = { native: 0n, stable: 1n, jetton: 2n, stock: 3n, commodity: 4n, crypto: 5n };
+const KINDS: Record<string, bigint> = { native: 0n, stable: 1n, jetton: 2n, stock: 3n, commodity: 4n, crypto: 5n, creator: 6n };
 interface Row { symbol: string; kind: string; master?: string; minUsd?: number }
 
 (async () => {

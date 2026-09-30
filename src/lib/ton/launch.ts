@@ -42,11 +42,13 @@ export interface LaunchParams {
   /** 0–2000 = 0–20% of supply kept by the creator */
   creatorBps?: number;
   pairSymbol: string;
+  /** Extra metadata fields (creator-jetton proof, socials) */
+  extra?: Record<string, string>;
 }
 
 /** TEP-64 off-chain content: 0x01 + URI pointing at Bitpad's stateless metadata endpoint. */
 export function metadataUri(p: LaunchParams): string {
-  const json = JSON.stringify({ name: p.name, symbol: p.symbol, description: p.description, image: p.image, decimals: String(p.decimals ?? 9), bitpad_pair: p.pairSymbol });
+  const json = JSON.stringify({ name: p.name, symbol: p.symbol, description: p.description, image: p.image, decimals: String(p.decimals ?? 9), bitpad_pair: p.pairSymbol, ...p.extra });
   return `${config.appUrl}/api/jetton/metadata?d=${Buffer.from(json).toString("base64url")}`;
 }
 
@@ -223,4 +225,25 @@ export function buildClaimRewardsTx(vault: string): TcMessage {
 export function buildTopUpVaultTx(vault: string, ton: bigint): TcMessage {
   const b = beginCell().storeUint(OP.StakeRewards, 32).storeUint(0, 64).endCell();
   return { address: vault, amount: (ton + toNano("0.01")).toString(), payload: b.toBoc().toString("base64") };
+}
+
+/** Factory pair-registry kinds (contracts/messages.tact PAIR_KIND_*; 6 = creator jetton, app-level). */
+export const PAIR_KIND = { native: 0, stable: 1, jetton: 2, stock: 3, commodity: 4, crypto: 5, creator: 6 } as const;
+/** TON attached to AddPair: the factory forwards 0.05 for the TEP-89 wallet query. */
+export const ADD_PAIR_VALUE = toNano("0.15");
+
+/** Owner-only AddPair (registers a pairable jetton). Layout = contracts' storeAddPair. */
+export function buildAddPairTx(p: { master: string; symbol: string; decimals: number; kind: number; minLiquidity: bigint }): TcMessage {
+  const body = beginCell()
+    .storeUint(0x42504c40, 32)
+    .storeAddress(Address.parse(p.master))
+    .storeStringRefTail(p.symbol)
+    .storeUint(p.decimals, 8)
+    .storeUint(p.kind, 8)
+    .storeUint(0, 256) // pythFeedId: none
+    .storeCoins(p.minLiquidity)
+    .storeAddress(null) // wallet: discovered by the factory
+    .storeBit(true) // enabled
+    .endCell();
+  return { address: factory(), amount: ADD_PAIR_VALUE.toString(), payload: body.toBoc().toString("base64") };
 }

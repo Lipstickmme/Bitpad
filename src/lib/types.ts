@@ -11,7 +11,7 @@ export type ChainId =
   | "sui"
   | "tron";
 
-export type PairKind = "stock" | "commodity" | "jetton" | "crypto";
+export type PairKind = "stock" | "commodity" | "jetton" | "crypto" | "creator";
 
 export interface PairAsset {
   symbol: string;
@@ -85,6 +85,8 @@ export interface MarketToken {
     tradingOpen?: boolean;
     protocolFeeBps?: number;
     creatorFeeBps?: number;
+    /** Set when this launch is a creator jetton (see lib/creators.ts) */
+    creatorJetton?: CreatorProfile;
   };
   socials?: { telegram?: string; x?: string; website?: string };
   /** Which APIs supplied this record */
@@ -221,4 +223,12 @@ export interface RouteQuote {
   executable?: boolean;
   note?: string;
   deepLink?: string;
+}
+
+/** A creator jetton's owner, as claimed in its metadata; `verified` = Bitpad signed the Telegram identity at launch. */
+export interface CreatorProfile {
+  tg?: string;
+  tgId?: number;
+  name?: string;
+  verified: boolean;
 }

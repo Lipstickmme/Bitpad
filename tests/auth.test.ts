@@ -43,3 +43,16 @@ test("session cookies round-trip and reject forgeries", async () => {
     else process.env.TELEGRAM_BOT_TOKEN = prev;
   }
 });
+
+test("creator-jetton proof is bound to the Telegram id, wallet and ticker", async () => {
+  process.env.TELEGRAM_BOT_TOKEN = BOT;
+  const { signCreator, verifyCreator } = await import("../src/lib/creators");
+  const W = "EQDtFpEwcFAEcRe5mLVh2N6C0x-_hJEM7W61_JLnSF74p4q2";
+  const OTHER = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
+  const meta = { symbol: "ADA", creator_tg: "ada", creator_tg_id: "42", creator_sig: signCreator(42, "ada", W, "ADA"), bitpad_type: "creator" };
+  assert.equal(verifyCreator(meta, W), true);
+  assert.equal(verifyCreator(meta, OTHER), false, "copied proof from another wallet");
+  assert.equal(verifyCreator({ ...meta, symbol: "ADA2" }, W), false, "other ticker");
+  assert.equal(verifyCreator({ ...meta, creator_tg: "mallory" }, W), false, "other handle");
+  assert.equal(verifyCreator({ ...meta, creator_sig: undefined }, W), false);
+});

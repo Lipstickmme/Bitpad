@@ -2,6 +2,7 @@ import "server-only";
 import { adHocAsset } from "./assets";
 import { getPairAssets } from "./prices";
 import { getLaunches, type Launch } from "./launches";
+import { creatorProfile } from "./creators";
 import { poolOhlcv, poolTrades, tokenPools, tokensMulti, topPools, trendingPools, type GeckoPoolRow } from "./data/gecko";
 import { dsTokenPairs } from "./data/dexscreener";
 import { isSafe, ston, stonAsset, stonAssets, stonPoolSwaps } from "./data/stonfi";
@@ -112,6 +113,9 @@ export async function getBitpadTokens(): Promise<{ tokens: MarketToken[]; count:
   });
 }
 
+/** Launch metadata is user-supplied: only plain https links are passed on. */
+const safeUrl = (u?: string) => (u && /^https:\/\/[^\s"'<>]+$/.test(u) ? u : undefined);
+
 /** Build a MarketToken for a Bitpad launch from BitpadPool state + Swapped events. */
 async function bitpadToken(l: Launch): Promise<MarketToken> {
   const [pool, meta] = await Promise.all([l.pool ? readPool(l.pool).catch(() => null) : null, jettonInfo(l.minter).catch(() => null)]);
@@ -166,9 +170,13 @@ async function bitpadToken(l: Launch): Promise<MarketToken> {
     buys24h: pool ? buys : null,
     sells24h: pool ? sells : null,
     createdAt: created,
-    bitpad: pool
-      ? { index: l.index, creator: pool.creator, pool: pool.address, pairMaster: pool.pairMaster, pairDecimals: pool.pairDecimals, tradingOpen: pool.tradingOpen, protocolFeeBps: pool.protocolFeeBps, creatorFeeBps: pool.creatorFeeBps }
-      : { index: l.index, creator: l.creator, pool: l.pool },
+    bitpad: {
+      ...(pool
+        ? { index: l.index, creator: pool.creator, pool: pool.address, pairMaster: pool.pairMaster, pairDecimals: pool.pairDecimals, tradingOpen: pool.tradingOpen, protocolFeeBps: pool.protocolFeeBps, creatorFeeBps: pool.creatorFeeBps }
+        : { index: l.index, creator: l.creator, pool: l.pool }),
+      creatorJetton: creatorProfile(l),
+    },
+    ...(safeUrl(l.meta.telegram) || safeUrl(l.meta.x) ? { socials: { telegram: safeUrl(l.meta.telegram), x: safeUrl(l.meta.x) } } : {}),
     sources: ["Bitpad pool (on-chain)", source ? `trades via ${source}` : ""].filter(Boolean),
   };
 }

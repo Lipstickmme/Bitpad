@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { config } from "@/lib/config";
 import { getFeeRevenue, getReferralFees } from "@/lib/fees";
 import { WithdrawVault } from "@/components/WithdrawVault";
@@ -21,7 +22,8 @@ export default async function RevenuePage() {
     <div className="space-y-4">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Revenue &amp; fees</h1>
-        <p className="mt-1 max-w-3xl text-sm text-ink-2">Every trade Bitpad routes pays the platform on-chain, through the route&apos;s own frontend-fee mechanism: Bitpad pools take a protocol fee inside the contract, STON.fi swaps carry Bitpad as referrer (the cut accrues in STON.fi vaults owned by the fee wallet), and DeDust swaps add a separate fee transfer. Figures below are read live from chain and STON.fi.</p>
+        <p className="mt-1 max-w-3xl text-base text-ink">Nothing hidden. Every fee Bitpad earns, and every share it pays out, is on-chain for anyone to check.</p>
+        <p className="mt-2 max-w-3xl text-sm text-ink-2">Most launchpads ask you to trust their numbers. On Bitpad you don&apos;t have to. Creators earn a cut of every trade on their token, referrers earn for every buyer they bring, and traders pay one clear fee with no hidden spread. Each of those payments is written into the contracts and the blockchain, so the figures below are read live from chain, not from our own database. Check them yourself any time.</p>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label="Bitpad pool fee" value={factory ? `${((factory.protocolFeeBps + factory.creatorFeeBps) / 100).toFixed(2)}%` : "—"} sub={factory ? `${factory.protocolFeeBps / 100}% protocol · ${factory.creatorFeeBps / 100}% creator` : "factory not reachable"} />
@@ -63,7 +65,10 @@ export default async function RevenuePage() {
       </section>
 
       <section className="card p-5">
-        <h2 className="text-sm font-semibold">How fees are shared — on-chain</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold">How fees are shared — on-chain</h2>
+          <Link href="/admin/pairs" className="ml-auto text-xs text-muted hover:text-ink">Pair assets (owner) →</Link>
+        </div>
         <p className="mt-1 text-xs text-muted">Enforced by each token&apos;s BitpadPool contract; nothing is distributed off-chain.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <Split title="Protocol fee" value={factory ? `${factory.protocolFeeBps / 100}%` : "—"} body="Every trade. Accrues in the pool; ClaimFees sends it to the fee wallet." />

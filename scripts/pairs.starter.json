@@ -1,5 +1,5 @@
 {
-  "_readme": "Starter pair assets for `npm run pairs:add`. Addresses resolve live from STON.fi's verified asset list by symbol; set \"master\" to pin an exact jetton. kind: stable | jetton | stock | commodity | crypto. minUsd = minimum pair liquidity a launch must add, in USD (converted to units at today's price).",
+  "_readme": "Starter pair assets for `npm run pairs:add`. Addresses resolve live from STON.fi's verified asset list by symbol; set \"master\" to pin an exact jetton. kind: stable | jetton | stock | commodity | crypto. minUsd = minimum pair liquidity a launch must add, in USD (converted to units at today's price). Cross-chain assets (bridged BTC/ETH/USDC\u2026) are listed with the TON symbol of their bridged jetton; any that STON.fi doesn't list are skipped.",
   "pairs": [
     { "symbol": "USDT", "kind": "stable", "master": "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs", "minUsd": 50 },
     { "symbol": "GRAM", "kind": "jetton", "minUsd": 50 },
@@ -19,6 +19,14 @@
     { "symbol": "AMZNx", "kind": "stock", "minUsd": 50 },
     { "symbol": "MSTRx", "kind": "stock", "minUsd": 50 },
     { "symbol": "COINx", "kind": "stock", "minUsd": 50 },
-    { "symbol": "HOODx", "kind": "stock", "minUsd": 50 }
+    { "symbol": "HOODx", "kind": "stock", "minUsd": 50 },
+    { "symbol": "jWBTC", "kind": "crypto", "minUsd": 50 },
+    { "symbol": "jWETH", "kind": "crypto", "minUsd": 50 },
+    { "symbol": "jUSDC", "kind": "stable", "minUsd": 50 },
+    { "symbol": "USDe", "kind": "stable", "minUsd": 50 },
+    { "symbol": "jBNB", "kind": "crypto", "minUsd": 50 },
+    { "symbol": "jTRX", "kind": "crypto", "minUsd": 50 },
+    { "symbol": "jDOGE", "kind": "crypto", "minUsd": 50 },
+    { "symbol": "KOx", "kind": "stock", "minUsd": 50 }
   ]
 }

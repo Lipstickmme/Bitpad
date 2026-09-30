@@ -42,6 +42,12 @@ export const ASSET_DEFS: Def[] = [
   { symbol: "ETH", name: "Ether", kind: "crypto", chain: "ethereum", badge: "CROSS-CHAIN", color: "#627eea", pythSymbol: "ETH", pythType: "crypto", coingecko: "ethereum", tonSymbols: ["jWETH", "WETH"] },
   { symbol: "SOL", name: "Solana", kind: "crypto", chain: "solana", badge: "CROSS-CHAIN", color: "#9945ff", pythSymbol: "SOL", pythType: "crypto", coingecko: "solana" },
   { symbol: "ZEC", name: "Zcash", kind: "crypto", chain: "ethereum", badge: "CROSS-CHAIN", color: "#e8b30f", pythSymbol: "ZEC", pythType: "crypto", coingecko: "zcash" },
+  { symbol: "BNB", name: "BNB", kind: "crypto", chain: "bsc", badge: "CROSS-CHAIN", color: "#f3ba2f", pythSymbol: "BNB", pythType: "crypto", coingecko: "binancecoin", tonSymbols: ["jBNB"] },
+  { symbol: "TRX", name: "Tron", kind: "crypto", chain: "tron", badge: "CROSS-CHAIN", color: "#ff060a", pythSymbol: "TRX", pythType: "crypto", coingecko: "tron", tonSymbols: ["jTRX"] },
+  { symbol: "XRP", name: "XRP", kind: "crypto", chain: "ethereum", badge: "CROSS-CHAIN", color: "#23292f", pythSymbol: "XRP", pythType: "crypto", coingecko: "ripple" },
+  { symbol: "DOGE", name: "Dogecoin", kind: "crypto", chain: "ethereum", badge: "CROSS-CHAIN", color: "#c2a633", pythSymbol: "DOGE", pythType: "crypto", coingecko: "dogecoin", tonSymbols: ["jDOGE"] },
+  { symbol: "USDC", name: "USD Coin (bridged)", kind: "crypto", chain: "ethereum", badge: "STABLE", color: "#2775ca", coingecko: "usd-coin", tonSymbols: ["jUSDC", "USDC"] },
+  { symbol: "USDe", name: "Ethena USDe", kind: "crypto", chain: "ethereum", badge: "STABLE", color: "#111111", coingecko: "ethena-usde", tonSymbols: ["USDe"] },
 ];
 
 export const PAIR_KIND_LABEL: Record<PairAsset["kind"], string> = {
@@ -49,6 +55,7 @@ export const PAIR_KIND_LABEL: Record<PairAsset["kind"], string> = {
   commodity: "Commodities",
   jetton: "TON jettons",
   crypto: "Cross-chain",
+  creator: "Creator jettons",
 };
 
 /** Deterministic identity color for tokens we have no brand color for. */

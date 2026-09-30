@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { captureReferral } from "@/lib/referral";
-import { ArrowLeft, ExternalLink, Globe, Rocket } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ExternalLink, Globe, Rocket } from "lucide-react";
 import type { MarketToken } from "@/lib/types";
 import { price, usd, num, shortAddr } from "@/lib/format";
 import { AssetDot, Change, PairBadge, Stat, TokenAvatar, orDash } from "./ui";
@@ -39,6 +39,11 @@ export function TokenView({ token }: { token: MarketToken }) {
               <h1 className="text-xl font-semibold tracking-tight">{token.symbol}</h1>
               <span className="text-ink-2">{token.name}</span>
               {token.bitpad && <span className="chip"><Rocket className="size-3" />Bitpad #{token.bitpad.index + 1}</span>}
+              {token.bitpad?.creatorJetton && (
+                <Link href="/creators" className="chip hover:text-ink" title={token.bitpad.creatorJetton.verified ? "Creator jetton: Bitpad verified this Telegram account launched it" : "Creator jetton: the Telegram link isn't verified"}>
+                  {token.bitpad.creatorJetton.verified && <BadgeCheck className="size-3 text-brand" />}Creator{token.bitpad.creatorJetton.tg ? ` · @${token.bitpad.creatorJetton.tg}` : ""}{!token.bitpad.creatorJetton.verified && " (unverified)"}
+                </Link>
+              )}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-2">
               <span>Paired with</span> <AssetDot asset={token.pair} /> <span className="font-semibold text-ink">{token.pair.symbol}</span>
