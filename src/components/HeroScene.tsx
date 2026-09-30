@@ -19,7 +19,7 @@ import { useEffect, useRef } from "react";
  * Decorative only — no data. Reduced motion shows a still of the drone show.
  */
 const LOOP = 26;
-const H = 150; // visible pixel rows
+
 const WH = 300; // world rows (two screens)
 const GROUND = WH - 20;
 const STAR = ["#4b6069", "#a3b3b9", "#edf2f3", "#b3d6e2"];
@@ -83,6 +83,7 @@ export function HeroScene() {
     rocket.src = "/brand/mark.png";
 
     let W = 320;
+    let H = 150; // visible pixel rows — both follow the element so pixels stay square
     let stars: Star[] = [];
     let ships: Ship[] = [];
     let drones: Drone[] = [];
@@ -99,7 +100,11 @@ export function HeroScene() {
 
     function layout() {
       const r = canvas.getBoundingClientRect();
-      W = Math.max(160, Math.round((H * r.width) / Math.max(1, r.height)));
+      // One art pixel = P screen pixels, the same on both axes (no squashing on
+      // tall phone / Mini App screens). ~150 rows on desktop, ~110 columns on phones.
+      const P = Math.max(2, Math.floor(Math.min(r.width / 110, r.height / 150)));
+      W = Math.max(60, Math.round(r.width / P));
+      H = Math.min(WH - 40, Math.max(60, Math.round(r.height / P)));
       canvas.width = W;
       canvas.height = H;
       seed = 42;
