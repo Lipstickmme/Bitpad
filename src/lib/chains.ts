@@ -8,4 +8,8 @@ export const CHAINS: Record<ChainId, { name: string; short: string; gecko?: stri
   bsc: { name: "BNB Chain", short: "BSC", gecko: "bsc", color: "#f0b90b", explorer: "https://bscscan.com/token/" },
   arbitrum: { name: "Arbitrum", short: "ARB", gecko: "arbitrum", color: "#28a0f0", explorer: "https://arbiscan.io/token/" },
   robinhood: { name: "Robinhood Chain", short: "RH", color: "#00c805", explorer: "https://explorer.robinhood.com/token/" },
+  polygon: { name: "Polygon", short: "POL", gecko: "polygon_pos", color: "#8247e5", explorer: "https://polygonscan.com/token/" },
+  avalanche: { name: "Avalanche", short: "AVAX", gecko: "avax", color: "#e84142", explorer: "https://snowtrace.io/token/" },
+  sui: { name: "Sui", short: "SUI", gecko: "sui-network", color: "#4da2ff", explorer: "https://suivision.xyz/coin/" },
+  tron: { name: "Tron", short: "TRX", gecko: "tron", color: "#ff060a", explorer: "https://tronscan.org/#/token20/" },
 };

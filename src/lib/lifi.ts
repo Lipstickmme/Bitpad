@@ -17,6 +17,8 @@ export const LIFI_CHAIN: Partial<Record<ChainId, { key: string; evmId?: number; 
   base: { key: "BAS", evmId: 8453, native: "0x0000000000000000000000000000000000000000", symbol: "ETH", decimals: 18 },
   bsc: { key: "BSC", evmId: 56, native: "0x0000000000000000000000000000000000000000", symbol: "BNB", decimals: 18 },
   arbitrum: { key: "ARB", evmId: 42161, native: "0x0000000000000000000000000000000000000000", symbol: "ETH", decimals: 18 },
+  polygon: { key: "POL", evmId: 137, native: "0x0000000000000000000000000000000000000000", symbol: "POL", decimals: 18 },
+  avalanche: { key: "AVA", evmId: 43114, native: "0x0000000000000000000000000000000000000000", symbol: "AVAX", decimals: 18 },
 };
 
 /**

@@ -5,10 +5,10 @@ import { quoteKind, type GeckoPoolRow } from "./gecko";
 /** DexScreener public API — free, no key, 300 req/min. https://docs.dexscreener.com/api/reference */
 const BASE = "https://api.dexscreener.com";
 
-const DS_CHAIN: Partial<Record<ChainId, string>> = { ton: "ton", solana: "solana", ethereum: "ethereum", base: "base", bsc: "bsc", arbitrum: "arbitrum" };
+const DS_CHAIN: Partial<Record<ChainId, string>> = { ton: "ton", solana: "solana", ethereum: "ethereum", base: "base", bsc: "bsc", arbitrum: "arbitrum", polygon: "polygon", avalanche: "avalanche", sui: "sui", tron: "tron" };
 const FROM_DS: Record<string, ChainId> = Object.fromEntries(Object.entries(DS_CHAIN).map(([k, v]) => [v, k as ChainId]));
 
-interface DsPair {
+export interface DsPair {
   chainId: string;
   dexId: string;
   url: string;
@@ -88,3 +88,11 @@ export async function dsTrending(chains: ChainId[]): Promise<GeckoPoolRow[]> {
   }
   return [...best.values()];
 }
+
+/** Free-text pair search (symbol, name or address); up to ~30 pairs across all chains. */
+export async function dsSearch(q: string): Promise<DsPair[]> {
+  const r = await getJson<{ pairs?: DsPair[] }>(`${BASE}/latest/dex/search?q=${encodeURIComponent(q)}`, { revalidate: 600 });
+  return r.pairs ?? [];
+}
+
+export const dsChain = (id: string): ChainId | undefined => FROM_DS[id];

@@ -10,14 +10,17 @@ import { num, pct, price, usd } from "@/lib/format";
 import { AXIS, C, ChartCard, GRID, TipBox } from "./ChartCard";
 import { Hint, SourceTag } from "../ui";
 import { QuickBuyAmount, QuickBuyButton } from "../QuickBuy";
+import { Pager } from "../Pager";
+import { Leaders } from "./Leaders";
 import { XBuyButton, xBuyable } from "../XBuy";
 
-const CHAIN_FILTERS: ("all" | ChainId)[] = ["all", "ton", "solana", "ethereum", "base", "bsc"];
+const CHAIN_FILTERS: ("all" | ChainId)[] = ["all", "ton", "solana", "ethereum", "base", "bsc", "arbitrum", "polygon", "avalanche", "sui", "tron"];
 const winRate = (l: LaunchpadStat) => (l.wins + l.losses ? (100 * l.wins) / (l.wins + l.losses) : 0);
 const VOL_SOURCE = { defillama: "DefiLlama protocol volume", sampled: "sum of sampled pools (understates)", onchain: "Bitpad pools, read on-chain" } as const;
 
 export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
   const router = useRouter();
+  const [tPage, setTPage] = useState(0);
   const [chain, setChain] = useState<"all" | ChainId>("all");
   const [venueKind, setVenueKind] = useState<"launchpads" | "dexes">("launchpads");
   const [quote, setQuote] = useState<"all" | "ton" | "eth" | "sol" | "stable" | "stock">("all");
@@ -56,7 +59,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
 
       <div className="flex flex-wrap items-center gap-2 border-y border-line py-3">
         {CHAIN_FILTERS.map((c) => (
-          <button key={c} onClick={() => setChain(c)} className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${chain === c ? "border-line-strong bg-line-strong text-ink" : "border-line text-ink-2 hover:text-ink"}`}>
+          <button key={c} onClick={() => { setChain(c); setTPage(0); }} className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${chain === c ? "border-line-strong bg-line-strong text-ink" : "border-line text-ink-2 hover:text-ink"}`}>
             {c === "all" ? "All chains" : CHAINS[c].name}
           </button>
         ))}
@@ -94,6 +97,8 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
           align="right"
         />
       </div>
+
+      <Leaders venues={allVenues} chains={chain === "all" ? chains : chains.filter((c) => c.chain === chain)} trending={trending} kind={venueKind} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <ChartCard
@@ -273,7 +278,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
             <QuickBuyAmount />
             <div className="seg">
               {(["all", "ton", "eth", "sol", "stable", "stock"] as const).map((q) => (
-                <button key={q} data-on={quote === q} onClick={() => setQuote(q)}>{q === "all" ? "All" : q.toUpperCase()}</button>
+                <button key={q} data-on={quote === q} onClick={() => { setQuote(q); setTPage(0); }}>{q === "all" ? "All" : q.toUpperCase()}</button>
               ))}
             </div>
           </div>
@@ -289,7 +294,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
               </tr>
             </thead>
             <tbody className="num">
-              {trending.slice(0, 25).map((p) => (
+              {trending.slice(tPage * 15, (tPage + 1) * 15).map((p) => (
                 <tr key={p.id} onClick={() => p.poolAddress && router.push(`/pool/${p.chain}/${p.poolAddress}`)} className={`border-b border-line/60 last:border-0 hover:bg-surface-2/60 ${p.poolAddress ? "cursor-pointer" : ""}`}>
                   <td className="py-2.5 font-medium">{p.poolAddress ? <Link href={`/pool/${p.chain}/${p.poolAddress}`} className="hover:underline">{p.base}<span className="font-normal text-muted"> / {p.quote}</span></Link> : <>{p.base}<span className="font-normal text-muted"> / {p.quote}</span></>}</td>
                   <td className="text-xs text-ink-2">{CHAINS[p.chain].short} · {p.dex}</td>
@@ -315,6 +320,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
             </tbody>
           </table>
         </div>
+        <Pager page={tPage} pageSize={15} total={trending.length} onPage={setTPage} />
       </ChartCard>
     </div>
   );

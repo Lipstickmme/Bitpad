@@ -68,7 +68,7 @@ async function stonMarket(): Promise<MarketToken[]> {
   const [pools, assets] = await Promise.all([memo("ston:pools", 5 * 60_000, () => ston.getPools()), stonAssets()]);
   const byAddr = new Map(assets.map((a) => [a.contractAddress, a]));
   const rows: MarketToken[] = [];
-  for (const p of pools.filter((x) => !x.deprecated).sort((a, b) => Number(b.volume24HUsd ?? 0) - Number(a.volume24HUsd ?? 0)).slice(0, 80)) {
+  for (const p of pools.filter((x) => !x.deprecated).sort((a, b) => Number(b.volume24HUsd ?? 0) - Number(a.volume24HUsd ?? 0)).slice(0, 200)) {
     const [a0, a1] = [byAddr.get(p.token0Address), byAddr.get(p.token1Address)];
     if (!a0 || !a1) continue;
     // base = the non-TON / non-stable side
@@ -94,8 +94,9 @@ async function stonMarket(): Promise<MarketToken[]> {
 export async function getTonMarket(): Promise<{ tokens: MarketToken[]; source: string | null }> {
   const res = await firstOf<MarketToken[]>("ton market", [
     ["GeckoTerminal", async () => {
-      const [a, b, t] = await Promise.all([topPools("ton", 1), topPools("ton", 2).catch(() => []), trendingPools("ton").catch(() => [])]);
-      return Promise.all(bestPerToken([...a, ...b, ...t]).map((p) => fromPool(p, "GeckoTerminal")));
+      // 20 pools per page; 7 pages ≈ 140 pools → ~100+ distinct tokens (cached 3 min by the fetch layer)
+      const [first, ...rest] = await Promise.all([topPools("ton", 1), ...[2, 3, 4, 5, 6, 7].map((n) => topPools("ton", n).catch(() => [])), trendingPools("ton").catch(() => [])]);
+      return Promise.all(bestPerToken([...first, ...rest.flat()]).map((p) => fromPool(p, "GeckoTerminal")));
     }],
     ["STON.fi", stonMarket],
   ], (v) => !!v?.length);
@@ -105,7 +106,7 @@ export async function getTonMarket(): Promise<{ tokens: MarketToken[]; source: s
 /** Bitpad launches with market data computed from their pools on-chain. */
 export async function getBitpadTokens(): Promise<{ tokens: MarketToken[]; count: number; factory: string | null; ok: boolean }> {
   return memo("bitpad:tokens", 20_000, async () => {
-    const { launches, count, factory, ok } = await getLaunches(30);
+    const { launches, count, factory, ok } = await getLaunches(100);
     const tokens = (await Promise.all(launches.map((l) => bitpadToken(l).catch(() => null)))).filter((t): t is MarketToken => !!t);
     return { tokens, count, factory, ok };
   });

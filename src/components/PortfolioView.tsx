@@ -5,8 +5,8 @@ import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import { Wallet, ExternalLink } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { num, price, shortAddr, usd } from "@/lib/format";
-import { SERIES } from "@/lib/venues";
 import { Change } from "./ui";
+import { PortfolioCharts } from "./PortfolioCharts";
 
 interface Holding { address: string; symbol: string; name: string; image?: string; amount: number; priceUsd: number | null; valueUsd: number | null; change24h: number | null }
 interface Data {
@@ -62,6 +62,20 @@ export function PortfolioView() {
   const other = total - alloc.reduce((s, a) => s + a.value, 0);
   if (other > 0.01) alloc.push({ label: "Other jettons", value: other });
 
+  const evmValue = (c: "ethereum" | "base") => (data?.evm?.ethUsd ? (data.evm.balances[c] ?? 0) * data.evm.ethUsd : 0);
+  const chains = [
+    { label: "TON", value: tonValue + jettonValue },
+    { label: "Solana", value: solValue },
+    { label: "Ethereum", value: evmValue("ethereum") },
+    { label: "Base", value: evmValue("base") },
+  ].filter((c) => c.value > 0.01);
+  // Value now × change / (100 + change) = the dollar move over 24h
+  const pnl = holdings
+    .filter((h) => h.valueUsd != null && h.change24h != null && h.valueUsd > 0.5)
+    .map((h) => ({ label: h.symbol, value: (h.valueUsd! * h.change24h!) / (100 + h.change24h!) }))
+    .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
+    .slice(0, 8);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
@@ -79,7 +93,9 @@ export function PortfolioView() {
         <Tile label="EVM" value={data?.evm ? `${num((data.evm.balances.ethereum ?? 0) + (data.evm.balances.base ?? 0), 4)} ETH` : "—"} sub={data?.evm ? `${num(data.evm.balances.bsc ?? 0, 4)} BNB on BSC` : evm ? undefined : "not connected"} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <PortfolioCharts alloc={alloc} chains={chains} pnl={pnl} />
+
+      <div className="grid grid-cols-1 gap-4">
         <section className="card overflow-hidden">
           <div className="border-b border-line px-4 py-3 text-sm font-semibold">TON jettons {data && ton && !data.tonLive && <span className="chip ml-2">TonAPI unavailable</span>}</div>
           <div className="scroll-x">
@@ -107,21 +123,6 @@ export function PortfolioView() {
           </div>
         </section>
 
-        <aside className="card p-4">
-          <h3 className="text-sm font-semibold">Allocation</h3>
-          <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-surface-2">
-            {alloc.map((a, i) => <div key={a.label} style={{ width: `${(a.value / (total || 1)) * 100}%`, background: SERIES[i % SERIES.length] }} className="border-r-2 border-surface last:border-0" />)}
-          </div>
-          <ul className="mt-3 space-y-1.5 text-sm">
-            {alloc.map((a, i) => (
-              <li key={a.label} className="flex items-center gap-2">
-                <span className="size-2.5 rounded-sm" style={{ background: SERIES[i % SERIES.length] }} />
-                {a.label}<span className="num ml-auto text-ink-2">{usd(a.value, { compact: true })} · {((a.value / (total || 1)) * 100).toFixed(1)}%</span>
-              </li>
-            ))}
-            {!alloc.length && <li className="text-muted">Nothing priced yet.</li>}
-          </ul>
-        </aside>
       </div>
     </div>
   );

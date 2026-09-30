@@ -7,8 +7,8 @@ import { DEXES, LAUNCHPADS, type Venue } from "./venues";
 import { getBitpadTokens } from "./market";
 import type { AnalyticsSnapshot, ChainId, ChainStat, LaunchpadStat, PairTypeStat, TrendingPool } from "./types";
 
-const SCAN_CHAINS: ChainId[] = ["ton", "solana", "ethereum", "base", "bsc"];
-const LLAMA_CHAIN: Partial<Record<ChainId, string>> = { ton: "TON", solana: "Solana", ethereum: "Ethereum", base: "Base", bsc: "BSC", arbitrum: "Arbitrum" };
+const SCAN_CHAINS: ChainId[] = ["ton", "solana", "ethereum", "base", "bsc", "arbitrum", "polygon", "avalanche", "sui", "tron"];
+const LLAMA_CHAIN: Partial<Record<ChainId, string>> = { ton: "TON", solana: "Solana", ethereum: "Ethereum", base: "Base", bsc: "BSC", arbitrum: "Arbitrum", polygon: "Polygon", avalanche: "Avalanche", sui: "Sui", tron: "Tron" };
 
 function median(xs: number[]) {
   if (!xs.length) return 0;
@@ -132,7 +132,7 @@ async function build(): Promise<AnalyticsSnapshot> {
     };
   });
 
-  const trending: TrendingPool[] = (geckoOk ? samples.flatMap((s) => s.trending) : uniq).sort((a, b) => b.volume24h - a.volume24h).slice(0, 40);
+  const trending: TrendingPool[] = (geckoOk ? samples.flatMap((s) => s.trending) : uniq).sort((a, b) => b.volume24h - a.volume24h).slice(0, 150);
 
   const groups: Record<string, { label: string; pools: { change24h: number; volume24h: number }[] }> = {
     ton: { label: "TON pairs", pools: [] },

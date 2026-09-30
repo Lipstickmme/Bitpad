@@ -54,7 +54,7 @@ test("DexScreener pairs map to pool rows and ignore unknown chains", () => {
   assert.equal(row!.priceUsd, 0.5);
   assert.equal(row!.change24h, -4);
   assert.equal(Math.round(row!.ageHours), 1);
-  assert.equal(mapDsPair({ chainId: "polygon", dexId: "q", url: "", pairAddress: "", baseToken: { address: "", name: "", symbol: "" }, quoteToken: { address: "", name: "", symbol: "" } }), null);
+  assert.equal(mapDsPair({ chainId: "fantom", dexId: "q", url: "", pairAddress: "", baseToken: { address: "", name: "", symbol: "" }, quoteToken: { address: "", name: "", symbol: "" } }), null);
 });
 
 test("Yahoo chart parsing yields price, 24h change and trailing dividend yield", () => {
@@ -141,4 +141,19 @@ test("general referrals: fee tags parse, 20% share, self-referrals ignored, payo
   assert.ok(Math.abs(s.earned - 0.3) < 1e-9);
   assert.ok(Math.abs(s.owed - 0.2) < 1e-9);
   assert.equal(s.history[0].kind, "paid");
+});
+
+test("revenue: fee-wallet transfers classified by source and bucketed per day", async () => {
+  const { classifyIncome, dailyBySource } = await import("../src/lib/gref");
+  assert.equal(classifyIncome("Bitpad protocol fees"), "Bitpad pools");
+  assert.equal(classifyIncome("Bitpad launch fee"), "Launch fees");
+  assert.equal(classifyIncome("bitpad:fee:stonfi:r=x"), "STON.fi");
+  assert.equal(classifyIncome("bitpad:fee:dedust-sell"), "DeDust");
+  assert.equal(classifyIncome("hello"), "Other");
+  const now = Date.UTC(2026, 8, 30, 12);
+  const d = dailyBySource([{ time: now, amount: 1, source: "STON.fi" }, { time: now - 86_400_000, amount: 2, source: "Launch fees" }, { time: now - 40 * 86_400_000, amount: 9, source: "Other" }], 30, now);
+  assert.equal(d.length, 30);
+  assert.equal(d[29]["STON.fi"], 1);
+  assert.equal(d[28]["Launch fees"], 2);
+  assert.equal(d.reduce((s, x) => s + x.Other, 0), 0, "older than the window is dropped");
 });

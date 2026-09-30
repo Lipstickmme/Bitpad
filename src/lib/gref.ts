@@ -96,3 +96,28 @@ export function aggregate(incoming: Transfer[], payouts: Transfer[], shareBps = 
   }
   return new Map([...out].map(([k, { _traders: _t, ...v }]) => [k, v]));
 }
+
+/** Where a fee-wallet transfer came from, from its on-chain comment. */
+export const INCOME_SOURCES = ["Bitpad pools", "Launch fees", "STON.fi", "DeDust", "Other"] as const;
+export type IncomeSource = (typeof INCOME_SOURCES)[number];
+export function classifyIncome(comment?: string | null): IncomeSource {
+  if (!comment) return "Other";
+  if (comment.startsWith("Bitpad protocol fees")) return "Bitpad pools";
+  if (comment.startsWith("Bitpad launch fee")) return "Launch fees";
+  const tag = parseFeeComment(comment);
+  if (tag?.route === "stonfi") return "STON.fi";
+  if (tag?.route.startsWith("dedust")) return "DeDust";
+  return "Other";
+}
+
+/** Last `days` UTC days (oldest first) with TON received per source. */
+export function dailyBySource(rows: { time: number; amount: number; source: IncomeSource }[], days: number, now = Date.now()) {
+  const DAY = 86_400_000;
+  const start = Math.floor(now / DAY) * DAY - (days - 1) * DAY;
+  const out = Array.from({ length: days }, (_, i) => ({ date: new Date(start + i * DAY).toISOString().slice(5, 10), ...Object.fromEntries(INCOME_SOURCES.map((k) => [k, 0])) }) as { date: string } & Record<IncomeSource, number>);
+  for (const r of rows) {
+    const i = Math.floor((r.time - start) / DAY);
+    if (i >= 0 && i < days) out[i][r.source] += r.amount;
+  }
+  return out;
+}

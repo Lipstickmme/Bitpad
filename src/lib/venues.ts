@@ -31,6 +31,14 @@ export const LAUNCHPADS: Venue[] = [
   { id: "fourmeme", name: "Four.meme", chain: "bsc", kind: "launchpad", mechanism: "Bonding curve", geckoMatch: ["four"], llamaMatch: ["four.meme", "fourmeme"], color: SERIES[5], url: "https://four.meme" },
   { id: "clanker", name: "Clanker / Zora", chain: "base", kind: "launchpad", mechanism: "Direct LP (Uni v4)", geckoMatch: ["clanker", "zora"], llamaMatch: ["clanker", "zora"], color: SERIES[6], url: "https://clanker.world" },
   { id: "blum", name: "Blum Memepad", chain: "ton", kind: "launchpad", mechanism: "Bonding curve", geckoMatch: ["blum"], llamaMatch: ["blum"], color: SERIES[7], url: "https://blum.io" },
+  { id: "gaspump", name: "GasPump", chain: "ton", kind: "launchpad", mechanism: "Bonding curve", geckoMatch: ["gaspump", "gas-pump"], llamaMatch: ["gaspump", "gas pump"], color: SERIES[0], url: "https://gaspump.tg" },
+  { id: "tonfun", name: "TON.fun / TONPump", chain: "ton", kind: "launchpad", mechanism: "Bonding curve", geckoMatch: ["tonfun", "ton-fun", "tonpump"], llamaMatch: ["ton.fun", "tonpump"], color: SERIES[1], url: "https://ton.fun" },
+  { id: "moonshot", name: "Moonshot", chain: "solana", kind: "launchpad", mechanism: "Bonding curve", geckoMatch: ["moonshot"], llamaMatch: ["moonshot"], color: SERIES[2], url: "https://moonshot.com" },
+  { id: "believe", name: "Believe", chain: "solana", kind: "launchpad", mechanism: "Meteora DBC", geckoMatch: ["believe"], llamaMatch: ["believe"], color: SERIES[3], url: "https://believe.app" },
+  { id: "boop", name: "Boop", chain: "solana", kind: "launchpad", mechanism: "Bonding curve", geckoMatch: ["boop"], llamaMatch: ["boop"], color: SERIES[4], url: "https://boop.fun" },
+  { id: "bags", name: "Bags", chain: "solana", kind: "launchpad", mechanism: "Meteora DBC", geckoMatch: ["bags"], llamaMatch: ["bags"], color: SERIES[5], url: "https://bags.fm" },
+  { id: "virtuals", name: "Virtuals", chain: "base", kind: "launchpad", mechanism: "AI agent curve", geckoMatch: ["virtuals", "virtual"], llamaMatch: ["virtuals protocol", "virtuals"], color: SERIES[6], url: "https://app.virtuals.io" },
+  { id: "sunpump", name: "SunPump", chain: "tron", kind: "launchpad", mechanism: "Bonding curve", geckoMatch: ["sunpump"], llamaMatch: ["sunpump"], color: SERIES[7], url: "https://sunpump.meme" },
 ];
 
 export const DEXES: Venue[] = [
@@ -41,4 +49,11 @@ export const DEXES: Venue[] = [
   { id: "raydium", name: "Raydium", chain: "solana", kind: "dex", mechanism: "AMM/CLMM", geckoMatch: ["raydium"], llamaMatch: ["raydium"], llamaSlug: "raydium", color: SERIES[4], url: "https://raydium.io" },
   { id: "aerodrome", name: "Aerodrome", chain: "base", kind: "dex", mechanism: "ve(3,3)", geckoMatch: ["aerodrome"], llamaMatch: ["aerodrome"], llamaSlug: "aerodrome", color: SERIES[5], url: "https://aerodrome.finance" },
   { id: "pancake", name: "PancakeSwap", chain: "bsc", kind: "dex", mechanism: "AMM/CLMM", geckoMatch: ["pancakeswap"], llamaMatch: ["pancakeswap"], llamaSlug: "pancakeswap", color: SERIES[6], url: "https://pancakeswap.finance" },
+  { id: "meteora", name: "Meteora", chain: "solana", kind: "dex", mechanism: "DLMM/DAMM", geckoMatch: ["meteora"], llamaMatch: ["meteora"], llamaSlug: "meteora", color: SERIES[7], url: "https://meteora.ag" },
+  { id: "orca", name: "Orca", chain: "solana", kind: "dex", mechanism: "CLMM", geckoMatch: ["orca"], llamaMatch: ["orca"], llamaSlug: "orca", color: SERIES[0], url: "https://orca.so" },
+  { id: "camelot", name: "Camelot", chain: "arbitrum", kind: "dex", mechanism: "AMM/CLMM", geckoMatch: ["camelot"], llamaMatch: ["camelot"], color: SERIES[1], url: "https://camelot.exchange" },
+  { id: "quickswap", name: "QuickSwap", chain: "polygon", kind: "dex", mechanism: "AMM/CLMM", geckoMatch: ["quickswap"], llamaMatch: ["quickswap"], color: SERIES[2], url: "https://quickswap.exchange" },
+  { id: "traderjoe", name: "LFJ (Trader Joe)", chain: "avalanche", kind: "dex", mechanism: "Liquidity Book", geckoMatch: ["traderjoe", "lfj", "joe"], llamaMatch: ["lfj", "trader joe"], color: SERIES[3], url: "https://lfj.gg" },
+  { id: "cetus", name: "Cetus", chain: "sui", kind: "dex", mechanism: "CLMM", geckoMatch: ["cetus"], llamaMatch: ["cetus"], color: SERIES[4], url: "https://app.cetus.zone" },
+  { id: "sunswap", name: "SunSwap", chain: "tron", kind: "dex", mechanism: "AMM", geckoMatch: ["sunswap"], llamaMatch: ["sunswap"], color: SERIES[5], url: "https://sun.io" },
 ];

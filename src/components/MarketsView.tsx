@@ -1,5 +1,8 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Pager } from "./Pager";
+
+const PAGE = 25;
 import { LayoutGrid, Rows3, Search } from "lucide-react";
 import type { MarketToken, PairKind } from "@/lib/types";
 import { TokenCard } from "./TokenCard";
@@ -42,6 +45,12 @@ export function MarketsView({ bitpad, ton, tonSource }: { bitpad: MarketToken[];
   const sortList = (l: MarketToken[]) => l.filter((t) => match(t, filter) && hit(t)).sort((a, b) => val(b) - val(a));
   const bp = useMemo(() => sortList(bitpad), [bitpad, filter, sort, term]); // eslint-disable-line react-hooks/exhaustive-deps
   const mk = useMemo(() => sortList(ton), [ton, filter, sort, term]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Pagination (25 per page); back to page 1 whenever the list changes
+  const [page, setPage] = useState(0);
+  const [bpPage, setBpPage] = useState(0);
+  useEffect(() => { setPage(0); setBpPage(0); }, [filter, sort, term]);
+  const mkPage = mk.slice(page * PAGE, (page + 1) * PAGE);
+  const bpShown = bp.slice(bpPage * PAGE, (bpPage + 1) * PAGE);
 
   return (
     <section className="space-y-6">
@@ -82,14 +91,18 @@ export function MarketsView({ bitpad, ton, tonSource }: { bitpad: MarketToken[];
       {!!bp.length && (
         <div>
           <SectionTitle right={<span className="text-xs text-muted">Read from the Bitpad factory on-chain</span>}>Bitpad launches</SectionTitle>
-          {view === "table" ? <TokenTable tokens={bp} /> : <Grid tokens={bp} />}
+          {view === "table" ? <TokenTable tokens={bpShown} /> : <Grid tokens={bpShown} />}
+          <Pager page={bpPage} pageSize={PAGE} total={bp.length} onPage={setBpPage} />
         </div>
       )}
 
-      <div>
+      <div id="ton-markets" className="scroll-mt-20">
         <SectionTitle right={<span className="text-xs text-muted">{tonSource ? `Live · ${tonSource}` : "Market data unavailable"}</span>}>TON markets</SectionTitle>
         {mk.length ? (
-          view === "table" ? <TokenTable tokens={mk.slice(0, 60)} /> : <Grid tokens={mk.slice(0, 40)} />
+          <>
+            {view === "table" ? <TokenTable tokens={mkPage} /> : <Grid tokens={mkPage} />}
+            <Pager page={page} pageSize={PAGE} total={mk.length} onPage={(n) => { setPage(n); document.getElementById("ton-markets")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} />
+          </>
         ) : (
           <div className="card p-8 text-center text-sm text-muted">{ton.length ? "No markets match." : "GeckoTerminal and STON.fi didn't respond. Retrying on the next refresh."}</div>
         )}

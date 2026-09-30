@@ -5,7 +5,11 @@ export type ChainId =
   | "base"
   | "bsc"
   | "arbitrum"
-  | "robinhood";
+  | "robinhood"
+  | "polygon"
+  | "avalanche"
+  | "sui"
+  | "tron";
 
 export type PairKind = "stock" | "commodity" | "jetton" | "crypto";
 

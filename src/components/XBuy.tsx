@@ -8,7 +8,7 @@ import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
 
 const useHydrated = () => useSyncExternalStore(() => () => {}, () => true, () => false);
-const NATIVE: Partial<Record<ChainId, string>> = { solana: "SOL", ethereum: "ETH", base: "ETH", bsc: "BNB", arbitrum: "ETH" };
+const NATIVE: Partial<Record<ChainId, string>> = { solana: "SOL", ethereum: "ETH", base: "ETH", bsc: "BNB", arbitrum: "ETH", polygon: "POL", avalanche: "AVAX" };
 export const xBuyable = (chain: ChainId) => chain in NATIVE;
 
 /** Poll until the chain reports confirmed/failed (max ~75s). */
