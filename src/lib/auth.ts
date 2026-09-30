@@ -56,14 +56,17 @@ export function signSession(s: Session): string {
   return `${body}.${sig}`;
 }
 
+const SESSION_TTL_MS = 30 * 86_400_000;
+
 export function readSession(token?: string): Session | null {
-  if (!token) return null;
+  if (!token || !process.env.TELEGRAM_BOT_TOKEN) return null; // no bot token → no sessions (the dev secret is never trusted)
   const [body, sig] = token.split(".");
   if (!body || !sig) return null;
   const expect = createHmac("sha256", secret()).update(body).digest("base64url");
   if (expect.length !== sig.length || !timingSafeEqual(Buffer.from(expect), Buffer.from(sig))) return null;
   try {
-    return JSON.parse(Buffer.from(body, "base64url").toString());
+    const s = JSON.parse(Buffer.from(body, "base64url").toString()) as Session;
+    return Date.now() - Number(s.iat) < SESSION_TTL_MS ? s : null;
   } catch {
     return null;
   }

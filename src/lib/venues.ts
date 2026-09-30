@@ -42,5 +42,3 @@ export const DEXES: Venue[] = [
   { id: "aerodrome", name: "Aerodrome", chain: "base", kind: "dex", mechanism: "ve(3,3)", geckoMatch: ["aerodrome"], llamaMatch: ["aerodrome"], llamaSlug: "aerodrome", color: SERIES[5], url: "https://aerodrome.finance" },
   { id: "pancake", name: "PancakeSwap", chain: "bsc", kind: "dex", mechanism: "AMM/CLMM", geckoMatch: ["pancakeswap"], llamaMatch: ["pancakeswap"], llamaSlug: "pancakeswap", color: SERIES[6], url: "https://pancakeswap.finance" },
 ];
-
-export const ALL_VENUES = [...LAUNCHPADS, ...DEXES];

@@ -24,7 +24,12 @@ function TelegramLoginWidget({ bot, onAuth }: { bot: string; onAuth: (u: Record<
     ref.current.appendChild(s);
   }, [bot, onAuth]);
   if (!bot) return <p className="text-xs text-muted">Telegram login isn&apos;t configured on this deployment.</p>;
-  return <div ref={ref} />;
+  return (
+    <div>
+      <div ref={ref} />
+      <p className="mt-1.5 text-[10px] text-muted">Button says &quot;Bot domain invalid&quot;? In @BotFather run /setdomain for @{bot} and enter this site&apos;s domain.</p>
+    </div>
+  );
 }
 
 export function ConnectMenu({ telegramBot }: { telegramBot: string }) {

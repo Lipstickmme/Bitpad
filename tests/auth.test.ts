@@ -28,7 +28,18 @@ test("verifyLoginWidget checks the widget hash", async () => {
 
 test("session cookies round-trip and reject forgeries", async () => {
   const { signSession, readSession } = await import("../src/lib/auth");
-  const tok = signSession({ wallets: [], iat: 1 });
-  assert.deepEqual(readSession(tok), { wallets: [], iat: 1 });
-  assert.equal(readSession(tok.replace(/.$/, (c) => (c === "A" ? "B" : "A"))), null);
+  const prev = process.env.TELEGRAM_BOT_TOKEN;
+  process.env.TELEGRAM_BOT_TOKEN = "123:test";
+  try {
+    const now = Date.now();
+    const tok = signSession({ wallets: [], iat: now });
+    assert.deepEqual(readSession(tok), { wallets: [], iat: now });
+    assert.equal(readSession(tok.replace(/.$/, (c) => (c === "A" ? "B" : "A"))), null, "tampered");
+    assert.equal(readSession(signSession({ wallets: [], iat: now - 31 * 86_400_000 })), null, "expired after 30 days");
+    delete process.env.TELEGRAM_BOT_TOKEN;
+    assert.equal(readSession(tok), null, "no bot token → no sessions");
+  } finally {
+    if (prev === undefined) delete process.env.TELEGRAM_BOT_TOKEN;
+    else process.env.TELEGRAM_BOT_TOKEN = prev;
+  }
 });

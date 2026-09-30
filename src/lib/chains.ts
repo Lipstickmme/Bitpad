@@ -9,5 +9,3 @@ export const CHAINS: Record<ChainId, { name: string; short: string; gecko?: stri
   arbitrum: { name: "Arbitrum", short: "ARB", gecko: "arbitrum", color: "#28a0f0", explorer: "https://arbiscan.io/token/" },
   robinhood: { name: "Robinhood Chain", short: "RH", color: "#00c805", explorer: "https://explorer.robinhood.com/token/" },
 };
-
-export const CHAIN_ORDER: ChainId[] = ["ton", "solana", "ethereum", "base", "bsc", "arbitrum", "robinhood"];

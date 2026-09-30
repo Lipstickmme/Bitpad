@@ -24,14 +24,6 @@ export function captureReferral(token: string): string | null {
   }
 }
 
-export function forgetReferral(token: string) {
-  try {
-    localStorage.removeItem(key(token));
-  } catch {
-    /* storage unavailable */
-  }
-}
-
 /** The link remembered for a token (from an earlier visit), without reading the URL. */
 export function storedReferral(token: string): string | null {
   try {

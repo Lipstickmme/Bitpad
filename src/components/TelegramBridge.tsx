@@ -8,7 +8,14 @@ export function TelegramBridge() {
   useEffect(() => {
     const wa = window.Telegram?.WebApp;
     wa?.ready?.();
-    if (!wa?.initData) return;
+    if (!wa?.initData) {
+      // On the web: keep the remembered Telegram user only while the server session is valid
+      fetch("/api/auth/telegram")
+        .then((r) => r.json())
+        .then((d) => setTgUser(d.session?.tg ?? undefined))
+        .catch(() => {});
+      return;
+    }
     fetch("/api/auth/telegram", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initData: wa.initData }) })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d?.user && setTgUser(d.user))

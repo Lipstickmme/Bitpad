@@ -64,6 +64,3 @@ export function adHocAsset(symbol: string, opts: Partial<PairAsset> = {}): PairA
   if (def) return { ...def, priceUsd: null, change24h: null, ...opts };
   return { symbol, name: symbol, kind: "jetton", chain: "ton", badge: "JETTON", color: colorFor(symbol), priceUsd: null, change24h: null, ...opts };
 }
-
-export const PAY_ASSETS = ["TON", "USDT", "GRAM", "USDC"] as const;
-export type PayAsset = (typeof PAY_ASSETS)[number];

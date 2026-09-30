@@ -24,14 +24,6 @@ export async function stonAsset(address: string): Promise<StonAsset | undefined>
   return list.find((a) => a.contractAddress === address) ?? (await ston.getAsset(address).catch(() => undefined));
 }
 
-/** STON.fi pools containing a token, most liquid first. */
-export async function stonPoolsFor(address: string) {
-  const pools = await ston.queryPools({ condition: "", searchTerms: [address], limit: 20 });
-  return pools
-    .filter((p) => !p.deprecated && (p.token0Address === address || p.token1Address === address))
-    .sort((a, b) => Number(b.lpTotalSupplyUsd ?? 0) - Number(a.lpTotalSupplyUsd ?? 0));
-}
-
 /** Swaps on a given pool in the last `minutes` (API caps windows; used as a trades fallback). */
 export async function stonPoolSwaps(pool: string, minutes = 60) {
   const until = new Date();

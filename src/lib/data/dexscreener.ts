@@ -88,9 +88,3 @@ export async function dsTrending(chains: ChainId[]): Promise<GeckoPoolRow[]> {
   }
   return [...best.values()];
 }
-
-/** Text search, filtered to one chain. */
-export async function dsSearch(q: string, chain?: ChainId): Promise<GeckoPoolRow[]> {
-  const res = await getJson<{ pairs: DsPair[] }>(`${BASE}/latest/dex/search?q=${encodeURIComponent(q)}`, { revalidate: 120 });
-  return res.pairs.map(mapDsPair).filter((p): p is GeckoPoolRow => !!p && (!chain || p.chain === chain));
-}
