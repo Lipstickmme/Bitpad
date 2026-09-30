@@ -3,6 +3,9 @@ import { getBitpadTokens, getTonMarket, getToken, searchTokens } from "@/lib/mar
 import { botToken, webhookSecret } from "@/lib/telegram";
 import { price, pct, usd } from "@/lib/format";
 
+/** Token names come from on-chain metadata: escape them for Telegram's HTML parse mode. */
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 /** Telegram bot webhook. Register it once by opening /api/telegram/setup on the deployed site. */
 export async function POST(req: NextRequest) {
   const bot = botToken();
@@ -23,13 +26,13 @@ export async function POST(req: NextRequest) {
     const [bp, ton] = await Promise.all([getBitpadTokens(), getTonMarket()]);
     const list = [...bp.tokens, ...ton.tokens].sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0)).slice(0, 8);
     text = list.length
-      ? "<b>🔥 Trending on TON</b>\n" + list.map((t, i) => `${i + 1}. <b>$${t.symbol}</b> / ${t.pair.symbol} · ${t.marketCap ?? t.fdv ? usd((t.marketCap ?? t.fdv)!, { compact: true }) : "—"} · ${t.change24h != null ? pct(t.change24h) : "—"}`).join("\n")
+      ? "<b>🔥 Trending on TON</b>\n" + list.map((t, i) => `${i + 1}. <b>$${esc(t.symbol)}</b> / ${esc(t.pair.symbol)} · ${t.marketCap ?? t.fdv ? usd((t.marketCap ?? t.fdv)!, { compact: true }) : "—"} · ${t.change24h != null ? pct(t.change24h) : "—"}`).join("\n")
       : "Market data is unavailable right now.";
   } else if (cmd.startsWith("/price") && arg) {
     const hit = (await searchTokens(arg.replace("$", "")).catch(() => []))[0];
     const t = hit ? await getToken(hit.address) : undefined;
     text = t
-      ? `<b>$${t.symbol}</b> ${t.priceUsd != null ? price(t.priceUsd) : "—"}${t.change24h != null ? ` (${pct(t.change24h)})` : ""}\nMC ${t.marketCap != null ? usd(t.marketCap, { compact: true }) : "—"} · Vol ${t.volume24h != null ? usd(t.volume24h, { compact: true }) : "—"}\n${origin}/token/${t.address}`
+      ? `<b>$${esc(t.symbol)}</b> ${t.priceUsd != null ? price(t.priceUsd) : "—"}${t.change24h != null ? ` (${pct(t.change24h)})` : ""}\nMC ${t.marketCap != null ? usd(t.marketCap, { compact: true }) : "—"} · Vol ${t.volume24h != null ? usd(t.volume24h, { compact: true }) : "—"}\n${origin}/token/${t.address}`
       : `No TON token matches ${arg}`;
   } else {
     return NextResponse.json({ ok: true });

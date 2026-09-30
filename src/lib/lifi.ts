@@ -34,6 +34,9 @@ export function lifiIntegrator(raw = process.env.LIFI_INTEGRATOR): string | null
   return null;
 }
 
+/** LI.FI's diamond (same address on every EVM chain it supports). */
+export const LIFI_DIAMOND = "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae";
+
 /** Platform fee on LI.FI routes, as a fraction (0.005 = 0.5%). */
 export const LIFI_FEE = 0.005;
 
@@ -105,6 +108,13 @@ export async function quoteNativeBuy(chain: ChainId, token: string, usd: number,
     transactionRequest: { to?: string; data: string; value?: string; gasLimit?: string; chainId?: number };
   };
   const q = await get<Raw>(`/quote?${qs}`);
+  // Never hand the user a transaction we didn't expect: on EVM it must call LI.FI's
+  // diamond and spend no more than the quoted native amount.
+  if (c.evmId) {
+    if (q.transactionRequest.to?.toLowerCase() !== LIFI_DIAMOND) throw new Error("LI.FI returned an unexpected contract; not signing it");
+    if (Number(q.transactionRequest.chainId) !== c.evmId) throw new Error("LI.FI returned a transaction for another chain");
+    if (BigInt(q.transactionRequest.value ?? 0) > BigInt(q.action.fromAmount)) throw new Error("LI.FI transaction spends more than quoted");
+  }
   return {
     tool: q.tool,
     toolName: q.toolDetails?.name ?? q.tool,
