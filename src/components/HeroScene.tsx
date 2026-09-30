@@ -12,13 +12,15 @@ import { useEffect, useRef } from "react";
  *   9–12.5s the view drifts up to the ships in the sky, then back down
  *   12.5–14 it hops into its rocket; the engine rumbles
  *   14–17s  lift-off, the camera follows it up
- *   17–20s  a drone swarm rises and spells BELIEVE IN TON
- *   20–23s  the drones re-form into BITPAD
+ *   17–23s  a drone swarm rises and spells BELIEVE IN TON
  *   23–25s  the mascot streaks away, the drones scatter
  *   25–26s  the view settles back on the hill
+ * then BIT stands still under the stars for PAUSE seconds before it replays.
  * Decorative only — no data. Reduced motion shows a still of the drone show.
  */
-const LOOP = 26;
+const STORY = 26;
+const PAUSE = 5;
+const LOOP = STORY + PAUSE;
 
 const WH = 300; // world rows (two screens)
 const GROUND = WH - 20;
@@ -101,14 +103,7 @@ export function HeroScene() {
       ships = Array.from({ length: 6 }, (_, i) => ({ x: rnd() * W, y: 12 + rnd() * 150, v: (3 + rnd() * 7) * (i % 2 ? -1 : 1), kind: (i % 3) as Ship["kind"] }));
       const one = W > 330;
       const a = glyphs(one ? ["BELIEVE IN TON"] : ["BELIEVE", "IN TON"]);
-      const b = glyphs(["BITPAD"], 3);
-      const n = Math.max(a.length, b.length);
-      drones = Array.from({ length: n }, (_, i) => ({ sx: hillX + (rnd() - 0.5) * 60, sy: GROUND + 4 + rnd() * 20, a: a[i] ?? null, b: b[i] ?? null, d: rnd() * 1.2 }));
-      // shuffle B targets so drones cross over when the message changes
-      for (let i = drones.length - 1; i > 0; i--) {
-        const j = Math.floor(rnd() * (i + 1));
-        [drones[i].b, drones[j].b] = [drones[j].b, drones[i].b];
-      }
+      drones = a.map((p) => ({ sx: hillX + (rnd() - 0.5) * 60, sy: GROUND + 4 + rnd() * 20, a: p, b: null, d: rnd() * 1.2 }));
     }
 
     /** World positions of lit font cells, centred in the upper sky. */
@@ -170,7 +165,9 @@ export function HeroScene() {
     }
 
     function frame(now: number) {
-      const t = reduce ? 21.5 : (now / 1000) % LOOP;
+      // the story, then a quiet hold on the opening frame before it starts again
+      const lt = (now / 1000) % LOOP;
+      const t = reduce ? 21.5 : lt < STORY ? lt : 0;
       const sec = now / 1000;
 
       // ── camera ───────────────────────────────────────────────────────
@@ -260,7 +257,7 @@ export function HeroScene() {
       // ── drone show ────────────────────────────────────────────────────
       if (t > 16.5 && t < 25.5) {
         const scatter = seg(t, 23.5, 25.3);
-        const toB = seg(t, 20, 21.6);
+        const toB = 0; // one message only: BELIEVE IN TON
         for (const d of drones) {
           const k = ease((t - 17 - d.d) / 2.2);
           if (k <= 0) continue;
@@ -292,7 +289,7 @@ export function HeroScene() {
 
       // ── mascot ────────────────────────────────────────────────────────
       if (mode === "walker") {
-        const fade = t > 25 ? seg(t, 25, 26) : 1;
+        const fade = !reduce && lt >= STORY ? seg(lt, STORY, STORY + 1) : 1; // BIT fades back in at the start of the pause
         ctx.globalAlpha = fade;
         drawBit(mx, my, look, step, hop);
         ctx.globalAlpha = 1;
