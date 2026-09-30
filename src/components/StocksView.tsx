@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { PairAsset } from "@/lib/types";
 import { pct, price } from "@/lib/format";
 import { priceGap, usMarket } from "@/lib/market-hours";
@@ -12,6 +13,7 @@ type Sort = "gap" | "change24h" | "dividendYield" | "symbol";
 const day = (ms: number) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
 export function StocksView({ assets }: { assets: PairAsset[] }) {
+  const router = useRouter();
   const [kind, setKind] = useState<"stock" | "commodity">("stock");
   const [sort, setSort] = useState<Sort>("gap");
   const market = usMarket();
@@ -36,7 +38,7 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight"><span className="text-accent-gradient">Stocks &amp; gold</span> on TON</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Stocks &amp; gold on TON</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-2">
             Tokenized shares and gold you can buy with TON and pair your jetton with. Compare what they trade for on TON with the real market price, and see when dividends are due.
           </p>
@@ -78,7 +80,7 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
               {rows.map((a) => {
                 const gap = priceGap(a.tonPriceUsd, a.oraclePriceUsd);
                 return (
-                  <tr key={a.symbol} className="border-b border-line/60 last:border-0">
+                  <tr key={a.symbol} onClick={() => router.push(`/stocks/${encodeURIComponent(a.symbol)}`)} className="cursor-pointer border-b border-line/60 last:border-0 hover:bg-surface-2/60">
                     <td className="py-2.5">
                       <div className="flex items-center gap-2.5">
                         <AssetDot asset={a} size={24} />

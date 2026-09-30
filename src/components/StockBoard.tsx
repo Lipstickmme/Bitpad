@@ -18,7 +18,7 @@ export function StockBoard({ assets }: { assets: PairAsset[] }) {
   return (
     <section>
       <div className="mb-3 flex items-center gap-2">
-        <h2 className="flex items-center gap-2 text-base font-semibold tracking-tight"><span className="h-4 w-1 rounded-full bg-gold" aria-hidden />Stocks &amp; gold on TON</h2>
+        <h2 className="text-base font-semibold tracking-tight">Stocks &amp; gold on TON</h2>
         <Hint>
           Tokenized equities (xStocks by Backed Finance, each backed 1:1 by the real share held by a regulated custodian) and gold, the same assets you can pair a jetton with. Prices come from Pyth&apos;s oracle, with Yahoo and Jupiter as fallbacks. ⚡ buys the TON jetton through STON.fi, or the Solana version through Jupiter when there&apos;s no TON listing. xStocks aren&apos;t available to US persons, and STON.fi may check eligibility.
         </Hint>
@@ -26,11 +26,11 @@ export function StockBoard({ assets }: { assets: PairAsset[] }) {
       </div>
       <div className="scroll-x flex gap-3 pb-1">
         {rows.map((a) => (
-          <div key={a.symbol} className="card flex w-[180px] shrink-0 flex-col gap-2 p-3 transition-colors hover:border-gold/40">
+          <Link key={a.symbol} href={`/stocks/${encodeURIComponent(a.symbol)}`} className="card flex w-[180px] shrink-0 flex-col gap-2 p-3 transition-colors hover:border-line-strong">
             <div className="flex items-center gap-2">
               <AssetDot asset={a} size={24} />
               <div className="min-w-0">
-                <Link href={`/stocks/${encodeURIComponent(a.symbol)}`} className="text-sm font-semibold hover:underline">{a.symbol}</Link>
+                <div className="text-sm font-semibold">{a.symbol}</div>
                 <div className="truncate text-[11px] text-muted">{a.name}</div>
               </div>
             </div>
@@ -62,7 +62,7 @@ export function StockBoard({ assets }: { assets: PairAsset[] }) {
                 <span>price only</span>
               )}
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </section>

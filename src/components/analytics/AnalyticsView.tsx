@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ExternalLink } from "lucide-react";
 import type { AnalyticsSnapshot, ChainId, LaunchpadStat } from "@/lib/types";
@@ -16,6 +17,7 @@ const winRate = (l: LaunchpadStat) => (l.wins + l.losses ? (100 * l.wins) / (l.w
 const VOL_SOURCE = { defillama: "DefiLlama protocol volume", sampled: "sum of sampled pools (understates)", onchain: "Bitpad pools, read on-chain" } as const;
 
 export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
+  const router = useRouter();
   const [chain, setChain] = useState<"all" | ChainId>("all");
   const [venueKind, setVenueKind] = useState<"launchpads" | "dexes">("launchpads");
   const [quote, setQuote] = useState<"all" | "ton" | "eth" | "sol" | "stable" | "stock">("all");
@@ -41,7 +43,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Market <span className="text-accent-gradient">analytics</span></h1>
+          <h1 className="text-3xl font-bold tracking-tight">Market analytics</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-2">Launchpads and DEXes across TON, Solana, Ethereum, Base and BNB — where the volume is, whether new tokens are winning, and where the FOMO is. Every number is pulled live; hover ⓘ for how it&apos;s measured.</p>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -288,7 +290,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
             </thead>
             <tbody className="num">
               {trending.slice(0, 25).map((p) => (
-                <tr key={p.id} className="border-b border-line/60 last:border-0 hover:bg-surface-2/60">
+                <tr key={p.id} onClick={() => p.poolAddress && router.push(`/pool/${p.chain}/${p.poolAddress}`)} className={`border-b border-line/60 last:border-0 hover:bg-surface-2/60 ${p.poolAddress ? "cursor-pointer" : ""}`}>
                   <td className="py-2.5 font-medium">{p.poolAddress ? <Link href={`/pool/${p.chain}/${p.poolAddress}`} className="hover:underline">{p.base}<span className="font-normal text-muted"> / {p.quote}</span></Link> : <>{p.base}<span className="font-normal text-muted"> / {p.quote}</span></>}</td>
                   <td className="text-xs text-ink-2">{CHAINS[p.chain].short} · {p.dex}</td>
                   <td className="text-right">{price(p.priceUsd)}</td>
@@ -304,7 +306,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
                     ) : p.baseAddress && xBuyable(p.chain) ? (
                       <XBuyButton chain={p.chain} token={p.baseAddress} symbol={p.base} />
                     ) : p.url ? (
-                      <a href={p.url} target="_blank" rel="noreferrer" className="inline-flex text-muted hover:text-ink" aria-label="Open pool"><ExternalLink className="size-3.5" /></a>
+                      <a href={p.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex text-muted hover:text-ink" aria-label="Open pool"><ExternalLink className="size-3.5" /></a>
                     ) : null}
                   </td>
                 </tr>
