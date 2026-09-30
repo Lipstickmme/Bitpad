@@ -77,13 +77,17 @@ async function buildQuickBuy(t: QuickBuyTarget, amount: number, asset: QuickAsse
   const best = routes.find((r) => r.best) ?? routes[0];
   if (!best) throw new Error(d.errors?.length ? `No live route: ${d.errors.join(" · ")}` : "No live route for this token");
   const slip = slippagePct / 100;
+  // The quote may have switched currency (no pool for the chosen one): spend what it quoted
+  const payWith = best.payAsset as "TON" | "USDT" | "GRAM";
+  const payAmount = best.payAmount;
+  const note = d.switchedFrom ? ` (no ${d.switchedFrom} pool for this token)` : "";
   if (best.id === "dedust") {
     const { buildDedustBuyTx } = await import("@/lib/ton/dedust");
-    return { messages: await buildDedustBuyTx({ wallet, token: t.address, tonAmount: amount, slippage: slip, referrer: generalReferrer(wallet) }), via: "DeDust", spent: `${amount} TON` };
+    return { messages: await buildDedustBuyTx({ wallet, token: t.address, tonAmount: payAmount, slippage: slip, referrer: generalReferrer(wallet) }), via: "DeDust", spent: `${payAmount} TON${note}` };
   }
   const { buildBuyTx } = await import("@/lib/ton/swap");
   const pay = d.pay ? { address: d.pay.address, decimals: d.pay.decimals } : undefined;
-  return { messages: (await buildBuyTx({ wallet, jetton: t.address, amount, payWith: asset, payAsset: pay, slippage: slip, referrer: generalReferrer(wallet) })).messages, via: best.venue, spent: `${amount} ${asset}` };
+  return { messages: (await buildBuyTx({ wallet, jetton: t.address, amount: payAmount, payWith, payAsset: pay, slippage: slip, referrer: generalReferrer(wallet) })).messages, via: best.venue, spent: `${payAmount} ${payWith}${note}` };
 }
 
 export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarget; className?: string }) {

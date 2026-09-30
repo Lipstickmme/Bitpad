@@ -20,6 +20,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
   const [routes, setRoutes] = useState<RouteQuote[]>([]);
   const [payResolved, setPayResolved] = useState<{ address: string; decimals: number } | null>(null);
   const [quoteErr, setQuoteErr] = useState<string[]>([]);
+  const [switched, setSwitched] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [routeId, setRouteId] = useState<string>();
   const [loading, setLoading] = useState(false);
@@ -54,6 +55,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
           setRoutes(d.routes ?? []);
           setPayResolved(d.pay ? { address: d.pay.address, decimals: d.pay.decimals } : null);
           setQuoteErr(d.errors ?? (d.error ? [d.error] : []));
+          setSwitched(d.switchedFrom && d.pay ? `No ${d.switchedFrom} pool for $${token.symbol}: this buy pays ${d.routes?.[0]?.payAmount ?? ""} ${d.pay.symbol} (same value).` : null);
           setRouteId((d.routes ?? []).find((r: RouteQuote) => r.best)?.id);
         })
         .finally(() => setLoading(false));
@@ -75,10 +77,10 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
         if (!route) throw new Error("No executable route — try a different amount or pay asset");
         if (route.id === "dedust") {
           const { buildDedustBuyTx } = await import("@/lib/ton/dedust");
-          messages = await buildDedustBuyTx({ wallet, token: token.address, tonAmount: Number(amount), slippage: slip, referrer: generalReferrer(wallet) });
+          messages = await buildDedustBuyTx({ wallet, token: token.address, tonAmount: route.payAmount, slippage: slip, referrer: generalReferrer(wallet) });
         } else {
           const { buildBuyTx } = await import("@/lib/ton/swap");
-          messages = (await buildBuyTx({ wallet, jetton: token.address, amount: Number(amount), payWith: payAsset, payAsset: payResolved ?? undefined, slippage: slip, referrer: generalReferrer(wallet) })).messages;
+          messages = (await buildBuyTx({ wallet, jetton: token.address, amount: route.payAmount, payWith: route.payAsset as typeof payAsset, payAsset: payResolved ?? undefined, slippage: slip, referrer: generalReferrer(wallet) })).messages;
         }
       } else {
         const units = BigInt(Math.floor(Number(amount) * 10 ** token.decimals));
@@ -147,6 +149,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
       {side === "buy" && (
         <div className="mt-4">
           <div className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted"><Route className="size-3.5" /> Routes {loading && <span className="font-normal normal-case">· quoting…</span>}</div>
+          {switched && <p className="mb-2 rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">{switched}</p>}
           <div className="space-y-1.5">
             {routes.map((r) => (
               <button key={r.id} onClick={() => setRouteId(r.id)} className={`w-full rounded-xl border p-2.5 text-left transition-colors ${routeId === r.id ? "border-brand bg-brand-soft/60" : "border-line hover:border-line-strong"}`}>

@@ -28,18 +28,35 @@ export async function payInfo(symbol: string): Promise<PayInfo | null> {
 }
 
 /**
- * Real buy quotes only: STON.fi's swap simulator (with Bitpad's referral fee
- * applied on-chain) and DeDust's on-chain pool estimate. Venues that can't
- * quote are omitted rather than estimated.
+ * Real buy quotes only: STON.fi's swap simulator and DeDust's on-chain pool
+ * estimate. STON.fi quotes a single pool, so when the chosen pay asset has no
+ * pool with the token (e.g. GRAM → AAPLx, which trades against USDT/TON) the
+ * same USD value is re-quoted in TON, then USDT. `pay` tells the caller which
+ * asset the routes actually spend.
  */
-export async function quoteBuy(token: MarketToken, pay: string, amount: number): Promise<{ routes: RouteQuote[]; pay: PayInfo | null; errors: string[] }> {
+export async function quoteBuy(token: MarketToken, pay: string, amount: number): Promise<{ routes: RouteQuote[]; pay: PayInfo | null; errors: string[]; switchedFrom?: string }> {
   await ensureRuntimeConfig();
-  const info = await payInfo(pay);
-  if (!info) return { routes: [], pay: null, errors: [`${pay} is not available on TON`] };
+  const first = await payInfo(pay);
+  if (!first) return { routes: [], pay: null, errors: [`${pay} is not available on TON`] };
+  const errors: string[] = [];
+  const r = await quoteWith(token, first, amount, errors);
+  if (r.length || !first.priceUsd) return { routes: r, pay: first, errors };
+  const usdValue = amount * first.priceUsd;
+  for (const alt of ["TON", "USDT"].filter((a) => a !== pay)) {
+    const info = await payInfo(alt);
+    if (!info?.priceUsd) continue;
+    const altAmount = Number((usdValue / info.priceUsd).toFixed(info.decimals === 6 ? 2 : 4));
+    const routes = await quoteWith(token, info, altAmount, errors);
+    if (routes.length) return { routes, pay: info, errors: [], switchedFrom: pay };
+  }
+  return { routes: [], pay: first, errors };
+}
+
+async function quoteWith(token: MarketToken, info: PayInfo, amount: number, errors: string[]): Promise<RouteQuote[]> {
+  const pay = info.symbol;
   const units = BigInt(Math.floor(amount * 10 ** info.decimals));
   const payUsd = info.priceUsd ? amount * info.priceUsd : null;
   const feeUsd = payUsd != null ? payUsd * (config.swapFeeBps / 10_000) : 0;
-  const errors: string[] = [];
   const routes: RouteQuote[] = [];
 
   const [stonRes, dedustRes] = await Promise.allSettled([
@@ -57,7 +74,7 @@ export async function quoteBuy(token: MarketToken, pay: string, amount: number):
       platformFeeUsd: feeUsd, networkFeeUsd: info.priceUsd && pay === "TON" ? Number(s.gasParams.estimatedGasConsumption) / 1e9 * info.priceUsd : 0,
       etaSeconds: 8, live: true, executable: true,
     });
-  } else errors.push(`STON.fi: ${(stonRes.reason as Error)?.message ?? "no route"}`);
+  } else errors.push(`STON.fi (${pay}): ${(stonRes.reason as Error)?.message ?? "no route"}`);
 
   if (dedustRes.status === "fulfilled" && dedustRes.value) {
     const d = dedustRes.value;
@@ -71,5 +88,5 @@ export async function quoteBuy(token: MarketToken, pay: string, amount: number):
   } else if (dedustRes.status === "rejected") errors.push(`DeDust: ${(dedustRes.reason as Error)?.message ?? "no pool"}`);
 
   if (routes.length) routes.reduce((a, b) => (b.receiveAmount > a.receiveAmount ? b : a)).best = true;
-  return { routes: routes.sort((a, b) => b.receiveAmount - a.receiveAmount), pay: info, errors };
+  return routes.sort((a, b) => b.receiveAmount - a.receiveAmount);
 }
