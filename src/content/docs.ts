@@ -292,16 +292,22 @@ It's open to everyone, and every bundle is visible on-chain.
     slug: "trench-chat",
     group: "Community",
     title: "Trench Chat",
-    description: "An on-chain chat for calls, theses and replies.",
+    description: "Free off-chain chat with Telegram, or on-chain messages for calls and likes.",
     body: `
-Trench Chat is a live chat where every message is a TON transaction. Open it from the bubble at the bottom of any page.
+Trench Chat is Bitpad's live chat. Open it from the bubble at the bottom of any page. Every message carries a label saying where it's stored.
 
-- **Cost:** about 0.01 TON per message, gas included. The chat contract stores nothing, so it stays at the minimum. The feed is read straight from the chain.
-- **Messages:** text, emojis, stickers, GIFs and small images, replies and likes.
+| | Off-chain | On-chain |
+| --- | --- | --- |
+| Cost | Free | About 0.01 TON per message, gas included |
+| Needs | Telegram login | A TON wallet |
+| Stored | Bitpad's public Telegram channel, posted by the Bitpad bot | TON blockchain, Bitpad's chat contract |
+| Can do | Text, emojis, stickers, GIFs, replies | All of that plus likes, calls and tiny images |
+
 - **Ticker lookup:** write a $TICKER and it links to that token's page.
 - **Calls:** a call is a thesis on a jetton, and only wallets that hold it can post one. The ✓ holder badge is re-checked against current balances.
+- **Replies:** you can reply to any message. Replies to off-chain messages are off-chain too.
 
-Because messages are on-chain, they can't be edited or deleted.
+On-chain messages can't be edited or deleted. Off-chain messages live in the Telegram channel and are moderated there.
 `,
   },
   {

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { Address } from "@ton/core";
 import { getChat } from "@/lib/chat-feed";
+import { chatChannel, getOffchain, offchainEnabled } from "@/lib/chat-offchain";
 import { accountJettons } from "@/lib/data/tonapi";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ holds: false, error: "Couldn't check your balance" });
     }
   }
-  const c = await getChat();
+  const [c, off] = await Promise.all([getChat(), getOffchain()]);
   const liked = (id: string) => {
     if (!me) return false;
     try {
@@ -35,7 +36,15 @@ export async function GET(req: NextRequest) {
     }
   };
   return NextResponse.json(
-    { room: c.room, deployed: c.deployed, ok: c.ok, messages: c.messages.slice(0, 150).map((m) => ({ ...m, liked: liked(m.id) })) },
+    {
+      room: c.room, deployed: c.deployed, ok: c.ok,
+      offchain: { enabled: offchainEnabled(), ok: off.ok, channel: offchainEnabled() ? chatChannel() : null },
+      // On-chain and off-chain (Telegram) messages in one feed, newest first
+      messages: [
+        ...c.messages.slice(0, 150).map((m) => ({ ...m, liked: liked(m.id), offchain: false })),
+        ...off.messages.map((m) => ({ ...m, token: null, likes: 0, replies: 0, offchain: true })),
+      ].sort((a, b) => b.time - a.time),
+    },
     { headers: { "cache-control": "no-store" } },
   );
 }

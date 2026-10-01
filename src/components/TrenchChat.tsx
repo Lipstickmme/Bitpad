@@ -5,6 +5,7 @@ import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import { beginCell, storeStateInit } from "@ton/core";
 import { Heart, ImagePlus, MessageCircle, Megaphone, Send, Smile, Sticker, X } from "lucide-react";
 import { config } from "@/lib/config";
+import { useApp } from "@/lib/store";
 import { chatInit, encodePost, isAllowedGif, MAX_IMAGE_BYTES, MAX_TEXT, POST_VALUE, STICKERS, type Media, type PostInput } from "@/lib/chat";
 import { ago, shortAddr } from "@/lib/format";
 import { Mark } from "./Brand";
@@ -26,7 +27,12 @@ interface Msg {
   replies: number;
   liked?: boolean;
   holder?: boolean;
+  /** Free message stored in Bitpad's Telegram channel (not on-chain) */
+  offchain?: boolean;
+  url?: string;
 }
+type Mode = "offchain" | "onchain";
+type Post = (p: PostInput, mode: Mode) => Promise<void>;
 
 const EMOJIS = ["🚀", "🔥", "💎", "🙌", "😂", "🫡", "👀", "📈", "📉", "🐸", "🌕", "💀", "❤️", "🤝", "⚡", "🧠"];
 const STICKER_LABEL: Record<string, string> = { believe: "BELIEVE IN TON", gm: "GM", lfg: "LFG", wagmi: "WAGMI", ngmi: "NGMI", moon: "TO THE MOON", rekt: "REKT", ape: "APE IN" };
@@ -56,6 +62,9 @@ export function TrenchChat() {
   const [seen, setSeen] = useState(0);
   const wallet = useTonAddress();
   const [tc] = useTonConnectUI();
+  const { tgUser } = useApp();
+  const [off, setOff] = useState<{ enabled: boolean; channel: string | null }>({ enabled: false, channel: null });
+  const [mode, setMode] = useState<Mode>("onchain");
   const list = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
@@ -64,6 +73,7 @@ export function TrenchChat() {
       .then((d) => {
         setMsgs(d.messages ?? []);
         setRoom({ address: d.room, deployed: !!d.deployed, ok: !!d.ok });
+        setOff({ enabled: !!d.offchain?.enabled, channel: d.offchain?.channel ?? null });
       })
       .catch(() => {});
   }, [wallet]);
@@ -102,8 +112,27 @@ export function TrenchChat() {
     if (open) list.current?.scrollTo({ top: list.current.scrollHeight });
   }, [open, top.length]);
 
-  async function post(p: PostInput) {
+  // Free off-chain chat is the default for Telegram-logged-in users
+  useEffect(() => {
+    if (off.enabled && tgUser) setMode("offchain");
+  }, [off.enabled, tgUser]);
+
+  async function post(p: PostInput, m: Mode) {
     haptic("medium");
+    if (m === "offchain") {
+      if (!tgUser) throw new Error("Log in with Telegram (Connect menu) to chat for free.");
+      if (p.kind === "like" || p.kind === "call" || p.media?.type === "image") throw new Error("Likes, calls and images are on-chain only.");
+      const r = await fetch("/api/chat/offchain", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: p.text, parent: p.parent ?? null, sticker: p.media?.type === "sticker" ? p.media.id : null, gif: p.media?.type === "gif" ? p.media.url : null }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error ?? "Message not sent");
+      haptic("success");
+      [1500, 4000, 8000].forEach((ms) => setTimeout(load, ms));
+      return;
+    }
     if (!wallet) {
       tc.openModal();
       throw new Error("Connect your TON wallet to post");
@@ -129,7 +158,7 @@ export function TrenchChat() {
             <Mark size={20} />
             <span className="text-sm font-bold">Trench chat</span>
             <Hint>
-              Every message is an on-chain transaction to Bitpad&apos;s chat contract. That makes it permanent and public, and it costs about 0.01 TON in fees. Nothing is stored on our servers; the feed is read straight from the chain. Calls are theses on a jetton, and only wallets that hold it can post one; the ✓ holder badge is re-checked against current balances. Keep images tiny (3 KB). GIFs are Giphy or Tenor links.
+              Two kinds of messages share one feed. <b>Off-chain</b> messages are free: log in with Telegram and the Bitpad bot posts them to Bitpad&apos;s Telegram channel{off.channel ? ` (@${off.channel})` : ""}, so they live on Telegram&apos;s servers. <b>On-chain</b> messages are transactions to Bitpad&apos;s chat contract: permanent, public and about 0.01 TON each. Likes, calls and tiny images are on-chain only. Calls are theses on a jetton, and only wallets that hold it can post one; the ✓ holder badge is re-checked against current balances. GIFs are Giphy or Tenor links.
             </Hint>
             <div className="seg ml-auto">
               <button data-on={tab === "all"} onClick={() => setTab("all")}>All</button>
@@ -138,27 +167,34 @@ export function TrenchChat() {
             <button onClick={() => setOpen(false)} className="ml-1 text-muted hover:text-ink" aria-label="Close chat"><X className="size-4" /></button>
           </div>
           <div ref={list} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
-            {!top.length && <p className="py-10 text-center text-sm text-muted">{room.ok ? "No messages yet. Say gm on-chain 👋" : "Couldn't read the chat from the chain right now."}</p>}
-            {top.map((m) => <Message key={m.id} m={m} me={wallet} replies={repliesOf(m.id)} onPost={post} />)}
+            {!top.length && <p className="py-10 text-center text-sm text-muted">{room.ok ? "No messages yet. Say gm 👋" : "Couldn't read the chat from the chain right now."}</p>}
+            {top.map((m) => <Message key={m.id} m={m} me={wallet} tg={tgUser?.username} replies={repliesOf(m.id)} onPost={post} mode={mode} offOk={off.enabled} />)}
           </div>
-          <Composer me={wallet} onPost={post} />
+          <Composer me={wallet} onPost={post} mode={mode} setMode={setMode} offOk={off.enabled} tgIn={!!tgUser} />
         </div>
       )}
     </>
   );
 }
 
-function Message({ m, me, replies, onPost, nested = false }: { m: Msg; me: string; replies?: Msg[]; onPost: (p: PostInput) => Promise<void>; nested?: boolean }) {
+function Message({ m, me, tg, replies, onPost, mode, offOk, nested = false }: { m: Msg; me: string; tg?: string; replies?: Msg[]; onPost: Post; mode: Mode; offOk: boolean; nested?: boolean }) {
   const [showReplies, setShowReplies] = useState(false);
   const [replying, setReplying] = useState(false);
-  const mine = !!me && m.author.replace(/^.{2}/, "") === me.replace(/^.{2}/, "");
-  const like = () => onPost({ kind: "like", parent: m.id, text: "" }).catch((e) => toast.error("Like not sent", (e as Error).message));
+  const mine = m.offchain ? !!tg && m.author === `@${tg}` : !!me && m.author.replace(/^.{2}/, "") === me.replace(/^.{2}/, "");
+  const like = () => onPost({ kind: "like", parent: m.id, text: "" }, "onchain").catch((e) => toast.error("Like not sent", (e as Error).message));
+  // Off-chain messages can only be answered off-chain (the contract takes tx hashes as parents)
+  const replyMode: Mode = m.offchain ? "offchain" : mode;
   return (
     <div className={`${nested ? "ml-5 border-l border-line pl-3" : ""}`}>
       <div className={`rounded-xl px-3 py-2 ${m.kind === "call" ? "border border-line-strong bg-surface-2" : "bg-surface"}`}>
         <div className="flex items-center gap-1.5 text-[11px] text-muted">
-          <a href={`https://tonviewer.com/${m.author}`} target="_blank" rel="noreferrer" className="font-mono hover:text-ink">{mine ? "you" : shortAddr(m.author, 4, 4)}</a>
+          {m.offchain ? (
+            <span className="font-semibold text-ink-2" title={m.author}>{mine ? "you" : m.author}</span>
+          ) : (
+            <a href={`https://tonviewer.com/${m.author}`} target="_blank" rel="noreferrer" className="font-mono hover:text-ink">{mine ? "you" : shortAddr(m.author, 4, 4)}</a>
+          )}
           <span>· {ago(m.time)}</span>
+          <span className={`rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide ${m.offchain ? "bg-white/[0.06] text-muted" : "bg-brand-soft text-brand-ink"}`} title={m.offchain ? "Free message stored on Telegram" : "Stored on the TON blockchain"}>{m.offchain ? "off-chain" : "on-chain"}</span>
           {m.kind === "call" && (
             <span className="ml-auto flex items-center gap-1 font-semibold text-ink-2">
               <Megaphone className="size-3" /> CALL
@@ -170,19 +206,20 @@ function Message({ m, me, replies, onPost, nested = false }: { m: Msg; me: strin
         {m.text && <p className="mt-1 whitespace-pre-wrap break-words text-sm"><RichText text={m.text} /></p>}
         {m.media && <MediaView media={m.media} />}
         <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted">
-          <button onClick={like} disabled={m.liked} className={`flex items-center gap-1 ${m.liked ? "text-launch" : "hover:text-ink"}`}><Heart className={`size-3 ${m.liked ? "fill-current" : ""}`} /> {m.likes || ""}</button>
+          {!m.offchain && <button onClick={like} disabled={m.liked} className={`flex items-center gap-1 ${m.liked ? "text-launch" : "hover:text-ink"}`}><Heart className={`size-3 ${m.liked ? "fill-current" : ""}`} /> {m.likes || ""}</button>}
           {!nested && <button onClick={() => setReplying((r) => !r)} className="flex items-center gap-1 hover:text-ink"><MessageCircle className="size-3" /> Reply</button>}
           {!nested && !!replies?.length && <button onClick={() => setShowReplies((s) => !s)} className="hover:text-ink">{showReplies ? "Hide" : `${replies.length} repl${replies.length === 1 ? "y" : "ies"}`}</button>}
-          <a href={`https://tonviewer.com/transaction/${m.id}`} target="_blank" rel="noreferrer" className="ml-auto hover:text-ink" title="View on-chain">↗</a>
+          <a href={m.offchain ? m.url : `https://tonviewer.com/transaction/${m.id}`} target="_blank" rel="noreferrer" className="ml-auto hover:text-ink" title={m.offchain ? "View on Telegram" : "View on-chain"}>↗</a>
         </div>
       </div>
-      {showReplies && replies?.map((r) => <Message key={r.id} m={r} me={me} onPost={onPost} nested />)}
-      {replying && <div className="ml-5 mt-1"><Composer me={me} onPost={async (p) => { await onPost({ ...p, kind: "reply", parent: m.id }); setReplying(false); setShowReplies(true); }} compact /></div>}
+      {showReplies && replies?.map((r) => <Message key={r.id} m={r} me={me} tg={tg} onPost={onPost} mode={mode} offOk={offOk} nested />)}
+      {replying && <div className="ml-5 mt-1"><Composer me={me} mode={replyMode} offOk={offOk} tgIn={!!tg} onPost={async (p, md) => { await onPost({ ...p, kind: "reply", parent: m.id }, md); setReplying(false); setShowReplies(true); }} compact /></div>}
     </div>
   );
 }
 
-function Composer({ me, onPost, compact = false }: { me: string; onPost: (p: PostInput) => Promise<void>; compact?: boolean }) {
+function Composer({ me, onPost, mode, setMode, offOk, tgIn, compact = false }: { me: string; onPost: Post; mode: Mode; setMode?: (m: Mode) => void; offOk: boolean; tgIn: boolean; compact?: boolean }) {
+  const off = mode === "offchain";
   const [text, setText] = useState("");
   const [media, setMedia] = useState<Media | null>(null);
   const [panel, setPanel] = useState<"emoji" | "sticker" | "gif" | null>(null);
@@ -205,13 +242,13 @@ function Composer({ me, onPost, compact = false }: { me: string; onPost: (p: Pos
     if (call && !holds?.ok) return toast.error("Can't post this call", "You need to hold the jetton to post a call on it.");
     setBusy(true);
     try {
-      await onPost({ kind: call ? "call" : "post", token: call ? token.trim() : null, text: text.trim(), media });
+      await onPost({ kind: call ? "call" : "post", token: call ? token.trim() : null, text: text.trim(), media }, mode);
       setText("");
       setMedia(null);
       setCall(false);
       setToken("");
       setPanel(null);
-      toast.success("Posted on-chain", "It shows up once the transaction lands (a few seconds).");
+      toast.success(off ? "Sent" : "Posted on-chain", off ? "Free message, stored on Telegram." : "It shows up once the transaction lands (a few seconds).");
     } catch (e) {
       toast.error("Not posted", (e as Error).message);
     } finally {
@@ -221,6 +258,15 @@ function Composer({ me, onPost, compact = false }: { me: string; onPost: (p: Pos
 
   return (
     <div className={`${compact ? "" : "border-t border-line p-3"} space-y-2`}>
+      {setMode && offOk && (
+        <div className="flex items-center gap-2 text-[11px]">
+          <div className="seg">
+            <button data-on={off} onClick={() => { setMode("offchain"); setCall(false); if (media?.type === "image") setMedia(null); }}>Off-chain · free</button>
+            <button data-on={!off} onClick={() => setMode("onchain")}>On-chain · ~0.01 TON</button>
+          </div>
+          {off && !tgIn && <span className="text-warn">Log in with Telegram to send</span>}
+        </div>
+      )}
       {call && (
         <div className="flex items-center gap-2 rounded-lg border border-line px-2 py-1.5 text-xs">
           <Megaphone className="size-3.5 text-muted" />
@@ -245,10 +291,10 @@ function Composer({ me, onPost, compact = false }: { me: string; onPost: (p: Pos
       <div className="flex items-end gap-2">
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value.slice(0, MAX_TEXT))}
+          onChange={(e) => setText(e.target.value.slice(0, off ? 500 : MAX_TEXT))}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
           rows={compact ? 1 : 2}
-          placeholder={call ? "Your thesis: why this jetton, why now…" : compact ? "Reply…" : "Say something on-chain · $TICKER to link"}
+          placeholder={call ? "Your thesis: why this jetton, why now…" : compact ? (off ? "Reply (free)…" : "Reply on-chain…") : off ? "Say something (free, off-chain) · $TICKER to link" : "Say something on-chain · $TICKER to link"}
           className="min-h-9 flex-1 resize-none rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-line-strong"
         />
         <button onClick={send} disabled={busy || (!text.trim() && !media)} className="btn btn-primary h-9 w-9 px-0" aria-label="Send">{busy ? "…" : <Send className="size-4" />}</button>
@@ -257,7 +303,7 @@ function Composer({ me, onPost, compact = false }: { me: string; onPost: (p: Pos
         <IconBtn on={panel === "emoji"} onClick={() => setPanel(panel === "emoji" ? null : "emoji")} label="Emoji"><Smile className="size-4" /></IconBtn>
         <IconBtn on={panel === "sticker"} onClick={() => setPanel(panel === "sticker" ? null : "sticker")} label="Stickers"><Sticker className="size-4" /></IconBtn>
         <IconBtn on={panel === "gif"} onClick={() => setPanel(panel === "gif" ? null : "gif")} label="GIF"><span className="text-[10px] font-bold">GIF</span></IconBtn>
-        <IconBtn onClick={() => file.current?.click()} label="Tiny image"><ImagePlus className="size-4" /></IconBtn>
+        {!off && <IconBtn onClick={() => file.current?.click()} label="Tiny image (on-chain)"><ImagePlus className="size-4" /></IconBtn>}
         <input ref={file} type="file" accept="image/*" hidden onChange={async (e) => {
           const f = e.target.files?.[0];
           e.target.value = "";
@@ -268,8 +314,8 @@ function Composer({ me, onPost, compact = false }: { me: string; onPost: (p: Pos
             toast.error("Image not added", (err as Error).message);
           }
         }} />
-        {!compact && <IconBtn on={call} onClick={() => setCall((c) => !c)} label="Make a call (holders only)"><Megaphone className="size-4" /></IconBtn>}
-        <span className="ml-auto text-[10px]">{text.length}/{MAX_TEXT} · ~0.01 TON</span>
+        {!compact && !off && <IconBtn on={call} onClick={() => setCall((c) => !c)} label="Make a call (holders only, on-chain)"><Megaphone className="size-4" /></IconBtn>}
+        <span className="ml-auto text-[10px]">{text.length}/{off ? 500 : MAX_TEXT} · {off ? "free" : "~0.01 TON"}</span>
       </div>
     </div>
   );

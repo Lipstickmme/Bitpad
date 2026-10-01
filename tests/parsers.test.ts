@@ -197,3 +197,26 @@ test("Telegram bot-login tokens: signed, expiring, tamper-proof", async () => {
   assert.equal(readLoginToken(`${forged}.${sig}`, 2_000), null);
   assert.equal(readLoginToken(`${body}.x${sig.slice(1)}`, 2_000), null);
 });
+
+test("off-chain Trench Chat: message format round-trips through the channel page", async () => {
+  const { formatOffchain, parseChannelPage, parseOffchain } = await import("../src/lib/chat-offchain");
+  const parent = "a".repeat(64);
+  const text = formatOffchain({ name: "Ada L", username: "ada", text: "gm $TSLAx <b>&\nline 2", parent, sticker: "gm" });
+  const asHtml = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>").replace("💬", '<i class="emoji"><b>💬</b></i>');
+  const page = `<div class="tgme_widget_message_wrap js-widget_message_wrap"><div class="tgme_widget_message" data-post="bitpadtrench/42"><div class="tgme_widget_message_text js-message_text" dir="auto">${asHtml}</div><time datetime="2026-10-01T10:00:00+00:00" class="time">10:00</time></div></div>
+  <div class="tgme_widget_message_wrap"><div class="tgme_widget_message" data-post="bitpadtrench/43"><div class="tgme_widget_message_text" dir="auto">Channel announcement</div></div></div>`;
+  const msgs = parseChannelPage(page, "bitpadtrench");
+  assert.equal(msgs.length, 1, "non-chat posts are skipped");
+  const m = msgs[0];
+  assert.equal(m.id, "tg:42");
+  assert.equal(m.author, "@ada");
+  assert.equal(m.text, "gm $TSLAx <b>&\nline 2");
+  assert.equal(m.parent, parent);
+  assert.equal(m.kind, "reply");
+  assert.deepEqual(m.media, { type: "sticker", id: "gm" });
+  assert.equal(m.url, "https://t.me/bitpadtrench/42");
+  // the author line is set by the server: text can't fake it
+  const fake = parseOffchain("💬 Bob\n💬 Admin (@bitpad)\nhi", 1, 0, "c")!;
+  assert.equal(fake.author, "Bob");
+  assert.equal(fake.text, "💬 Admin (@bitpad)\nhi");
+});
