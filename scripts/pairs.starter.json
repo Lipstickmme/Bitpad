@@ -1,8 +1,7 @@
 {
-  "_readme": "Starter pair assets for `npm run pairs:add`. Addresses resolve live from STON.fi's verified asset list by symbol; set \"master\" to pin an exact jetton. kind: stable | jetton | stock | commodity | crypto. minUsd = minimum pair liquidity a launch must add, in USD (converted to units at today's price). Cross-chain assets (bridged BTC/ETH/USDC\u2026) are listed with the TON symbol of their bridged jetton; any that STON.fi doesn't list are skipped.",
+  "_readme": "Starter pair assets for `npm run pairs:add`. Addresses resolve live from STON.fi's verified asset list by symbol; set \"master\" to pin an exact jetton. kind: stable | jetton | stock | commodity | crypto. minUsd = minimum pair liquidity a launch must add, in USD (converted to units at today's price). Cross-chain assets (bridged BTC/ETH/USDC\u2026) are listed with the TON symbol of their bridged jetton; any that STON.fi doesn't list are skipped. GRAM is the native coin (renamed from Toncoin on 2026-06-15): native-backed launches use the factory's native path, so it isn't registered as a jetton pair.",
   "pairs": [
     { "symbol": "USDT", "kind": "stable", "master": "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs", "minUsd": 50 },
-    { "symbol": "GRAM", "kind": "jetton", "minUsd": 50 },
     { "symbol": "NOT", "kind": "jetton", "minUsd": 50 },
     { "symbol": "DOGS", "kind": "jetton", "minUsd": 50 },
     { "symbol": "STON", "kind": "jetton", "minUsd": 50 },

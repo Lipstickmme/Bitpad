@@ -21,7 +21,7 @@ const STATUS: Record<PairCandidate["status"], { label: string; cls: string }> = 
 
 /**
  * Factory owner: register every pair asset in one go from the browser. Each
- * AddPair costs ~0.15 TON (the factory asks the jetton for its wallet); the
+ * AddPair costs ~0.15 GRAM (the factory asks the jetton for its wallet); the
  * wallet signs them in batches of as many messages as it supports.
  */
 export function PairAdmin({ candidates, owner }: { candidates: PairCandidate[]; owner: string | null }) {
@@ -74,13 +74,13 @@ export function PairAdmin({ candidates, owner }: { candidates: PairCandidate[]; 
         <div>
           <h1 className="flex items-center gap-1.5 text-2xl font-bold tracking-tight">
             Pair assets
-            <Hint>Launches can only pair with jettons registered in the factory. Only the factory owner can register them. Tick what you want and register it all at once from your owner wallet: each costs about 0.15 TON, mostly forwarded to the jetton to discover the factory&apos;s wallet. <b>Min. backing</b> is the least a creator must deposit of that asset to launch a jetton backed by it: e.g. at least $50 of SPYx goes into the new pool as its liquidity (locked forever). It isn&apos;t a buy or a fee. It&apos;s stored in the factory in the asset&apos;s own units, converted from USD at today&apos;s price when you register ($50 for starter assets, $20 for creator jettons). TON-backed launches use the factory&apos;s own TON minimum instead.</Hint>
+            <Hint>Launches can only pair with jettons registered in the factory. Only the factory owner can register them. Tick what you want and register it all at once from your owner wallet: each costs about 0.15 GRAM, mostly forwarded to the jetton to discover the factory&apos;s wallet. <b>Min. backing</b> is the least a creator must deposit of that asset to launch a jetton backed by it: e.g. at least $50 of SPYx goes into the new pool as its liquidity (locked forever). It isn&apos;t a buy or a fee. It&apos;s stored in the factory in the asset&apos;s own units, converted from USD at today&apos;s price when you register ($50 for starter assets, $20 for creator jettons). GRAM-backed launches use the factory&apos;s own GRAM minimum instead.</Hint>
           </h1>
           <p className="text-sm text-ink-2">Owner {owner ? <span className="font-mono">{shortAddr(owner, 6, 6)}</span> : "unknown (factory unreachable)"} · {isOwner ? <span className="text-up">you are connected as the owner</span> : wallet ? <span className="text-warn">connected wallet is not the owner</span> : "connect the owner wallet"}</p>
         </div>
         <a href="/admin/routes" className="btn btn-ghost ml-auto">Route check</a>
         <button onClick={registerAll} disabled={!!busy || !todo.length || (!!wallet && !isOwner)} className="btn btn-primary">
-          {busy ?? (!wallet ? "Connect owner wallet" : `Register ${todo.length} pair${todo.length === 1 ? "" : "s"} · ≈${((Number(ADD_PAIR_VALUE) / 1e9) * todo.length).toFixed(2)} TON`)}
+          {busy ?? (!wallet ? "Connect owner wallet" : `Register ${todo.length} pair${todo.length === 1 ? "" : "s"} · ≈${((Number(ADD_PAIR_VALUE) / 1e9) * todo.length).toFixed(2)} GRAM`)}
         </button>
       </div>
 

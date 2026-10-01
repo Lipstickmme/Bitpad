@@ -10,10 +10,11 @@ import { TokenTable } from "./TokenTable";
 import { QuickBuyAmount } from "./QuickBuy";
 import { SectionTitle } from "./ui";
 import { ChainMarket } from "./ChainMarket";
+import { coin } from "@/lib/coin";
 
 const FILTERS: { id: "all" | PairKind | "ton" | "stable"; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "ton", label: "TON" },
+  { id: "ton", label: "GRAM" },
   { id: "stable", label: "Stables" },
   { id: "stock", label: "Stocks" },
   { id: "commodity", label: "Commodities" },

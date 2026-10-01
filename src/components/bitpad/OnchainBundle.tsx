@@ -80,13 +80,13 @@ export function OnchainBundle({ recipients, splits, slippage }: { recipients: { 
             {plan.map((l) => (
               <div key={l.recipient} className="num flex justify-between">
                 <span className="text-muted">{l.label} · {shortAddr(l.recipient)}</span>
-                <span>{num(Number(l.amount) / 1e9, 3)} TON → ≥{num(Number(l.minOut) / 1e9, 0)} ${token.symbol}</span>
+                <span>{num(Number(l.amount) / 1e9, 3)} GRAM → ≥{num(Number(l.minOut) / 1e9, 0)} ${token.symbol}</span>
               </div>
             ))}
           </div>
           <p className="mt-2 text-[11px] text-muted">
             Via {referrer === data?.pool.creator ? "the creator's link" : `link ${shortAddr(referrer ?? "")}`}
-            {data?.bundlerFeeBps ? ` · bundler fee ${(data.bundlerFeeBps / 100).toFixed(2)}%` : ""} · + 0.12 TON gas per wallet (unused gas returns)
+            {data?.bundlerFeeBps ? ` · bundler fee ${(data.bundlerFeeBps / 100).toFixed(2)}%` : ""} · + 0.12 GRAM gas per wallet (unused gas returns)
           </p>
           <button onClick={run} disabled={busy || !plan.some((l) => l.amount > 0n)} className="btn btn-up mt-3 w-full">
             {busy ? "Confirm in wallet…" : wallet ? `Buy into ${plan.length} wallets` : "Connect TON wallet"}

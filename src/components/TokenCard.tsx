@@ -5,6 +5,7 @@ import { AssetDot, Change, PairBadge, Sparkline, TokenAvatar, changePath, orDash
 import { CopyButton } from "./CopyButton";
 import { QuickBuyButton } from "./QuickBuy";
 import { volumeSpike } from "@/lib/spike";
+import { coin } from "@/lib/coin";
 
 export function TokenCard({ token }: { token: MarketToken }) {
   const cap = token.marketCap ?? token.fdv;
@@ -34,7 +35,7 @@ export function TokenCard({ token }: { token: MarketToken }) {
 
       <div className="mt-3 flex items-center gap-1.5 border-t border-line pt-2.5 text-xs text-ink-2">
         <AssetDot asset={token.pair} size={14} />
-        <span className="font-medium text-ink">{token.pair.symbol}</span>
+        <span className="font-medium text-ink">{coin(token.pair.symbol)}</span>
         <PairBadge asset={token.pair} />
         <span className="num ml-auto text-muted">Vol {orDash(token.volume24h, (v) => usd(v, { compact: true }))}</span>
         <QuickBuyButton token={{ address: token.address, symbol: token.symbol, bitpadPool: token.bitpad?.pool }} className="ml-1" />

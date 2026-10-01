@@ -27,9 +27,9 @@ export default async function RevenuePage() {
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label="Bitpad pool fee" value={factory ? `${((factory.protocolFeeBps + factory.creatorFeeBps) / 100).toFixed(2)}%` : "—"} sub={factory ? `${factory.protocolFeeBps / 100}% protocol · ${factory.creatorFeeBps / 100}% creator` : "factory not reachable"} />
-        <Tile label="Launch fee" value={factory ? `${Number(factory.launchFee) / 1e9} TON` : "—"} sub={`STON.fi / DeDust routes: ${(config.swapFeeBps / 100).toFixed(2)}%`} />
-        <Tile label="Received · 24h" value={rev.configured ? `${num(rev.received24h, 2)} TON` : "—"} sub={rev.configured ? `${inUsd(rev.received24h).slice(3) || "fee wallet"}` : "factory not reachable"} />
-        <Tile label="Received · 7d" value={rev.configured ? `${num(rev.received7d, 2)} TON` : "—"} sub={rev.configured ? `balance ${rev.balance != null ? num(rev.balance, 2) : "—"} TON${inUsd(rev.balance)}` : "—"} />
+        <Tile label="Launch fee" value={factory ? `${Number(factory.launchFee) / 1e9} GRAM` : "—"} sub={`STON.fi / DeDust routes: ${(config.swapFeeBps / 100).toFixed(2)}%`} />
+        <Tile label="Received · 24h" value={rev.configured ? `${num(rev.received24h, 2)} GRAM` : "—"} sub={rev.configured ? `${inUsd(rev.received24h).slice(3) || "fee wallet"}` : "factory not reachable"} />
+        <Tile label="Received · 7d" value={rev.configured ? `${num(rev.received7d, 2)} GRAM` : "—"} sub={rev.configured ? `balance ${rev.balance != null ? num(rev.balance, 2) : "—"} GRAM${inUsd(rev.balance)}` : "—"} />
       </div>
 
       {rev.configured && <RevenueCharts daily={rev.daily} bySource={rev.bySource} />}
@@ -40,7 +40,7 @@ export default async function RevenuePage() {
         <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold">
             Frontend fees · STON.fi referral
-            <Hint>STON.fi v2 lets the app that routes a swap take a referral fee of up to 1%. Bitpad sets {(config.swapFeeBps / 100).toFixed(2)}% on every STON.fi route, including ⚡ quick buys and the trade panel. The fee stays in a per-token STON.fi Vault owned by the fee wallet until the owner withdraws it (about 0.3 TON gas, unused gas is refunded).</Hint>
+            <Hint>STON.fi v2 lets the app that routes a swap take a referral fee of up to 1%. Bitpad sets {(config.swapFeeBps / 100).toFixed(2)}% on every STON.fi route, including ⚡ quick buys and the trade panel. The fee stays in a per-token STON.fi Vault owned by the fee wallet until the owner withdraws it (about 0.3 GRAM gas, unused gas is refunded).</Hint>
           </h2>
           <span className="num ml-auto text-xs text-muted">{ref?.configured && ref.accrued30dUsd != null ? `Accrued 30d ${usd(ref.accrued30dUsd)}` : ""}</span>
         </div>
@@ -91,7 +91,7 @@ export default async function RevenuePage() {
                   <td className="px-4 py-2 text-muted">{ago(r.time)}</td>
                   <td className="font-mono text-xs">{shortAddr(r.from, 6, 6)}</td>
                   <td className="text-xs text-ink-2">{r.comment ?? ""}</td>
-                  <td className="px-4 text-right font-semibold">+{num(r.amount, 4)} TON</td>
+                  <td className="px-4 text-right font-semibold">+{num(r.amount, 4)} GRAM</td>
                 </tr>
               ))}
             </tbody>

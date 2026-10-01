@@ -54,7 +54,7 @@ export function PortfolioView() {
   const ethValue = data?.evm && data.evm.ethUsd ? ((data.evm.balances.ethereum ?? 0) + (data.evm.balances.base ?? 0)) * data.evm.ethUsd : 0;
   const total = tonValue + jettonValue + solValue + ethValue;
   const alloc = [
-    { label: "TON", value: tonValue },
+    { label: "GRAM", value: tonValue },
     ...holdings.slice(0, 4).map((h) => ({ label: h.symbol, value: h.valueUsd ?? 0 })),
     { label: "SOL", value: solValue },
     { label: "ETH (L1 + Base)", value: ethValue },
@@ -64,7 +64,7 @@ export function PortfolioView() {
 
   const evmValue = (c: "ethereum" | "base") => (data?.evm?.ethUsd ? (data.evm.balances[c] ?? 0) * data.evm.ethUsd : 0);
   const chains = [
-    { label: "TON", value: tonValue + jettonValue },
+    { label: "GRAM", value: tonValue + jettonValue },
     { label: "Solana", value: solValue },
     { label: "Ethereum", value: evmValue("ethereum") },
     { label: "Base", value: evmValue("base") },
@@ -88,7 +88,7 @@ export function PortfolioView() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label="Net worth (all chains)" value={loading ? "…" : usd(total)} />
-        <Tile label="TON" value={data?.ton != null ? num(data.ton, 3) : "—"} sub={tonValue ? usd(tonValue) : undefined} />
+        <Tile label="GRAM" value={data?.ton != null ? num(data.ton, 3) : "—"} sub={tonValue ? usd(tonValue) : undefined} />
         <Tile label="Solana" value={data?.solana?.sol != null ? `${num(data.solana.sol, 3)} SOL` : "—"} sub={solValue ? usd(solValue) : sol ? undefined : "not connected"} />
         <Tile label="EVM" value={data?.evm ? `${num((data.evm.balances.ethereum ?? 0) + (data.evm.balances.base ?? 0), 4)} ETH` : "—"} sub={data?.evm ? `${num(data.evm.balances.bsc ?? 0, 4)} BNB on BSC` : evm ? undefined : "not connected"} />
       </div>

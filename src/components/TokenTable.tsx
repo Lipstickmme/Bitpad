@@ -5,6 +5,7 @@ import { ago, price, usd } from "@/lib/format";
 import { AssetDot, Change, TokenAvatar, orDash, Verified } from "./ui";
 import { QuickBuyButton } from "./QuickBuy";
 import { volumeSpike } from "@/lib/spike";
+import { coin } from "@/lib/coin";
 
 /** Dense market table — the default view for traders. */
 export function TokenTable({ tokens }: { tokens: MarketToken[] }) {
@@ -39,7 +40,7 @@ export function TokenTable({ tokens }: { tokens: MarketToken[] }) {
                   </div>
                 </div>
               </td>
-              <td><span className="inline-flex items-center gap-1.5 text-xs text-ink-2"><AssetDot asset={t.pair} size={14} />{t.pair.symbol}</span></td>
+              <td><span className="inline-flex items-center gap-1.5 text-xs text-ink-2"><AssetDot asset={t.pair} size={14} />{coin(t.pair.symbol)}</span></td>
               <td className="text-right">{orDash(t.priceUsd, price)}</td>
               <td className="text-right text-xs"><Change value={t.changes?.h1} /></td>
               <td className="text-right text-xs"><Change value={t.change24h} /></td>

@@ -56,7 +56,8 @@ const STABLES = ["USDT", "USDC", "USD₮", "DAI", "USDE", "FDUSD", "USD1", "JUSD
 
 export function quoteKind(quote: string): TrendingPool["quoteKind"] {
   const q = quote.toUpperCase().replace(/^W/, "");
-  if (q === "TON" || q === "PTON") return "ton";
+  // the native coin was renamed TON → GRAM (2026-06-15); sources may use either ticker
+  if (q === "TON" || q === "PTON" || q === "GRAM" || q === "PGRAM") return "ton";
   if (STABLES.some((s) => q.startsWith(s))) return "stable";
   if (q === "ETH" || q === "STETH") return "eth";
   if (q === "SOL") return "sol";

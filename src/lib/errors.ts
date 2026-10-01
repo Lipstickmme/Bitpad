@@ -5,7 +5,7 @@
  */
 const RULES: [RegExp, string][] = [
   [/user ?reject|rejected by user|declined|user cancel|cancelled by user|canceled|denied transaction|UserRejectsError/i, "You cancelled it in your wallet. Nothing was sent."],
-  [/no live route|no route for this pair|has no route/i, "There's no market for this token in the currency you chose right now. Try a different amount, or pay with TON or USDT."],
+  [/no live route|no route for this pair|has no route/i, "There's no market for this token in the currency you chose right now. Try a different amount, or pay with GRAM or USDT."],
   [/no market maker/i, "No market maker is quoting this stock right now. Try a different amount, or again in a minute."],
   [/429|too many requests|rate.?limit/i, "Too many requests right now. Wait a few seconds and try again."],
   [/failed to fetch|fetch failed|networkerror|network request failed|ERR_NETWORK|ECONNRESET|ENOTFOUND/i, "Network problem. Check your connection and try again."],

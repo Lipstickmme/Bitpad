@@ -14,7 +14,8 @@ import { eventsToCandles, eventsToTrades, poolEvents, readPool } from "./bitpad"
 import { spotPrice } from "./bitpad-math";
 import type { Candle, Holder, MarketToken, PairAsset, Trade } from "./types";
 
-const TON_LIKE = new Set(["TON", "PTON", "WTON", "PROXY_TON"]);
+// native coin (TON, renamed GRAM in 2026) and STON.fi's proxy wrappers for it
+const TON_LIKE = new Set(["TON", "PTON", "WTON", "PROXY_TON", "PGRAM", "PROXY_GRAM"]);
 const isTonAddr = (a?: string) => !!a && (a === TON_ASSETS.TON || /^(EQ|UQ)AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/.test(a));
 
 async function pairFor(symbol: string, address?: string, priceUsd?: number | null, image?: string): Promise<PairAsset> {

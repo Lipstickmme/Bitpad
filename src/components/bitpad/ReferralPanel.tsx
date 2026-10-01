@@ -10,6 +10,7 @@ import { CopyButton } from "../CopyButton";
 import { toast } from "../Toast";
 import { refreshSoon, usePool } from "./usePool";
 import { sendTx } from "@/lib/ton/send";
+import { coin } from "@/lib/coin";
 
 const MAX_LINKS = config.referral.maxLinksPerToken;
 
@@ -26,7 +27,7 @@ export function ReferralPanel({ token }: { token: MarketToken }) {
   if (!data) return null;
   const { pool, referrers, me } = data;
   const dec = pool.pairDecimals;
-  const sym = token.pair.symbol;
+  const sym = coin(token.pair.symbol);
   const fmt = (v: string) => `${num(Number(v) / 10 ** dec, 4)} ${sym}`;
   const active = referrers.filter((r) => r.active).sort((a, b) => Number(BigInt(b.volume) - BigInt(a.volume)));
   const isJettonPair = !!pool.pairMaster;

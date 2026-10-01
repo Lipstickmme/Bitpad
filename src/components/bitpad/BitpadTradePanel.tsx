@@ -11,6 +11,7 @@ import { toast } from "../Toast";
 import { haptic } from "../TelegramBridge";
 import { bigState, jettonWallet, refreshSoon, usePool } from "./usePool";
 import { sendTx } from "@/lib/ton/send";
+import { coin } from "@/lib/coin";
 
 const toUnits = (v: string, dec: number) => {
   const [i, f = ""] = v.split(".");
@@ -34,7 +35,7 @@ export function BitpadTradePanel({ token, onTraded }: { token: MarketToken; onTr
 
   const pool = data?.pool;
   const pairDec = pool?.pairDecimals ?? 9;
-  const pairSym = token.pair.symbol;
+  const pairSym = coin(token.pair.symbol);
   const isTonPair = pool ? !pool.pairMaster : true;
   // Buys must come through a link: the visitor's link if it's valid, else the creator's own
   const linkValid = !!(data?.refValid && ref);

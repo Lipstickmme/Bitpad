@@ -12,6 +12,7 @@ import { AssetDot, Change, PairBadge, Verified } from "./ui";
 import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
 import { sendTx } from "@/lib/ton/send";
+import { coin } from "@/lib/coin";
 
 const KINDS: PairKind[] = ["stock", "commodity", "jetton", "crypto", "creator"];
 type Step = "form" | "deploying" | "seeding" | "done";
@@ -113,7 +114,7 @@ export function LaunchForm({ assets, factory, registeredPairs, initialPair }: { 
       }
       await sendTx(tc, [message]);
       haptic("success");
-      toast.success(`$${f.symbol} is launching`, `Token and ${f.symbol}/${pair.symbol} pool deploy in one go — liquidity is locked. Waiting for it to land on-chain…`);
+      toast.success(`$${f.symbol} is launching`, `Token and ${f.symbol}/${coin(pair.symbol)} pool deploy in one go — liquidity is locked. Waiting for it to land on-chain…`);
       // Find the new launch in the factory registry, then open its page
       for (let i = 0; i < 40; i++) {
         await new Promise((r) => setTimeout(r, 3000));
@@ -193,7 +194,7 @@ export function LaunchForm({ assets, factory, registeredPairs, initialPair }: { 
               <button key={a.symbol} onClick={() => { setPair(a); setCustomJetton(""); }} className={`flex items-center gap-3 rounded-xl border p-3 text-left ${pair.symbol === a.symbol ? "border-brand bg-brand-soft/50 ring-2 ring-brand-soft" : "border-line hover:border-line-strong"}`}>
                 <AssetDot asset={a} size={32} />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 text-sm font-bold">{a.symbol}{a.verified && <Verified />} {pair.symbol === a.symbol && <Check className="size-3.5 text-brand" />}</div>
+                  <div className="flex items-center gap-1.5 text-sm font-bold">{coin(a.symbol)}{a.verified && <Verified />} {pair.symbol === a.symbol && <Check className="size-3.5 text-brand" />}</div>
                   <div className="truncate text-xs text-muted">{a.name}{a.dividendYield ? ` · ${a.dividendYield}% div` : ""}{a.kind === "creator" ? ` · ${a.badge.includes("✓") ? "verified" : "unverified"}` : ""}</div>
                 </div>
                 <div className="text-right">
@@ -211,10 +212,10 @@ export function LaunchForm({ assets, factory, registeredPairs, initialPair }: { 
             {isTonPair
               ? "TON pair — your token and its Bitpad pool are created in one transaction, with the liquidity locked."
               : pairUsable
-                ? `${pair.symbol} is enabled on Bitpad — you send ${pair.symbol} as the pool's liquidity in the launch transaction.`
+                ? `${coin(pair.symbol)} is enabled on Bitpad — you send ${coin(pair.symbol)} as the pool's liquidity in the launch transaction.`
                 : onChainPair
-                  ? `${pair.symbol} exists on TON but isn't enabled as a Bitpad pair yet (the factory owner registers pairs with npm run pair:add).`
-                  : `${pair.symbol} lives on another chain. It can be paired once a TON version is bridged and registered.`}
+                  ? `${coin(pair.symbol)} exists on TON but isn't enabled as a Bitpad pair yet (the factory owner registers pairs with npm run pair:add).`
+                  : `${coin(pair.symbol)} lives on another chain. It can be paired once a TON version is bridged and registered.`}
           </p>
         </section>
 
@@ -222,7 +223,7 @@ export function LaunchForm({ assets, factory, registeredPairs, initialPair }: { 
           <h2 className="text-sm font-semibold">3 · Liquidity</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field label="Total supply"><input className="input num" inputMode="numeric" value={supply} onChange={(e) => setSupply(Number(e.target.value.replace(/\D/g, "")) || 0)} /></Field>
-            <Field label={`${pair.symbol} to deposit (USD value)`}><input className="input num" inputMode="decimal" value={pairUsd} onChange={(e) => setPairUsd(Number(e.target.value.replace(/[^0-9.]/g, "")) || 0)} /></Field>
+            <Field label={`${coin(pair.symbol)} to deposit (USD value)`}><input className="input num" inputMode="decimal" value={pairUsd} onChange={(e) => setPairUsd(Number(e.target.value.replace(/[^0-9.]/g, "")) || 0)} /></Field>
             <Field label={`Supply into the pool: ${poolPct}%`} className="sm:col-span-2">
               <input type="range" min={50} max={100} value={poolPct} onChange={(e) => setPoolPct(Number(e.target.value))} className="w-full accent-[var(--color-brand)]" />
               <div className="flex justify-between text-xs text-muted"><span>50% (rest to creator)</span><span>100% (fair launch)</span></div>
@@ -244,24 +245,24 @@ export function LaunchForm({ assets, factory, registeredPairs, initialPair }: { 
               <div className="text-sm text-ink-2">{f.name || "Token name"}</div>
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm text-ink-2">Backed by <AssetDot asset={pair} /> <b className="text-ink">{pair.symbol}</b> <PairBadge asset={pair} /></div>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm text-ink-2">Backed by <AssetDot asset={pair} /> <b className="text-ink">{coin(pair.symbol)}</b> <PairBadge asset={pair} /></div>
           <dl className="num mt-4 space-y-2 text-sm">
             <Row k="Starting price" v={price(startPrice)} />
             <Row k="Starting market cap" v={usd(startMcap, { compact: true })} />
-            <Row k="Pool" v={`${num(poolTokens, 0)} ${f.symbol || "TOKEN"} + ${pairUnits != null ? pairUnits.toLocaleString("en-US", { maximumFractionDigits: 4 }) : "?"} ${pair.symbol}`} />
+            <Row k="Pool" v={`${num(poolTokens, 0)} ${f.symbol || "TOKEN"} + ${pairUnits != null ? pairUnits.toLocaleString("en-US", { maximumFractionDigits: 4 }) : "?"} ${coin(pair.symbol)}`} />
             <Row k="Pool depth" v={usd(pairUsd * 2, { compact: true })} />
             <Row k="Liquidity" v="Locked forever (no LP tokens)" />
           </dl>
           <div className="mt-4 space-y-2 rounded-xl bg-surface-2 p-3 text-xs">
-            <Row k="Launch fee" v={factory ? `${Number(factory.launchFee) / 1e9} TON` : "—"} />
-            <Row k="Network gas (est.)" v="≈ 0.5 TON" />
+            <Row k="Launch fee" v={factory ? `${Number(factory.launchFee) / 1e9} GRAM` : "—"} />
+            <Row k="Network gas (est.)" v="≈ 0.5 GRAM" />
             <Row k="Trading fee" v={factory ? `${(factory.tradeFeeBps / 100).toFixed(2)}% (protocol + creator)` : "—"} />
           </div>
           <button onClick={launch} disabled={!valid || step === "deploying" || step === "seeding"} className="btn btn-launch mt-4 h-12 w-full text-base">
             <Rocket className="size-4" />
             {!wallet ? "Connect TON wallet" : step === "deploying" ? "Deploying jetton…" : step === "done" ? "Launched ✓" : "Launch creator jetton"}
           </button>
-          {!valid && <p className="mt-2 text-center text-xs text-muted">{!pairUsable ? `${pair.symbol} isn't enabled as a pair on Bitpad yet — pick TON or an enabled pair.` : pairUnits == null ? `No live price for ${pair.symbol} right now.` : belowMin ? `Minimum liquidity is ${minTon} TON.` : "Name, a 2–10 character ticker and liquidity are required."}</p>}
+          {!valid && <p className="mt-2 text-center text-xs text-muted">{!pairUsable ? `${coin(pair.symbol)} isn't enabled as a pair on Bitpad yet — pick GRAM or an enabled pair.` : pairUnits == null ? `No live price for ${coin(pair.symbol)} right now.` : belowMin ? `Minimum liquidity is ${minTon} GRAM.` : "Name, a 2–10 character ticker and liquidity are required."}</p>}
         </div>
         <div className="card p-4 text-xs text-ink-2">
           <div className="mb-1 font-bold text-ink">Why direct liquidity?</div>

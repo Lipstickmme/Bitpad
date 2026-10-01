@@ -25,30 +25,26 @@ export interface QuickBuyTarget {
   bitpadPool?: string;
 }
 
-export type QuickAsset = "GRAM" | "TON";
+/** Quick buys spend GRAM, the native coin (prev. Toncoin). USDT only appears for market-maker minimums. */
+export type QuickAsset = "GRAM";
 
-/** Current quick-buy size and currency (GRAM by default). */
+/** Current quick-buy size in GRAM. */
 export function useQuickBuy() {
-  const { quickBuy, quickBuyGram, quickBuyAsset } = useApp();
-  const asset: QuickAsset = quickBuyAsset ?? "GRAM";
-  return { asset, amount: asset === "GRAM" ? quickBuyGram ?? 1000 : quickBuy };
+  const { quickBuy } = useApp();
+  return { asset: "GRAM" as QuickAsset, amount: quickBuy };
 }
 
+/** USD price of the native coin (GRAM, prev. TON). Kept for callers that size cross-chain buys. */
 let priceCache: { at: number; ton: number | null; gram: number | null } | null = null;
-/** USD prices of TON and GRAM (for converting a GRAM amount where a route only takes TON). */
 export async function tonGramUsd() {
   if (priceCache && Date.now() - priceCache.at < 60_000) return priceCache;
   const d = await fetch("/api/assets").then((r) => r.json());
-  const px = (s: string) => (d.assets as { symbol: string; priceUsd: number | null }[]).find((a) => a.symbol === s)?.priceUsd ?? null;
-  priceCache = { at: Date.now(), ton: px("TON"), gram: px("GRAM") };
+  const ton = (d.assets as { symbol: string; priceUsd: number | null }[]).find((a) => a.symbol === "TON")?.priceUsd ?? null;
+  // GRAM and TON are the same coin now
+  priceCache = { at: Date.now(), ton, gram: ton };
   return priceCache;
 }
-async function asTon(amount: number, asset: QuickAsset) {
-  if (asset === "TON") return amount;
-  const p = await tonGramUsd();
-  if (!p.ton || !p.gram) throw new Error("GRAM price unavailable, so this TON-only route can't be sized. Switch quick buy to TON.");
-  return (amount * p.gram) / p.ton;
-}
+const asTon = (amount: number) => amount; // GRAM is the native coin: 1 GRAM = 1 (former) TON
 
 /**
  * Builds a quick buy on the route that pays the platform:
@@ -66,18 +62,18 @@ async function buildQuickBuy(t: QuickBuyTarget, amount: number, asset: QuickAsse
     if (d.error || !d.pool) throw new Error(d.error ?? "Pool unavailable");
     if (d.pool.pairMaster) throw Object.assign(new Error("pair"), { code: "pair" });
     if (!d.pool.tradingOpen) throw new Error("The pool isn't open for trading yet");
-    const ton = await asTon(amount, asset as QuickAsset); // USDT only ever comes from the market-maker minimum (not Bitpad pools)
+    const ton = asTon(amount);
     const inU = toNano(ton.toFixed(9));
     const q = quoteBuy(bigState(d.pool), inU);
     if (q.out <= 0n) throw new Error("Amount too small for this pool");
     const referrer = d.refValid && ref ? ref : d.pool.creator;
     const { buildPoolBuyTx } = await import("@/lib/ton/launch");
-    return { messages: [buildPoolBuyTx(d.pool.address, inU, minOutFor(q.out, slippagePct), referrer)], via: "Bitpad pool", spent: `${ton.toFixed(3)} TON${asset === "GRAM" ? ` (≈ ${amount} GRAM; this pool is TON-paired)` : ""}` };
+    return { messages: [buildPoolBuyTx(d.pool.address, inU, minOutFor(q.out, slippagePct), referrer)], via: "Bitpad pool", spent: `${ton.toFixed(3)} GRAM` };
   }
 
   // Quote + transaction built on the server in one round trip (fast, keyed RPC)
   const ref = generalReferrer(wallet);
-  const qs = new URLSearchParams({ token: t.address, pay: asset, amount: String(amount), wallet, slippage: String(slippagePct), ...(ref && { ref }) });
+  const qs = new URLSearchParams({ token: t.address, pay: asset === "GRAM" ? "TON" : asset, amount: String(amount), wallet, slippage: String(slippagePct), ...(ref && { ref }) });
   const d = await fetch(`/api/buy-tx?${qs}`).then((r) => r.json());
   if (d.error) throw Object.assign(new Error(d.error), { minimum: d.minimum as MinimumBuy | undefined });
   return { messages: d.messages, via: d.via, spent: d.spent };
@@ -148,8 +144,8 @@ export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarge
 
 /** Quick-buy size and currency (GRAM or TON), shared by every ⚡ button. */
 export function QuickBuyAmount() {
-  const { setQuickBuy, setQuickBuyGram, setQuickBuyAsset, slippage, setSlippage } = useApp();
-  const { asset, amount } = useQuickBuy();
+  const { setQuickBuy, slippage, setSlippage } = useApp();
+  const { amount } = useQuickBuy();
   const hydrated = useHydrated();
   const [draft, setV] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -161,30 +157,24 @@ export function QuickBuyAmount() {
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
-  const pickAsset = (a: "GRAM" | "TON") => {
-    setV(null);
-    if (a !== asset) setQuickBuyAsset(a);
-  };
   return (
     <div ref={box} className="relative">
       {/* Highlighted so people see they can set how much each ⚡ buy spends */}
-      <label className="quickbuy flex h-9 items-center gap-1.5 rounded-lg border border-brand/60 bg-brand-soft/40 px-2.5 text-xs text-brand-ink shadow-[0_0_0_3px_var(--color-brand-soft)] focus-within:border-brand" title="How much each ⚡ quick buy spends">
+      <label className="quickbuy flex h-9 items-center gap-1.5 rounded-lg border border-brand/60 bg-brand-soft/40 px-2.5 text-xs text-brand-ink shadow-[0_0_0_3px_var(--color-brand-soft)] focus-within:border-brand" title="How much GRAM each ⚡ quick buy spends">
         <Zap className="size-3.5 fill-current text-brand" />
         <span className="font-semibold">Set quick buy</span>
         <input
           inputMode="decimal"
           value={v}
-          aria-label="Quick buy amount"
+          aria-label="Quick buy amount in GRAM"
           onChange={(e) => {
             const s = e.target.value.replace(/[^0-9.]/g, "");
             setV(s);
-            if (Number(s) > 0) (asset === "GRAM" ? setQuickBuyGram : setQuickBuy)(Number(s));
+            if (Number(s) > 0) setQuickBuy(Number(s));
           }}
           className="num w-14 rounded bg-black/20 px-1 text-right text-sm font-semibold text-ink outline-none"
         />
-        <button type="button" onClick={() => pickAsset(asset === "GRAM" ? "TON" : "GRAM")} className="rounded bg-surface-2 px-1.5 py-0.5 font-semibold text-ink hover:bg-line-strong" title="Switch between GRAM and TON">
-          {hydrated ? asset : "GRAM"}
-        </button>
+        <span className="rounded bg-surface-2 px-1.5 py-0.5 font-semibold text-ink">GRAM</span>
         <button type="button" onClick={(e) => { e.preventDefault(); setOpen((o) => !o); }} className="grid size-6 place-items-center rounded text-brand-ink hover:bg-white/10" aria-label="Quick buy settings" aria-expanded={open}>
           <Settings className={`size-4 transition-transform ${open ? "rotate-90" : ""}`} />
         </button>
@@ -192,18 +182,13 @@ export function QuickBuyAmount() {
       {open && (
         <div className="card glass absolute right-0 z-30 mt-2 w-64 space-y-3 p-3 text-xs shadow-2xl shadow-black/40">
           <div>
-            <div className="mb-1.5 font-semibold text-ink">Pay with</div>
-            <div className="seg w-full">
-              {(["GRAM", "TON"] as const).map((a) => <button key={a} data-on={hydrated && asset === a} onClick={() => pickAsset(a)} className="flex-1">{a}</button>)}
-            </div>
-          </div>
-          <div>
-            <div className="mb-1.5 font-semibold text-ink">Amount per ⚡ buy</div>
+            <div className="mb-1.5 font-semibold text-ink">GRAM per ⚡ buy</div>
             <div className="grid grid-cols-4 gap-1">
-              {(asset === "GRAM" ? [100, 500, 1000, 5000] : [0.5, 1, 5, 10]).map((n) => (
-                <button key={n} onClick={() => { setV(null); (asset === "GRAM" ? setQuickBuyGram : setQuickBuy)(n); }} className={`rounded-md border py-1.5 font-semibold ${hydrated && amount === n ? "border-brand bg-brand-soft text-brand-ink" : "border-line hover:border-line-strong"}`}>{n}</button>
+              {[0.5, 1, 5, 10].map((n) => (
+                <button key={n} onClick={() => { setV(null); setQuickBuy(n); }} className={`rounded-md border py-1.5 font-semibold ${hydrated && amount === n ? "border-brand bg-brand-soft text-brand-ink" : "border-line hover:border-line-strong"}`}>{n}</button>
               ))}
             </div>
+            <p className="mt-1.5 text-muted">GRAM is TON&apos;s native coin (renamed from Toncoin). Paid straight from your wallet.</p>
           </div>
           <div>
             <div className="mb-1.5 font-semibold text-ink">Max slippage</div>

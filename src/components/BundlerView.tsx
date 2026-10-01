@@ -23,6 +23,7 @@ export function BundlerView() {
   const [lib, setLib] = useState<Lib>();
   const [genCount, setGenCount] = useState(5);
   const [importText, setImportText] = useState("");
+  // Amounts are in GRAM, TON's native coin (renamed from Toncoin): wallets hold it for buys and gas
   const [fundTotal, setFundTotal] = useState(10);
   const [fundMode, setFundMode] = useState<SplitMode>("random");
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -48,8 +49,11 @@ export function BundlerView() {
   }, []);
 
   const active = wallets.filter((w) => w.enabled);
-  const fundSplit = useMemo(() => lib?.splitAmount(fundTotal, active.length, fundMode) ?? [], [lib, fundTotal, active.length, fundMode, seed]); // eslint-disable-line react-hooks/exhaustive-deps
-  const tradeSplit = useMemo(() => lib?.splitAmount(tradeTotal, active.length, tradeMode) ?? [], [lib, tradeTotal, active.length, tradeMode, seed]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Both splits are in TON (buys) or tokens (sells)
+  const fundTon = fundTotal;
+  const tradeAmount = tradeTotal;
+  const fundSplit = useMemo(() => lib?.splitAmount(fundTon, active.length, fundMode) ?? [], [lib, fundTon, active.length, fundMode, seed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tradeSplit = useMemo(() => lib?.splitAmount(tradeAmount, active.length, tradeMode) ?? [], [lib, tradeAmount, active.length, tradeMode, seed]); // eslint-disable-line react-hooks/exhaustive-deps
   const totalBal = wallets.reduce((s, w) => s + (Number.isFinite(w.balance) ? w.balance! : 0), 0);
 
   const persist = (w: BundleWallet[]) => {
@@ -176,7 +180,7 @@ export function BundlerView() {
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Multi-wallet bundler</h1>
-          <p className="text-sm text-ink-2">{wallets.length} wallets · {active.length} active · {num(totalBal, 3)} TON</p>
+          <p className="text-sm text-ink-2">{wallets.length} wallets · {active.length} active · {num(totalBal, 3)} GRAM</p>
         </div>
         <div className="ml-auto flex gap-2">
           <button onClick={refresh} className="btn btn-ghost"><RefreshCw className="size-4" /> Balances</button>
@@ -203,7 +207,7 @@ export function BundlerView() {
               <thead className="text-left text-xs text-muted">
                 <tr className="border-b border-line">
                   <th className="px-3 py-2 font-medium">On</th><th className="font-medium">Wallet</th><th className="font-medium">Address</th>
-                  <th className="text-right font-medium">TON</th><th className="text-right font-medium">Next {side}</th><th className="px-3 font-medium">Status</th><th />
+                  <th className="text-right font-medium">GRAM</th><th className="text-right font-medium">Next {side}</th><th className="px-3 font-medium">Status</th><th />
                 </tr>
               </thead>
               <tbody className="num">
@@ -216,10 +220,15 @@ export function BundlerView() {
                       <td className="font-semibold">{w.label}</td>
                       <td><span className="font-mono text-xs">{shortAddr(w.address, 6, 6)}</span> <CopyButton value={w.address} className="ml-1 px-1.5 py-0.5" /></td>
                       <td className="text-right">{w.balance === undefined ? "—" : Number.isFinite(w.balance) ? num(w.balance, 3) : "err"}</td>
-                      <td className="text-right text-ink-2">{idx >= 0 ? `${num(tradeSplit[idx] ?? 0, 3)} ${side === "buy" ? "TON" : "tok"}` : "—"}</td>
+                      <td className="text-right text-ink-2">{idx >= 0 ? (side === "buy" ? `${num(tradeSplit[idx] ?? 0, 3)} GRAM` : `${num(tradeSplit[idx] ?? 0, 3)} tok`) : "—"}</td>
                       <td className="px-3">
                         {p && <span className={`chip ${p.status === "sent" ? "border-up/25 bg-up-soft text-up" : p.status === "error" ? "border-down/25 bg-down-soft text-down" : ""}`}>{p.status}</span>}
-                        {p?.status === "error" && p.error && <div className="mt-1 max-w-[260px] whitespace-normal text-[11px] leading-snug text-down" title={p.error}>{humanError(p.error)}</div>}
+                        {p?.status === "error" && p.error && (
+                          <div className="mt-1 max-w-[280px] whitespace-normal text-[11px] leading-snug text-down">
+                            {humanError(p.error)}
+                            {humanError(p.error) !== p.error && <details className="mt-0.5 text-muted"><summary className="cursor-pointer">Details</summary><span className="break-words font-mono text-[10px]">{p.error}</span></details>}
+                          </div>
+                        )}
                         {p?.status === "sent" && p.via && <div className="mt-1 text-[11px] text-muted">via {p.via}</div>}
                       </td>
                       <td className="pr-3 text-right whitespace-nowrap">
@@ -246,7 +255,7 @@ export function BundlerView() {
             <p className="mt-1 text-xs text-muted">From your connected TON wallet via TON Connect.</p>
             <div className="mt-3 flex gap-2">
               <input className="input num" inputMode="decimal" value={fundTotal} onChange={(e) => setFundTotal(Number(e.target.value) || 0)} />
-              <span className="self-center text-sm font-bold">TON</span>
+              <span className="self-center text-sm font-bold">GRAM</span>
             </div>
             <SplitPicker mode={fundMode} setMode={setFundMode} onShuffle={() => setSeed((s) => s + 1)} />
             <button onClick={fund} disabled={!active.length || fundTotal <= 0} className="btn btn-ghost mt-3 w-full">{wallet ? `Send to ${active.length} wallets` : "Connect TON wallet"}</button>
@@ -263,7 +272,7 @@ export function BundlerView() {
             </div>
             <label className="label mt-3 block">Jetton master address</label>
             <input className="input mt-1 font-mono text-xs" value={jetton} onChange={(e) => setJetton(e.target.value.trim())} placeholder="EQ… (copy CA from any token page)" />
-            <label className="label mt-3 block">Total {side === "buy" ? "TON to spend" : "tokens to sell"}</label>
+            <label className="label mt-3 block">Total {side === "buy" ? "GRAM to spend" : "tokens to sell"}</label>
             <input className="input num mt-1" inputMode="decimal" value={tradeTotal} onChange={(e) => setTradeTotal(Number(e.target.value) || 0)} />
             <SplitPicker mode={tradeMode} setMode={setTradeMode} onShuffle={() => setSeed((s) => s + 1)} />
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -273,7 +282,7 @@ export function BundlerView() {
             <button onClick={execute} disabled={running || !active.length || tradeTotal <= 0} className={`btn mt-4 h-11 w-full ${side === "buy" ? "btn-up" : "btn-down"}`}>
               {running ? "Executing…" : `${side === "buy" ? "Buy" : "Sell"} from ${active.length} wallets`}
             </button>
-            <p className="mt-2 text-[11px] text-muted">Buys use the best route (Bitpad pool, STON.fi, DeDust or Omniston for stocks), built for each wallet and signed locally. Each wallet's balance is checked first. Keep ~0.3 TON per wallet for gas on top of its buy.</p>
+            <p className="mt-2 text-[11px] text-muted">Buys use the best route (Bitpad pool, STON.fi, DeDust or Omniston for stocks), built for each wallet and signed locally. Each wallet's balance is checked first. Keep ~0.3 GRAM per wallet for gas on top of its buy.</p>
           </section>
         </aside>
       </div>

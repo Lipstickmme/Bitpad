@@ -6,6 +6,7 @@ import { dedustQuote, platformFee } from "./ton/dedust";
 import { getPairAssets } from "./prices";
 import { ensureRuntimeConfig } from "./runtime";
 import type { MarketToken, RouteQuote } from "./types";
+import { coin, payKey } from "./coin";
 
 export interface PayInfo {
   symbol: string;
@@ -18,7 +19,7 @@ export interface PayInfo {
 export async function payInfo(symbol: string): Promise<PayInfo | null> {
   const { assets } = await getPairAssets();
   const px = (s: string) => assets.find((a) => a.symbol === s)?.priceUsd ?? null;
-  if (symbol === "TON") return { symbol, address: TON_ASSETS.TON, decimals: 9, priceUsd: px("TON") };
+  if (symbol === "TON" || symbol === "GRAM") return { symbol: "TON", address: TON_ASSETS.TON, decimals: 9, priceUsd: px("TON") }; // GRAM = the native coin
   if (symbol === "USDT") return { symbol, address: TON_ASSETS.USDT, decimals: 6, priceUsd: 1 };
   const hit = assets.find((a) => a.symbol === symbol && a.tonAddress);
   if (hit?.tonAddress) return { symbol, address: hit.tonAddress, decimals: symbol === "USDC" ? 6 : 9, priceUsd: hit.priceUsd };
@@ -39,6 +40,7 @@ export interface MinimumBuy { amount: number; asset: string; usd: number | null 
 
 export async function quoteBuy(token: MarketToken, pay: string, amount: number, opts: { omniston?: boolean } = { omniston: true }): Promise<{ routes: RouteQuote[]; pay: PayInfo | null; errors: string[]; switchedFrom?: string; candidates?: { info: PayInfo; amount: number }[]; minimum?: MinimumBuy | null }> {
   await ensureRuntimeConfig();
+  pay = payKey(pay); // "GRAM" is the native coin
   const first = await payInfo(pay);
   if (!first) return { routes: [], pay: null, errors: [`${pay} is not available on TON`] };
   const errors: string[] = [];
@@ -57,8 +59,9 @@ export async function quoteBuy(token: MarketToken, pay: string, amount: number, 
   const alts = await Promise.all(candidates.slice(1).map(async (c) => ({ ...c, routes: await quoteWith(token, c.info, c.amount, errors) })));
   const hit = alts.find((a) => a.routes.length);
   if (hit) return { routes: hit.routes, pay: hit.info, errors: [], switchedFrom: pay };
-  // No AMM pool at all: stocks & gold trade through Omniston's market makers
-  if (await isStockAsset(token.address)) {
+  // No STON.fi/DeDust pool: Omniston aggregates STON.fi, DeDust, TONCO and market makers (xStocks trade there)
+  const stock = await isStockAsset(token.address);
+  {
     if (opts.omniston) {
       const tried: string[] = [];
       for (const c of candidates) {
@@ -68,19 +71,18 @@ export async function quoteBuy(token: MarketToken, pay: string, amount: number, 
         } catch (e) {
           const { NoQuote } = await import("./ton/omniston");
           if (!(e instanceof NoQuote)) { errors.push(`Omniston: ${(e as Error).message}`); break; } // can't reach it: don't retry
-          tried.push(`${c.amount} ${c.info.symbol}${e.acked ? "" : " (not acknowledged)"}`);
+          tried.push(`${c.amount} ${coin(c.info.symbol)}${e.acked ? "" : " (not acknowledged)"}`);
         }
       }
       if (tried.length) {
-        errors.push(`Omniston: no market maker quoted ${tried.join(" or ")}`);
-        // Too small for the market makers? Find the smallest size they'd take, for the user to approve
-        const minimum = await omnistonMinimum(token, candidates).catch(() => null);
+        errors.push(`Omniston: no route or quote for ${tried.join(" or ")}`);
+        // Stocks: too small for the market makers? Find the smallest size they'd take, for the user to approve
+        const minimum = stock ? await omnistonMinimum(token, candidates).catch(() => null) : null;
         return { routes: [], pay: first, errors, candidates, minimum };
       }
     }
     return { routes: [], pay: first, errors, candidates };
   }
-  return { routes: [], pay: first, errors };
 }
 
 const LADDER_USD = [5, 10, 25, 50, 100, 250];
@@ -99,7 +101,7 @@ export async function omnistonMinimum(token: MarketToken, candidates: { info: Pa
     const hit = await omniSmallest(c.info.address, token.address, sizes.map((n) => BigInt(Math.round(n * 10 ** c.info.decimals))));
     if (hit) {
       const amount = Number(hit.units) / 10 ** c.info.decimals;
-      return { amount, asset: c.info.symbol, usd: px ? amount * px : null };
+      return { amount, asset: coin(c.info.symbol), usd: px ? amount * px : null };
     }
   }
   return null;
@@ -121,7 +123,7 @@ async function omnistonRoute(token: MarketToken, info: PayInfo, amount: number):
     id: "omniston", venue: `STON.fi Omniston · ${q.resolver}`, chain: "ton", kind: "onchain", payAsset: info.symbol, payAmount: amount,
     receiveAmount: recv, receiveUsd: token.priceUsd ? recv * token.priceUsd : 0, priceImpact: 0,
     platformFeeUsd: payUsd != null ? payUsd * (config.swapFeeBps / 10_000) : 0, networkFeeUsd: 0, etaSeconds: 15, live: true, executable: true, best: true,
-    note: q.feeWaived ? "Market-maker quote via STON.fi's aggregator (no Bitpad fee on this one)" : "Market-maker quote via STON.fi's aggregator",
+    note: q.feeWaived ? "Via STON.fi's Omniston aggregator (no Bitpad fee on this one)" : "Via STON.fi's Omniston aggregator",
   };
 }
 

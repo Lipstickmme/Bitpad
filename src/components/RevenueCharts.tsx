@@ -27,7 +27,7 @@ export function RevenueCharts({ daily, bySource }: { daily: Day[]; bySource: { s
                 <CartesianGrid vertical={false} stroke={GRID} />
                 <XAxis dataKey="date" {...AXIS} interval={4} />
                 <YAxis {...AXIS} width={44} tickFormatter={(v) => num(v, 2)} />
-                <Tooltip cursor={{ fill: "rgba(255,255,255,0.03)" }} content={({ payload, label }) => payload?.length ? <TipBox title={String(label)} rows={payload.filter((p) => Number(p.value) > 0).map((p) => ({ label: String(p.dataKey), value: `${num(Number(p.value), 4)} TON`, color: COLOR[String(p.dataKey)] }))} /> : null} />
+                <Tooltip cursor={{ fill: "rgba(255,255,255,0.03)" }} content={({ payload, label }) => payload?.length ? <TipBox title={String(label)} rows={payload.filter((p) => Number(p.value) > 0).map((p) => ({ label: String(p.dataKey), value: `${num(Number(p.value), 4)} GRAM`, color: COLOR[String(p.dataKey)] }))} /> : null} />
                 {SOURCES.map((k, i) => <Bar key={k} dataKey={k} stackId="a" fill={COLOR[k]} radius={i === SOURCES.length - 1 ? [3, 3, 0, 0] : 0} />)}
               </BarChart>
             </ResponsiveContainer>
@@ -49,7 +49,7 @@ export function RevenueCharts({ daily, bySource }: { daily: Day[]; bySource: { s
                   <Pie data={shares} dataKey="amount" nameKey="source" innerRadius="58%" outerRadius="90%" stroke="#0f191d" strokeWidth={2}>
                     {shares.map((s) => <Cell key={s.source} fill={COLOR[s.source]} />)}
                   </Pie>
-                  <Tooltip content={({ payload }) => payload?.[0] ? <TipBox title={String(payload[0].name)} rows={[{ label: "TON", value: num(Number(payload[0].value), 4) }, { label: "Share", value: `${((100 * Number(payload[0].value)) / total).toFixed(1)}%` }]} /> : null} />
+                  <Tooltip content={({ payload }) => payload?.[0] ? <TipBox title={String(payload[0].name)} rows={[{ label: "GRAM", value: num(Number(payload[0].value), 4) }, { label: "Share", value: `${((100 * Number(payload[0].value)) / total).toFixed(1)}%` }]} /> : null} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -58,7 +58,7 @@ export function RevenueCharts({ daily, bySource }: { daily: Day[]; bySource: { s
                 <li key={s.source} className="flex items-center gap-2">
                   <span className="size-2.5 rounded-sm" style={{ background: COLOR[s.source] }} />
                   <span className="text-ink-2">{s.source}</span>
-                  <span className="num ml-auto">{num(s.amount, 3)} TON · {total ? ((100 * s.amount) / total).toFixed(0) : 0}%</span>
+                  <span className="num ml-auto">{num(s.amount, 3)} GRAM · {total ? ((100 * s.amount) / total).toFixed(0) : 0}%</span>
                 </li>
               ))}
             </ul>

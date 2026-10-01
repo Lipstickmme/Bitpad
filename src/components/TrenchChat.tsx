@@ -158,7 +158,7 @@ export function TrenchChat() {
             <Mark size={20} />
             <span className="text-sm font-bold">Trench chat</span>
             <Hint>
-              Two kinds of messages share one feed. <b>Off-chain</b> messages are free: log in with Telegram and the Bitpad bot posts them to Bitpad&apos;s Telegram channel{off.channel ? ` (@${off.channel})` : ""}, so they live on Telegram&apos;s servers. <b>On-chain</b> messages are transactions to Bitpad&apos;s chat contract: permanent, public and about 0.01 TON each. Likes, calls and tiny images are on-chain only. Calls are theses on a jetton, and only wallets that hold it can post one; the ✓ holder badge is re-checked against current balances. GIFs are Giphy or Tenor links.
+              Two kinds of messages share one feed. <b>Off-chain</b> messages are free: log in with Telegram and the Bitpad bot posts them to Bitpad&apos;s Telegram channel{off.channel ? ` (@${off.channel})` : ""}, so they live on Telegram&apos;s servers. <b>On-chain</b> messages are transactions to Bitpad&apos;s chat contract: permanent, public and about 0.01 GRAM each. Likes, calls and tiny images are on-chain only. Calls are theses on a jetton, and only wallets that hold it can post one; the ✓ holder badge is re-checked against current balances. GIFs are Giphy or Tenor links.
             </Hint>
             <div className="seg ml-auto">
               <button data-on={tab === "all"} onClick={() => setTab("all")}>All</button>
@@ -262,7 +262,7 @@ function Composer({ me, onPost, mode, setMode, offOk, tgIn, compact = false }: {
         <div className="flex items-center gap-2 text-[11px]">
           <div className="seg">
             <button data-on={off} onClick={() => { setMode("offchain"); setCall(false); if (media?.type === "image") setMedia(null); }}>Off-chain · free</button>
-            <button data-on={!off} onClick={() => setMode("onchain")}>On-chain · ~0.01 TON</button>
+            <button data-on={!off} onClick={() => setMode("onchain")}>On-chain · ~0.01 GRAM</button>
           </div>
           {off && !tgIn && <span className="text-warn">Log in with Telegram to send</span>}
         </div>
@@ -315,7 +315,7 @@ function Composer({ me, onPost, mode, setMode, offOk, tgIn, compact = false }: {
           }
         }} />
         {!compact && !off && <IconBtn on={call} onClick={() => setCall((c) => !c)} label="Make a call (holders only, on-chain)"><Megaphone className="size-4" /></IconBtn>}
-        <span className="ml-auto text-[10px]">{text.length}/{off ? 500 : MAX_TEXT} · {off ? "free" : "~0.01 TON"}</span>
+        <span className="ml-auto text-[10px]">{text.length}/{off ? 500 : MAX_TEXT} · {off ? "free" : "~0.01 GRAM"}</span>
       </div>
     </div>
   );

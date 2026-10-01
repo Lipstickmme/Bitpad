@@ -65,7 +65,7 @@ export function BundleTokenChart({ jetton, lastBuy, onPrice }: { jetton: string;
           {lastBuy ? (
             <>
               <div className={`num text-lg font-bold ${since == null ? "text-muted" : since >= 0 ? "text-up" : "text-down"}`}>{since == null ? "—" : pct(since)}</div>
-              <div className="text-[11px] text-muted" title={`Bought at ${price(lastBuy.priceUsd)}`}>since last bundle buy · {lastBuy.ton.toFixed(2)} TON in {lastBuy.wallets} wallet{lastBuy.wallets === 1 ? "" : "s"} · {ago(lastBuy.time)} ago</div>
+              <div className="text-[11px] text-muted" title={`Bought at ${price(lastBuy.priceUsd)}`}>since last bundle buy · {lastBuy.ton.toFixed(2)} GRAM in {lastBuy.wallets} wallet{lastBuy.wallets === 1 ? "" : "s"} · {ago(lastBuy.time)} ago</div>
             </>
           ) : (
             <div className="text-[11px] text-muted">No bundle buy yet. After one, its profit or loss shows here.</div>

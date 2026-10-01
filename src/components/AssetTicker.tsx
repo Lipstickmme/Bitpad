@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { PairAsset } from "@/lib/types";
 import { price } from "@/lib/format";
 import { AssetDot, Change } from "./ui";
+import { coin } from "@/lib/coin";
 
 /** Auto-scrolling strip of live pair-asset prices. Refreshes every 30s; assets without a live quote are left out. */
 export function AssetTicker({ assets: initial }: { assets: PairAsset[] }) {
@@ -24,7 +25,7 @@ export function AssetTicker({ assets: initial }: { assets: PairAsset[] }) {
   const items = row.map((a) => (
     <span key={a.symbol} className="flex shrink-0 items-center gap-2 pr-8 text-[13px]" title={a.priceSource ? `${a.name} · via ${a.priceSource}` : a.name}>
       <AssetDot asset={a} size={18} />
-      <span className="font-medium text-ink">{a.symbol}</span>
+      <span className="font-medium text-ink">{coin(a.symbol)}</span>
       <span className="num text-ink-2">{price(a.priceUsd!)}</span>
       <Change value={a.change24h} className="text-xs" />
     </span>

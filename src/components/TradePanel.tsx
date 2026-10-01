@@ -13,9 +13,11 @@ import { haptic } from "./TelegramBridge";
 import { sendTx } from "@/lib/ton/send";
 import { stonAppSwapUrl } from "@/lib/ton/links";
 import { humanError } from "@/lib/errors";
+import { coin } from "@/lib/coin";
 
-const PAY = ["TON", "USDT", "GRAM", "USDC"] as const;
-const PRESETS: Record<(typeof PAY)[number], number[]> = { TON: [5, 25, 100, 500], USDT: [10, 50, 250, 1000], GRAM: [5000, 25000, 100000, 500000], USDC: [10, 50, 250, 1000] };
+// GRAM is the native coin (prev. Toncoin)
+const PAY = ["GRAM", "USDT", "USDC"] as const;
+const PRESETS: Record<(typeof PAY)[number], number[]> = { GRAM: [1, 5, 25, 100], USDT: [10, 50, 250, 1000], USDC: [10, 50, 250, 1000] };
 
 export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice?: number | null }) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -58,7 +60,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
           setRoutes(d.routes ?? []);
           setQuoteErr(d.errors ?? (d.error ? [d.error] : []));
           setMinimum(d.minimum ?? null);
-          setSwitched(d.switchedFrom && d.pay ? `No ${d.switchedFrom} pool for $${token.symbol}: this buy pays ${d.routes?.[0]?.payAmount ?? ""} ${d.pay.symbol} (same value).` : null);
+          setSwitched(d.switchedFrom && d.pay ? `No ${coin(d.switchedFrom)} pool for $${token.symbol}: this buy pays ${d.routes?.[0]?.payAmount ?? ""} ${coin(d.pay.symbol)} (same value).` : null);
           setRouteId((d.routes ?? []).find((r: RouteQuote) => r.best)?.id);
         })
         .finally(() => setLoading(false));
@@ -172,7 +174,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
                 {Number(amount) > 0 && minimum ? (
                   <>
                     Too small for the market makers right now. The smallest buy they quote is <b className="text-ink">{minimum.amount} {minimum.asset}</b>{minimum.usd ? ` (~$${minimum.usd.toFixed(0)})` : ""}.{" "}
-                    <button onClick={() => { setPayAsset(minimum.asset as typeof payAsset); setAmount(String(minimum.amount)); }} className="font-semibold text-brand hover:underline">Use this amount</button>
+                    <button onClick={() => { setPayAsset((minimum.asset === "TON" ? "GRAM" : minimum.asset) as typeof payAsset); setAmount(String(minimum.amount)); }} className="font-semibold text-brand hover:underline">Use this amount</button>
                   </>
                 ) : Number(amount) > 0 && quoteErr.length ? (
                   <>

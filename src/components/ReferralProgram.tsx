@@ -42,7 +42,7 @@ export function ReferralProgram() {
             Share your link. Every buy routed through Bitpad by someone who arrived through it (quick buys and the trade panel, via STON.fi or DeDust) pays the platform fee as a separate on-chain transfer tagged with your wallet. You earn {share}% of those fees. Payouts are sent from the fee wallet with the comment &quot;bitpad:refpay&quot;. Both sides are public on-chain, and this page reads them straight from the fee wallet&apos;s history. Buying through your own link doesn&apos;t count. Buys inside Bitpad launch pools use each jetton&apos;s creator links instead.
           </Hint>
         </h2>
-        {d && <span className="ml-auto text-xs text-muted">{d.totals.referrers} referrers · {num(d.totals.earned, 3)} TON earned in total</span>}
+        {d && <span className="ml-auto text-xs text-muted">{d.totals.referrers} referrers · {num(d.totals.earned, 3)} GRAM earned in total</span>}
       </div>
 
       <div className="grid gap-4 p-4 lg:grid-cols-[1fr_320px]">
@@ -60,9 +60,9 @@ export function ReferralProgram() {
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                 <Tile k="Referred buys" v={me ? String(me.buys) : "0"} sub={me ? `${me.traders} traders` : undefined} />
-                <Tile k="Fees generated" v={`${num(me?.fees ?? 0, 4)} TON`} />
-                <Tile k={`Your ${share}%`} v={`${num(me?.earned ?? 0, 4)} TON`} />
-                <Tile k="Paid · owed" v={`${num(me?.paid ?? 0, 3)} · ${num(me?.owed ?? 0, 3)}`} sub="TON" />
+                <Tile k="Fees generated" v={`${num(me?.fees ?? 0, 4)} GRAM`} />
+                <Tile k={`Your ${share}%`} v={`${num(me?.earned ?? 0, 4)} GRAM`} />
+                <Tile k="Paid · owed" v={`${num(me?.paid ?? 0, 3)} · ${num(me?.owed ?? 0, 3)}`} sub="GRAM" />
               </div>
               <div className="overflow-hidden rounded-lg border border-line">
                 <div className="border-b border-line px-3 py-2 text-xs font-semibold">History</div>
@@ -74,7 +74,7 @@ export function ReferralProgram() {
                           <td className="px-3 py-2 text-muted">{ago(h.time)}</td>
                           <td>{h.kind === "paid" ? <span className="text-up">Payout</span> : <span className="text-ink-2">Buy via {h.route}</span>}</td>
                           <td className="font-mono text-muted">{h.trader ? shortAddr(h.trader, 4, 4) : ""}</td>
-                          <td className="px-3 text-right font-medium">{h.kind === "paid" ? "+" : ""}{num(h.amount, 5)} TON</td>
+                          <td className="px-3 text-right font-medium">{h.kind === "paid" ? "+" : ""}{num(h.amount, 5)} GRAM</td>
                           <td className="pr-3 text-right">{h.hash && <a className="text-muted hover:text-ink" href={`https://tonviewer.com/transaction/${h.hash}`} target="_blank" rel="noreferrer">↗</a>}</td>
                         </tr>
                       ))}
@@ -93,7 +93,7 @@ export function ReferralProgram() {
               <li key={r.address} className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${me?.address === r.address ? "bg-surface-2" : ""}`}>
                 <span className="w-4 text-muted">{i + 1}</span>
                 <span className="font-mono">{shortAddr(r.address, 4, 4)}</span>
-                <span className="num ml-auto">{num(r.earned, 3)} TON</span>
+                <span className="num ml-auto">{num(r.earned, 3)} GRAM</span>
               </li>
             ))}
             {!d?.leaderboard?.length && <li className="text-muted">No referred buys yet.</li>}

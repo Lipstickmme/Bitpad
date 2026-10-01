@@ -9,6 +9,7 @@ import { Hint, Verified } from "./ui";
 import { XBuyButton, xBuyable } from "./XBuy";
 import { Pager } from "./Pager";
 import { volumeSpike } from "@/lib/spike";
+import { coin } from "@/lib/coin";
 
 const PAGE = 15;
 const NATIVE: Record<MarketChain, { name: string; coin: string; kind: TrendingPool["quoteKind"] }> = {
@@ -88,7 +89,7 @@ export function ChainMarket({ chain }: { chain: MarketChain }) {
 
 function Row({ p }: { p: TrendingPool }) {
   const mcap = p.marketCap || p.fdv || null;
-  const label = <>{p.base}{p.verified && <Verified className="ml-1 size-3.5 align-[-2px]" />}{p.quote && <span className="font-normal text-muted"> / {p.quote}</span>}</>;
+  const label = <>{p.base}{p.verified && <Verified className="ml-1 size-3.5 align-[-2px]" />}{p.quote && <span className="font-normal text-muted"> / {coin(p.quote)}</span>}</>;
   return (
     <tr title={volumeSpike(p) ? "Unusual volume right now" : undefined} className={`border-b border-line/60 last:border-0 hover:bg-surface-2/60 ${volumeSpike(p) ? "spike" : ""}`}>
       <td className="px-4 py-2.5 font-medium">

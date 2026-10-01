@@ -16,6 +16,7 @@ import { PairValuation } from "./PairValuation";
 import { ActivityTabs } from "./ActivityTabs";
 import { TelegramIcon, XIcon } from "./Brand";
 import { QuickBuyButton } from "./QuickBuy";
+import { coin } from "@/lib/coin";
 
 export function TokenView({ token }: { token: MarketToken }) {
   const [live, setLive] = useState<number | null>(token.priceUsd);
@@ -46,7 +47,7 @@ export function TokenView({ token }: { token: MarketToken }) {
               )}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-ink-2">
-              <span>Paired with</span> <AssetDot asset={token.pair} /> <span className="font-semibold text-ink">{token.pair.symbol}</span>
+              <span>Paired with</span> <AssetDot asset={token.pair} /> <span className="font-semibold text-ink">{coin(token.pair.symbol)}</span>
               <PairBadge asset={token.pair} />
               <CopyButton value={token.address} label={`CA ${shortAddr(token.address, 6, 6)}`} />
             </div>

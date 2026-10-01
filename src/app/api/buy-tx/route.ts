@@ -5,6 +5,11 @@ import { quoteBuy } from "@/lib/routing";
 import { buildBuyTx } from "@/lib/ton/swap";
 import { buildDedustBuyTx } from "@/lib/ton/dedust";
 import { TON_ASSETS } from "@/lib/config";
+import { coin, payKey } from "@/lib/coin";
+import { toNano } from "@ton/core";
+import { readPool } from "@/lib/bitpad";
+import { minOutFor, quoteBuy as quoteBits } from "@/lib/bitpad-math";
+import { buildPoolBuyTx } from "@/lib/ton/launch";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +47,7 @@ async function buildViaOmniston(candidates: { info: { symbol: string; address: s
     const tonOut = r.messages.reduce((s, m) => s + BigInt(m.amount), 0n);
     const allowed = (c.info.address === TON_ASSETS.TON ? units : 0n) + OMNI_GAS_CAP;
     if (tonOut > allowed) throw new Error("The aggregator's transaction asked for more TON than this buy needs, so it was not sent");
-    return { messages: r.messages, via: `STON.fi Omniston · ${r.q.resolver}${r.q.feeWaived ? " (no Bitpad fee)" : ""}`, spent: `${c.amount} ${c.info.symbol}`, switchedFrom: null };
+    return { messages: r.messages, via: `STON.fi Omniston · ${r.q.resolver}${r.q.feeWaived ? " (no Bitpad fee)" : ""}`, spent: `${c.amount} ${coin(c.info.symbol)}`, switchedFrom: null };
   }
   return null;
 }
@@ -59,18 +64,32 @@ export async function GET(req: NextRequest) {
 
   const token = await getToken(q.get("token") ?? "");
   if (!token) return NextResponse.json({ error: "Unknown token" }, { status: 404 });
+  const pay = payKey(q.get("pay") ?? "TON"); // GRAM = native coin
   try {
+    // Bitpad creator jettons: buy straight from their pool (GRAM-paired)
+    if (token.bitpad?.pool) {
+      if (token.bitpad.pairMaster) return NextResponse.json({ error: "This creator jetton is backed by a jetton, not GRAM. Buy it from its page with that jetton." }, { status: 409 });
+      if (pay !== "TON") return NextResponse.json({ error: "Creator jetton pools are paid in GRAM." }, { status: 400 });
+      const pool = await readPool(token.bitpad.pool);
+      if (!pool.tradingOpen) return NextResponse.json({ error: "This pool isn't open for trading yet." }, { status: 409 });
+      const inU = toNano(amount.toFixed(9));
+      const qb = quoteBits({ reserveToken: BigInt(pool.reserveToken), reservePair: BigInt(pool.reservePair), protocolFeeBps: BigInt(pool.protocolFeeBps), creatorFeeBps: BigInt(pool.creatorFeeBps) }, inU);
+      if (qb.out <= 0n) return NextResponse.json({ error: "Amount too small for this pool." }, { status: 400 });
+      const msg = buildPoolBuyTx(pool.address, inU, minOutFor(qb.out, slippage * 100), pool.creator, wallet); // pools only accept their own registered links: `ref` here is the general referrer, so the creator's link is used
+      return NextResponse.json({ messages: [msg], via: "Bitpad pool", spent: `${amount} GRAM`, expectedOut: qb.out.toString(), switchedFrom: null });
+    }
     // Pools first; Omniston is quoted and built in one go below (one connection instead of two)
-    const d = await quoteBuy(token, q.get("pay") ?? "TON", amount, { omniston: false });
+    const d = await quoteBuy(token, pay, amount, { omniston: false });
     const routes = d.routes.filter((r) => r.kind === "onchain");
     if (!routes.length && d.candidates) {
       const built = await buildViaOmniston(d.candidates, token.address, wallet, slippage * 100);
       if (built) return NextResponse.json(built);
       // Most likely too small: offer the smallest size a market maker will take (the user approves it)
       const { omnistonMinimum } = await import("@/lib/routing");
-      const minimum = await omnistonMinimum(token, d.candidates).catch(() => null);
-      if (minimum) return NextResponse.json({ error: `Too small for the market makers right now. The smallest buy they'll quote is ${fmtAmt(minimum.amount)} ${minimum.asset}${minimum.usd ? ` (~$${minimum.usd.toFixed(0)})` : ""}.`, minimum }, { status: 422 });
-      return NextResponse.json({ error: "No market maker is quoting this stock right now, at any size. Try again in a minute." }, { status: 404 });
+      const { isStockAsset } = await import("@/lib/routing");
+      const minimum = (await isStockAsset(token.address)) ? await omnistonMinimum(token, d.candidates).catch(() => null) : null;
+      if (minimum) return NextResponse.json({ error: `Too small for the market makers right now. The smallest buy they'll quote is ${fmtAmt(minimum.amount)} ${coin(minimum.asset)}${minimum.usd ? ` (~$${minimum.usd.toFixed(0)})` : ""}.`, minimum }, { status: 422 });
+      return NextResponse.json({ error: `No live route: ${[...d.errors, "Omniston: no route or quote"].join(" · ")}` }, { status: 404 });
     }
     const best = routes.find((r) => r.id === want) ?? routes.find((r) => r.best) ?? routes[0];
     if (!best || !d.pay) return NextResponse.json({ error: d.errors.length ? `No live route: ${d.errors.join(" · ")}` : "No live route for this token" }, { status: 404 });
@@ -79,7 +98,7 @@ export async function GET(req: NextRequest) {
       best.id === "dedust"
         ? await buildDedustBuyTx({ wallet, token: token.address, tonAmount: best.payAmount, slippage, referrer })
         : (await buildBuyTx({ wallet, jetton: token.address, amount: best.payAmount, payWith: best.payAsset as "TON" | "USDT" | "GRAM", payAsset: { address: d.pay.address, decimals: d.pay.decimals }, slippage, referrer })).messages;
-    return NextResponse.json({ messages, via: best.venue, spent: `${best.payAmount} ${best.payAsset}${note}`, switchedFrom: d.switchedFrom ?? null });
+    return NextResponse.json({ messages, via: best.venue, spent: `${best.payAmount} ${coin(best.payAsset)}${note}`, switchedFrom: d.switchedFrom ?? null });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message || "Couldn't build the swap" }, { status: 502 });
   }

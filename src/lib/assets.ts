@@ -30,9 +30,8 @@ export const ASSET_DEFS: Def[] = [
   { symbol: "WTI", name: "Crude Oil", kind: "commodity", chain: "ethereum", badge: "OIL", color: "#2b2b2b", yahoo: "CL=F", sector: "Energy" },
 
   // TON jettons
-  { symbol: "TON", name: "Toncoin", kind: "jetton", chain: "ton", badge: "NATIVE", color: "#0098ea", tonAddress: TON_ASSETS.TON, pythSymbol: "TON", pythType: "crypto", coingecko: "the-open-network" },
+  { symbol: "TON", name: "Gram (prev. Toncoin)", kind: "jetton", chain: "ton", badge: "NATIVE", color: "#0098ea", tonAddress: TON_ASSETS.TON, pythSymbol: "TON", pythType: "crypto", coingecko: "the-open-network" },
   { symbol: "USDT", name: "Tether USD", kind: "jetton", chain: "ton", badge: "STABLE", color: "#26a17b", tonAddress: TON_ASSETS.USDT, coingecko: "tether" },
-  { symbol: "GRAM", name: "Gram", kind: "jetton", chain: "ton", badge: "JETTON", color: "#2f80ed", tonSymbols: ["GRAM"] },
   { symbol: "NOT", name: "Notcoin", kind: "jetton", chain: "ton", badge: "JETTON", color: "#000000", tonSymbols: ["NOT"], coingecko: "notcoin" },
   { symbol: "DOGS", name: "Dogs", kind: "jetton", chain: "ton", badge: "JETTON", color: "#3b3b3b", tonSymbols: ["DOGS"] },
   { symbol: "STON", name: "STON.fi", kind: "jetton", chain: "ton", badge: "JETTON", color: "#0b5cff", tonSymbols: ["STON"] },

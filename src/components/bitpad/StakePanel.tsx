@@ -10,6 +10,7 @@ import { toast } from "../Toast";
 import { haptic } from "../TelegramBridge";
 import { jettonWallet, refreshSoon } from "./usePool";
 import { sendTx } from "@/lib/ton/send";
+import { coin } from "@/lib/coin";
 
 interface VaultRes {
   vault: { address: string; totalStaked: string; stakers: number; rewardsTotal: string; carry: string } | null;
@@ -93,14 +94,14 @@ export function StakePanel({ token }: { token: MarketToken }) {
           Stake ${token.symbol} here to earn TON. Every time the pool&apos;s fees are collected, 30% of the platform fee and 30% of the creator&apos;s fee go to stakers, split by how much each person has staked. You can withdraw any time.{" "}
           {tonPair
             ? "This pool is paired with TON, so the rewards are paid straight from the pool contract."
-            : `This pool is paired with ${token.pair.symbol}, so the stakers' share is sent to the Bitpad fee wallet, swapped to TON and then added to the vault. That step is run by Bitpad, not the contract.`}
+            : `This pool is paired with ${coin(token.pair.symbol)}, so the stakers' share is sent to the Bitpad fee wallet, swapped to GRAM and then added to the vault. That step is run by Bitpad, not the contract.`}
         </Hint>
       </div>
 
       <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
         <Stat k="Staked" v={`${num(human(v.totalStaked), 0)}`} sub={share != null ? `${share.toFixed(1)}% of supply` : undefined} />
         <Stat k="Stakers" v={String(v.stakers)} />
-        <Stat k="Paid out" v={`${num(human(v.rewardsTotal), 3)} TON`} />
+        <Stat k="Paid out" v={`${num(human(v.rewardsTotal), 3)} GRAM`} />
       </div>
 
       {wallet && (
@@ -111,7 +112,7 @@ export function StakePanel({ token }: { token: MarketToken }) {
           </div>
           <div className="text-right">
             <div className="text-muted">Claimable</div>
-            <div className="num font-semibold text-ink">{num(pending, 4)} TON</div>
+            <div className="num font-semibold text-ink">{num(pending, 4)} GRAM</div>
           </div>
           <button disabled={busy || pending <= 0} onClick={() => send(async () => [(await tx()).buildClaimRewardsTx(v.address)], "Claiming rewards")} className="btn btn-ghost h-8 px-3 text-xs">Claim</button>
         </div>

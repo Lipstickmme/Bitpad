@@ -27,6 +27,9 @@ export const DOCS: DocPage[] = [
     body: `
 Bitpad does two things on TON:
 
+> [!INFO]
+> TON's native coin was renamed from Toncoin (TON) to **Gram (GRAM)** on 15 June 2026. Same coin, new ticker; the network is still called TON. Bitpad shows GRAM everywhere.
+
 1. **Buy tokenized stocks and assets.** Apple, Tesla, NVIDIA, the S&P 500, gold and more, as jettons you hold in your own wallet, alongside every TON token and trending coins on Solana and EVM chains.
 2. **Launch creator jettons.** Your own coin, backed by a stock, a commodity, a jetton or another creator's jetton. Its pool is live from the first block, the liquidity is locked forever, and you earn on every trade.
 
@@ -44,9 +47,9 @@ On Bitpad there is no curve and no graduation. When you launch, you deposit real
 | | |
 | --- | --- |
 | [Launch a creator jetton](/docs/launch) | One transaction: token, pool and locked liquidity |
-| [Buy tokens and stocks](/docs/trading) | ⚡ quick buy on the best route, in GRAM, TON or USDT |
+| [Buy tokens and stocks](/docs/trading) | ⚡ quick buy on the best route, in GRAM |
 | [Earn with referral links](/docs/referrals) | Share of fees for every buyer you bring |
-| [Stake and earn TON](/docs/staking) | Holders earn a cut of every launch's fees |
+| [Stake and earn GRAM](/docs/staking) | Holders earn a cut of every launch's fees |
 | [Chat on-chain](/docs/trench-chat) | Calls, theses and replies, written to TON |
 `,
   },
@@ -73,7 +76,7 @@ To buy trending coins on other chains, connect Phantom (Solana) or MetaMask (Eth
 
 ## 4. Make your first buy
 
-Set your quick-buy amount at the top of any list (it defaults to **GRAM**), then press ⚡ next to a token. Bitpad finds a live route, shows what you'll get, and your wallet asks you to approve.
+Set your quick-buy amount in GRAM at the top of any list, then press ⚡ next to a token. Bitpad finds a live route, shows what you'll get, and your wallet asks you to approve.
 `,
   },
   {
@@ -120,7 +123,7 @@ The preview on the launch page shows both before you sign.
 | Item | Amount |
 | --- | --- |
 | Launch fee | Set in the factory contract, shown on the launch page |
-| Network gas | About 0.5 TON (unused gas is returned) |
+| Network gas | About 0.5 GRAM (unused gas is returned) |
 | Liquidity | What you choose; it stays in the pool |
 
 > [!WARN]
@@ -139,13 +142,13 @@ The asset you choose is the other side of your pool: buyers pay in it and seller
 | --- | --- |
 | Stocks & ETFs | SPYx, QQQx, AAPLx, NVDAx, TSLAx, GOOGLx, METAx, MSFTx, AMZNx, MSTRx, COINx, HOODx, KOx |
 | Commodities | XAUt (Tether Gold) |
-| TON jettons | TON, USDT, GRAM, NOT, DOGS, STON |
+| TON jettons | GRAM (native coin), USDT, NOT, DOGS, STON |
 | Cross-chain | Bridged BTC (tgBTC, jWBTC), ETH (jWETH), USDC, USDe, BNB, TRX, DOGE |
 | Creator jettons | Any creator jetton the factory has enabled as a pair |
 
 ## Enabled pairs
 
-TON works for everyone. A jetton can back a launch only once it's **registered and enabled in the factory**, so a launch can't be pointed at a fake token. The launch page marks which assets are enabled. If you pick one that isn't, the launch button tells you.
+GRAM (the native coin) works for everyone. A jetton can back a launch only once it's **registered and enabled in the factory**, so a launch can't be pointed at a fake token. The launch page marks which assets are enabled. If you pick one that isn't, the launch button tells you.
 
 ## Backing with another creator
 
@@ -202,15 +205,15 @@ Separate from per-token links, every logged-in user gets a personal link that wo
     slug: "staking",
     group: "Creator jettons",
     title: "Holder staking",
-    description: "Stake a creator jetton, earn TON from its fees.",
+    description: "Stake a creator jetton, earn GRAM from its fees.",
     body: `
 Every creator jetton launched on the current factory has its own **staking vault**.
 
 - Stake by sending the jetton to the vault from the token page. Unstake any amount, any time.
 - **30% of the protocol fee and 30% of the creator's fee** from every trade go to the vault when fees are claimed.
-- Rewards are paid in **TON**, split pro-rata to what's staked at that moment.
+- Rewards are paid in **GRAM**, split pro-rata to what's staked at that moment.
 
-TON-backed pools pay the vault directly. Pools backed by a jetton send the stakers' share to the fee wallet, which converts it to TON and tops the vault up.
+GRAM-backed pools pay the vault directly. Pools backed by a jetton send the stakers' share to the fee wallet, which converts it to GRAM and tops the vault up.
 `,
   },
   {
@@ -223,8 +226,8 @@ TON-backed pools pay the vault directly. Pools backed by a jetton send the stake
 
 Set an amount once at the top of a list, then press ⚡ next to any token. Bitpad quotes it live and builds the transaction in one step, and your wallet opens to approve.
 
-- **Currency:** GRAM by default; TON or USDT also work.
-- **No pool in your currency?** Many stocks trade against TON or USDT only. Bitpad then re-quotes the same dollar value in TON, then USDT, and tells you which it used.
+- **Currency:** GRAM, TON's native coin (renamed from Toncoin).
+- **No pool in GRAM?** Some tokens trade against USDT only. Bitpad then re-quotes the same dollar value in USDT and tells you. Stocks without pools go through Omniston, and if your amount is below what market makers quote, Bitpad offers their minimum for you to approve.
 - **Slippage:** set in the settings. If the price moves more than that before your swap lands, it refunds instead of filling.
 
 ## Routes
@@ -298,7 +301,7 @@ Trench Chat is Bitpad's live chat. Open it from the bubble at the bottom of any 
 
 | | Off-chain | On-chain |
 | --- | --- | --- |
-| Cost | Free | About 0.01 TON per message, gas included |
+| Cost | Free | About 0.01 GRAM per message, gas included |
 | Needs | Telegram login | A TON wallet |
 | Stored | Bitpad's public Telegram channel, posted by the Bitpad bot | TON blockchain, Bitpad's chat contract |
 | Can do | Text, emojis, stickers, GIFs, replies | All of that plus likes, calls and tiny images |
@@ -357,7 +360,7 @@ Paid once per launch, set in the factory contract and shown on the launch page b
 
 - volume, growth, fees, win rate, median return, buy pressure and launches per venue;
 - top-3 boards for every metric, for venues, chains and pools;
-- which kind of pair (TON, ETH, SOL, stables, stocks) is drawing money today;
+- which kind of pair (GRAM, ETH, SOL, stables, stocks) is drawing money today;
 - trending pools you can open as charts and buy.
 
 Data comes from GeckoTerminal, DexScreener and DefiLlama. When a source doesn't answer, the panel says so instead of guessing.

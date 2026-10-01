@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
   const chain = q.get("chain") as ChainId;
   const token = q.get("token") ?? "";
   const from = q.get("from") ?? "";
-  const asset = q.get("asset") === "TON" || q.get("ton") ? "TON" : "GRAM";
+  // GRAM is the native coin (prev. Toncoin): priced with the TON feed
+  const asset = "TON";
   const amount = Number(q.get("amount") ?? q.get("ton"));
   const slippage = Number(q.get("slippage") ?? 1) / 100;
   if (!LIFI_CHAIN[chain]) return NextResponse.json({ error: `Buying on ${chain} isn't supported yet` }, { status: 400 });
