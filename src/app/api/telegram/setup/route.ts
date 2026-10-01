@@ -32,18 +32,25 @@ export async function GET(req: NextRequest) {
     const chat = `@${chatChannel()}`;
     const info = await call("getChat", { chat_id: chat });
     if (!info.ok) channel = `can't open ${chat}: add the bot as an admin`;
-    else if (String(info.result?.pinned_message?.text ?? "").includes("BITPAD")) channel = "button already pinned";
     else {
-      // Channels can't use web_app buttons: a t.me Mini App link opens BITPAD inside Telegram (phone and desktop apps)
-      const appLink = process.env.TELEGRAM_APP_NAME ? `https://t.me/${bot}/${process.env.TELEGRAM_APP_NAME}` : `https://t.me/${bot}?startapp`;
-      const sent = await call("sendMessage", {
-        chat_id: chat,
-        text: "🚀 BITPAD\nBuy tokenized stocks on TON and launch creator jettons backed by them.\n\nChat here for free from Trench Chat on Bitpad.",
-        disable_web_page_preview: true,
-        reply_markup: { inline_keyboard: [[{ text: "🚀 Open BITPAD", url: appLink }], [{ text: "🖥 Open on the web", url: origin }]] },
-      });
-      const pinned = sent.ok ? await call("pinChatMessage", { chat_id: chat, message_id: sent.result.message_id, disable_notification: true }) : sent;
-      channel = pinned.ok ? "Open BITPAD button posted and pinned" : `couldn't post: ${pinned.description ?? "unknown error"}`;
+      // Channels can't hold web_app buttons, and a t.me/<bot>/<app> link needs a Mini App registered in
+      // @BotFather. The bot deep link always works: the bot answers /start app with a web_app button.
+      const keyboard = { inline_keyboard: [[{ text: "🚀 Open BITPAD", url: `https://t.me/${bot}?start=app` }], [{ text: "🖥 Open on the web", url: origin }]] };
+      const pinned = info.result?.pinned_message;
+      if (pinned && String(pinned.text ?? "").includes("BITPAD")) {
+        // Already pinned: refresh its buttons (fixes older links)
+        const ed = await call("editMessageReplyMarkup", { chat_id: chat, message_id: pinned.message_id, reply_markup: keyboard });
+        channel = ed.ok || String(ed.description ?? "").includes("not modified") ? "pinned Open BITPAD button is up to date" : `couldn't update the pinned message: ${ed.description ?? "unknown error"}`;
+      } else {
+        const sent = await call("sendMessage", {
+          chat_id: chat,
+          text: "🚀 BITPAD\nBuy tokenized stocks on TON and launch creator jettons backed by them.\n\nChat here for free from Trench Chat on Bitpad.",
+          disable_web_page_preview: true,
+          reply_markup: keyboard,
+        });
+        const pin = sent.ok ? await call("pinChatMessage", { chat_id: chat, message_id: sent.result.message_id, disable_notification: true }) : sent;
+        channel = pin.ok ? "Open BITPAD button posted and pinned" : `couldn't post: ${pin.description ?? "unknown error"}`;
+      }
     }
   }
   return NextResponse.json({ ok: !!hook.ok && !!menu.ok, bot, webhook: hook.description ?? hook, menuButton: menu.description ?? menu, channel });

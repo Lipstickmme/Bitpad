@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   if (!msg?.text) return NextResponse.json({ ok: true });
   const [cmd, arg] = String(msg.text).trim().split(/\s+/);
   const origin = req.nextUrl.origin;
-  const app = { text: "Open Bitpad", web_app: { url: origin } };
+  const app = { text: "🚀 Open BITPAD", web_app: { url: origin } };
   let text = "";
 
   if (cmd === "/start" && /^login_[a-f0-9]{32}$/.test(arg ?? "") && msg.from?.id) {
@@ -32,6 +32,9 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({ chat_id: msg.chat.id, text: "Tap below to finish logging in to <b>Bitpad</b>. The link works for 10 minutes.\n\nDidn't ask to log in? Ignore this message.", parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "✅ Log in to Bitpad", url: link }]] } }),
     });
     return NextResponse.json({ ok: true });
+  } else if (cmd === "/start" && arg === "app") {
+    // From the channel's "Open BITPAD" button: one tap opens the Mini App (phone and desktop Telegram)
+    text = "Tap below to open <b>BITPAD</b> right here in Telegram.";
   } else if (cmd.startsWith("/start")) {
     text = "<b>Bitpad</b> — buy tokenized stocks on TON and launch creator jettons backed by them.\n\n/trending — top movers\n/price SYMBOL — token price";
   } else if (cmd.startsWith("/trending")) {
