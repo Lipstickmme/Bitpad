@@ -24,7 +24,7 @@ export function saveLastBuy(jetton: string, b: LastBuy) {
  * The bundle's target token: live chart plus "since your last bundle buy",
  * i.e. how far the price is from where the last buy filled (in profit or not).
  */
-export function BundleTokenChart({ jetton, lastBuy, onPrice }: { jetton: string; lastBuy: LastBuy | null; onPrice: (p: number | null) => void }) {
+export function BundleTokenChart({ jetton, lastBuy, onPrice, onToken }: { jetton: string; lastBuy: LastBuy | null; onPrice: (p: number | null) => void; onToken?: (t: MarketToken | null) => void }) {
   const [token, setToken] = useState<MarketToken | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [live, setLive] = useState<number | null>(null);
@@ -47,6 +47,7 @@ export function BundleTokenChart({ jetton, lastBuy, onPrice }: { jetton: string;
     return () => { alive = false; clearInterval(t); };
   }, [jetton]);
 
+  useEffect(() => onToken?.(token), [token, onToken]);
   const px = live ?? token?.priceUsd ?? null;
   useEffect(() => onPrice(px), [px, onPrice]);
   const since = lastBuy && px ? ((px - lastBuy.priceUsd) / lastBuy.priceUsd) * 100 : null;

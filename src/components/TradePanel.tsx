@@ -87,13 +87,10 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
         messages = d.messages;
       } else {
         const units = BigInt(Math.floor(Number(amount) * 10 ** token.decimals));
-        if (token.dex?.includes("dedust")) {
-          const { buildDedustSellTx } = await import("@/lib/ton/dedust");
-          messages = await buildDedustSellTx({ wallet, token: token.address, units, slippage: slip, referrer: generalReferrer(wallet) });
-        } else {
-          const { buildSellTx } = await import("@/lib/ton/swap");
-          messages = [(await buildSellTx({ wallet, jetton: token.address, units, slippage: slip })).message];
-        }
+        // Built server-side on the first route that works (Bitpad pool, STON.fi, DeDust, Omniston)
+        const d = await fetch(`/api/sell-tx?${new URLSearchParams({ token: token.address, wallet, units: units.toString(), slippage: String(slippage) })}`).then((r) => r.json());
+        if (d.error) throw new Error(d.error);
+        messages = d.messages;
       }
       await sendTx(tc, messages);
       haptic("success");

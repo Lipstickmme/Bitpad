@@ -2,7 +2,6 @@ import { mnemonicNew, mnemonicToPrivateKey, mnemonicValidate } from "@ton/crypto
 import { WalletContractV5R1, internal, SendMode, fromNano, toNano, Address } from "@ton/ton";
 import { Cell, loadStateInit, type SenderArguments } from "@ton/core";
 import { tonClient, type TcMessage } from "./client";
-import { buildSellArgs } from "./swap";
 
 /**
  * Multi-wallet trading ("bundles"). Burner W5 wallets are generated in the
@@ -149,6 +148,31 @@ async function sendSigned(w: BundleWallet, password: string, tx: SenderArguments
   });
 }
 
+/** Sell legs: server-built on the first working route (Bitpad pool, STON.fi, DeDust, Omniston). */
+async function buildSellLeg(wallet: string, jetton: string, units: bigint, slippagePct: number) {
+  const qs = new URLSearchParams({ token: jetton, wallet, units: units.toString(), slippage: String(slippagePct) });
+  const d = await fetch(`/api/sell-tx?${qs}`).then((r) => r.json());
+  if (d.error) throw new Error(d.error);
+  return { msgs: toSenderArgs(d.messages as TcMessage[]), via: d.via as string };
+}
+
+const toSenderArgs = (messages: TcMessage[]): SenderArguments[] =>
+  messages.map((m) => ({
+    to: Address.parse(m.address),
+    value: BigInt(m.amount),
+    body: m.payload ? Cell.fromBase64(m.payload) : undefined,
+    init: m.stateInit ? loadStateInit(Cell.fromBase64(m.stateInit).beginParse()) : undefined,
+  }));
+
+/** Each wallet's balance of `jetton` (raw units). */
+export async function fetchJettonBalances(jetton: string, wallets: BundleWallet[]): Promise<Record<string, bigint>> {
+  if (!wallets.length) return {};
+  const d = await fetch(`/api/jetton-balances?${new URLSearchParams({ jetton, owners: wallets.map((w) => w.address).join(",") })}`).then((r) => r.json());
+  const out: Record<string, bigint> = {};
+  for (const w of wallets) out[w.id] = BigInt(d.balances?.[w.address] ?? "0");
+  return out;
+}
+
 /**
  * Buy legs are built server-side (/api/buy-tx): the same route as ⚡ quick
  * buy, i.e. Bitpad pools, STON.fi, DeDust or Omniston for stocks, with the
@@ -184,7 +208,8 @@ export interface BundleProgress {
 export async function runBundle(opts: {
   side: "buy" | "sell";
   wallets: BundleWallet[];
-  amounts: number[]; // TON per wallet for buys, jetton units (whole tokens) for sells
+  amounts: number[]; // GRAM per wallet (buys)
+  sellUnits?: bigint[]; // raw jetton units per wallet (sells)
   jetton: string;
   password: string;
   slippage: number;
@@ -200,9 +225,11 @@ export async function runBundle(opts: {
         await sendSigned(w, opts.password, leg.msgs[0], leg.msgs.slice(1));
         opts.onProgress({ walletId: w.id, status: "sent", via: leg.via });
       } else {
-        const built = await buildSellArgs({ wallet: w.address, jetton: opts.jetton, units: BigInt(Math.floor(opts.amounts[i] * 1e9)), slippage: opts.slippage });
-        await sendSigned(w, opts.password, built.tx);
-        opts.onProgress({ walletId: w.id, status: "sent", via: "STON.fi" });
+        const units = opts.sellUnits?.[i] ?? 0n;
+        if (units <= 0n) throw new Error(`${w.label} holds none of this token`);
+        const leg = await buildSellLeg(w.address, opts.jetton, units, opts.slippage * 100);
+        await sendSigned(w, opts.password, leg.msgs[0], leg.msgs.slice(1));
+        opts.onProgress({ walletId: w.id, status: "sent", via: leg.via });
       }
     } catch (e) {
       opts.onProgress({ walletId: w.id, status: "error", error: (e as Error).message });

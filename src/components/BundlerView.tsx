@@ -10,6 +10,8 @@ import { OnchainBundle } from "./bitpad/OnchainBundle";
 import { sendTx } from "@/lib/ton/send";
 import { humanError } from "@/lib/errors";
 import { BundleTokenChart, readLastBuy, saveLastBuy, type LastBuy } from "./BundleTokenChart";
+import { tonGramUsd } from "./QuickBuy";
+import type { MarketToken } from "@/lib/types";
 
 type Lib = typeof import("@/lib/ton/bundler");
 const loadLib = () => import("@/lib/ton/bundler");
@@ -38,7 +40,22 @@ export function BundlerView() {
   const validJetton = /^[EU]Q[A-Za-z0-9_-]{46}$/.test(jetton);
   const [lastBuy, setLastBuy] = useState<LastBuy | null>(null);
   const livePx = useRef<number | null>(null);
-  const onPrice = useCallback((p: number | null) => { livePx.current = p; }, []);
+  const onPrice = useCallback((p: number | null) => { livePx.current = p; setPx(p); }, []);
+  const [px, setPx] = useState<number | null>(null);
+  const [tok, setTok] = useState<MarketToken | null>(null);
+  const onToken = useCallback((t: MarketToken | null) => setTok(t), []);
+  const [gramUsd, setGramUsd] = useState<number | null>(null);
+  useEffect(() => { tonGramUsd().then((p) => setGramUsd(p.ton)).catch(() => {}); }, []);
+  // Each wallet's balance of the target token (raw units), for % sells and the portfolio
+  const [holdings, setHoldings] = useState<Record<string, bigint>>({});
+  const [sellPct, setSellPct] = useState(100);
+  const dec = tok?.decimals ?? 9;
+  const human = (u: bigint) => Number(u) / 10 ** dec;
+  const loadHoldings = useCallback(async () => {
+    if (!lib || !validJetton) return setHoldings({});
+    try { setHoldings(await lib.fetchJettonBalances(jetton, wallets)); } catch { /* keep last */ }
+  }, [lib, validJetton, jetton, wallets]);
+  useEffect(() => { loadHoldings(); }, [jetton, validJetton, lib, wallets.length]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => setLastBuy(validJetton ? readLastBuy(jetton) : null), [jetton, validJetton]);
 
   useEffect(() => {
@@ -54,6 +71,8 @@ export function BundlerView() {
   const tradeAmount = tradeTotal;
   const fundSplit = useMemo(() => lib?.splitAmount(fundTon, active.length, fundMode) ?? [], [lib, fundTon, active.length, fundMode, seed]); // eslint-disable-line react-hooks/exhaustive-deps
   const tradeSplit = useMemo(() => lib?.splitAmount(tradeAmount, active.length, tradeMode) ?? [], [lib, tradeAmount, active.length, tradeMode, seed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const heldTotal = active.reduce((s, w) => s + (holdings[w.id] ?? 0n), 0n);
+  const heldAll = wallets.reduce((s, w) => s + (holdings[w.id] ?? 0n), 0n);
   const totalBal = wallets.reduce((s, w) => s + (Number.isFinite(w.balance) ? w.balance! : 0), 0);
 
   const persist = (w: BundleWallet[]) => {
@@ -127,11 +146,13 @@ export function BundlerView() {
     const pxAtStart = livePx.current;
     const sent = new Set<string>();
     let failed = 0;
-    const targets = only ?? active;
+    const targets = (only ?? active).filter((w) => side === "buy" || (holdings[w.id] ?? 0n) > 0n);
+    if (!targets.length) { setRunning(false); return toast.error("Nothing to sell", "None of the selected wallets hold this token."); }
     const amounts = targets.map((w) => tradeSplit[active.indexOf(w)] ?? 0);
+    const sellUnits = targets.map((w) => ((holdings[w.id] ?? 0n) * BigInt(sellPct)) / 100n);
     if (!only) setProgress({});
     await lib.runBundle({
-      side, wallets: targets, amounts, jetton, password, slippage: slippage / 100, staggerMs: stagger,
+      side, wallets: targets, amounts, sellUnits, jetton, password, slippage: slippage / 100, staggerMs: stagger,
       onProgress: (p) => {
         if (p.status === "sent") sent.add(p.walletId);
         if (p.status === "error") failed++;
@@ -149,7 +170,7 @@ export function BundlerView() {
     if (failed && !sent.size) toast.error("Bundle didn't go through", "Every wallet failed. The reason is shown next to each wallet.");
     else if (failed) toast.info("Bundle partly sent", `${sent.size} sent, ${failed} failed. The reason is shown next to each wallet.`);
     else toast.success("Bundle sent", `${sent.size} wallet${sent.size === 1 ? "" : "s"} submitted. Balances refresh in a few seconds.`);
-    setTimeout(refresh, 8000);
+    setTimeout(() => { refresh(); loadHoldings(); }, 8000);
   }
 
   async function sweep() {
@@ -199,8 +220,17 @@ export function BundlerView() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-4">
-        {validJetton ? <BundleTokenChart jetton={jetton} lastBuy={lastBuy} onPrice={onPrice} /> : (
+        {validJetton ? <BundleTokenChart jetton={jetton} lastBuy={lastBuy} onPrice={onPrice} onToken={onToken} /> : (
           <div className="card p-4 text-sm text-muted">Paste a jetton address in <b className="text-ink-2">Bundle trade</b> to load its chart and track profit since your last bundle buy.</div>
+        )}
+        {validJetton && tok && (
+          // Minimal bundle portfolio: what all bundle wallets hold of this token, and what it's worth
+          <section className="card grid grid-cols-2 gap-3 p-4 text-sm sm:grid-cols-4">
+            <div><div className="text-xs text-muted">Bundle holds</div><div className="num font-semibold">{num(human(heldAll), 2)} ${tok.symbol}</div></div>
+            <div><div className="text-xs text-muted">Value</div><div className="num font-semibold">{px ? `$${num(human(heldAll) * px, 2)}` : "—"}</div></div>
+            <div><div className="text-xs text-muted">In GRAM</div><div className="num font-semibold">{px && gramUsd ? `${num((human(heldAll) * px) / gramUsd, 3)} GRAM` : "—"}</div></div>
+            <div><div className="text-xs text-muted">Wallets holding</div><div className="num font-semibold">{wallets.filter((w) => (holdings[w.id] ?? 0n) > 0n).length} / {wallets.length}</div></div>
+          </section>
         )}
         <section className="card overflow-hidden">
           <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
@@ -216,7 +246,7 @@ export function BundlerView() {
               <thead className="text-left text-xs text-muted">
                 <tr className="border-b border-line">
                   <th className="px-3 py-2 font-medium">On</th><th className="font-medium">Wallet</th><th className="font-medium">Address</th>
-                  <th className="text-right font-medium">GRAM</th><th className="text-right font-medium">Next {side}</th><th className="px-3 font-medium">Status</th><th />
+                  <th className="text-right font-medium">GRAM</th>{validJetton && <th className="text-right font-medium">{tok ? `$${tok.symbol}` : "Held"}</th>}<th className="text-right font-medium">Next {side}</th><th className="px-3 font-medium">Status</th><th />
                 </tr>
               </thead>
               <tbody className="num">
@@ -229,7 +259,8 @@ export function BundlerView() {
                       <td className="font-semibold">{w.label}</td>
                       <td><span className="font-mono text-xs">{shortAddr(w.address, 6, 6)}</span> <CopyButton value={w.address} className="ml-1 px-1.5 py-0.5" /></td>
                       <td className="text-right">{w.balance === undefined ? "—" : Number.isFinite(w.balance) ? num(w.balance, 3) : "err"}</td>
-                      <td className="text-right text-ink-2">{idx >= 0 ? (side === "buy" ? `${num(tradeSplit[idx] ?? 0, 3)} GRAM` : `${num(tradeSplit[idx] ?? 0, 3)} tok`) : "—"}</td>
+                      {validJetton && <td className="text-right text-ink-2">{holdings[w.id] != null ? num(human(holdings[w.id]), 2) : "—"}</td>}
+                      <td className="text-right text-ink-2">{idx >= 0 ? (side === "buy" ? `${num(tradeSplit[idx] ?? 0, 3)} GRAM` : (holdings[w.id] ?? 0n) > 0n ? `${num(human(((holdings[w.id] ?? 0n) * BigInt(sellPct)) / 100n), 2)}` : "none held") : "—"}</td>
                       <td className="px-3">
                         {p && <span className={`chip ${p.status === "sent" ? "border-up/25 bg-up-soft text-up" : p.status === "error" ? "border-down/25 bg-down-soft text-down" : ""}`}>{p.status}</span>}
                         {p?.status === "error" && p.error && (
@@ -281,9 +312,25 @@ export function BundlerView() {
             </div>
             <label className="label mt-3 block">Jetton master address</label>
             <input className="input mt-1 font-mono text-xs" value={jetton} onChange={(e) => setJetton(e.target.value.trim())} placeholder="EQ… (copy CA from any token page)" />
-            <label className="label mt-3 block">Total {side === "buy" ? "GRAM to spend" : "tokens to sell"}</label>
-            <input className="input num mt-1" inputMode="decimal" value={tradeTotal} onChange={(e) => setTradeTotal(Number(e.target.value) || 0)} />
-            <SplitPicker mode={tradeMode} setMode={setTradeMode} onShuffle={() => setSeed((s) => s + 1)} />
+            {side === "buy" ? (
+              <>
+                <label className="label mt-3 block">Total GRAM to spend</label>
+                <input className="input num mt-1" inputMode="decimal" value={tradeTotal} onChange={(e) => setTradeTotal(Number(e.target.value) || 0)} />
+              </>
+            ) : (
+              <>
+                <label className="label mt-3 block">Sell from each wallet</label>
+                <div className="mt-1 grid grid-cols-4 gap-1">
+                  {[25, 50, 75, 100].map((p) => (
+                    <button key={p} onClick={() => setSellPct(p)} className={`rounded-lg border py-2 text-sm font-semibold ${sellPct === p ? "border-down/50 bg-down-soft text-down" : "border-line hover:border-line-strong"}`}>{p === 100 ? "Max" : `${p}%`}</button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted">
+                  {heldTotal > 0n ? `${num(human((heldTotal * BigInt(sellPct)) / 100n), 2)} ${tok ? `$${tok.symbol}` : "tokens"} of ${num(human(heldTotal), 2)} held${px ? ` · ≈ $${num(human((heldTotal * BigInt(sellPct)) / 100n) * px, 2)}` : ""}` : validJetton ? "The selected wallets hold none of this token." : "Enter a jetton address."}
+                </p>
+              </>
+            )}
+            {side === "buy" && <SplitPicker mode={tradeMode} setMode={setTradeMode} onShuffle={() => setSeed((s) => s + 1)} />}
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="block"><span className="label">Stagger (ms)</span><input className="input num mt-1 h-9 text-sm" value={stagger} onChange={(e) => setStagger(Number(e.target.value) || 0)} /></label>
               <label className="block"><span className="label">Slippage %</span><input className="input num mt-1 h-9 text-sm" value={slippage} onChange={(e) => setSlippage(Number(e.target.value) || 0)} /></label>
@@ -291,10 +338,10 @@ export function BundlerView() {
             {!running && active.some((w) => progress[w.id]?.status === "error") && (
               <button onClick={retryFailed} className="btn btn-ghost mt-4 h-10 w-full">Retry {active.filter((w) => progress[w.id]?.status === "error").length} failed wallet{active.filter((w) => progress[w.id]?.status === "error").length === 1 ? "" : "s"}</button>
             )}
-            <button onClick={() => execute()} disabled={running || !active.length || tradeTotal <= 0} className={`btn mt-4 h-11 w-full ${side === "buy" ? "btn-up" : "btn-down"}`}>
-              {running ? "Executing…" : `${side === "buy" ? "Buy" : "Sell"} from ${active.length} wallets`}
+            <button onClick={() => execute()} disabled={running || !active.length || (side === "buy" ? tradeTotal <= 0 : heldTotal <= 0n)} className={`btn mt-4 h-11 w-full ${side === "buy" ? "btn-up" : "btn-down"}`}>
+              {running ? "Executing…" : side === "buy" ? `Buy from ${active.length} wallets` : `Sell ${sellPct === 100 ? "all" : `${sellPct}%`} from ${active.filter((w) => (holdings[w.id] ?? 0n) > 0n).length} wallets`}
             </button>
-            <p className="mt-2 text-[11px] text-muted">Buys use the best route (Bitpad pool, STON.fi, DeDust or Omniston for stocks), built for each wallet and signed locally. Each wallet's balance is checked first. Keep ~0.3 GRAM per wallet for gas on top of its buy.</p>
+            <p className="mt-2 text-[11px] text-muted">Buys and sells use the first route that works (Bitpad pool, STON.fi, DeDust, or Omniston, which also reaches TONCO and market makers), built for each wallet and signed locally. Sells take a share of what each wallet holds. Keep ~0.3 GRAM per wallet for gas.</p>
           </section>
         </aside>
       </div>
