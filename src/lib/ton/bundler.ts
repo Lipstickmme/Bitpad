@@ -1,8 +1,8 @@
 import { mnemonicNew, mnemonicToPrivateKey, mnemonicValidate } from "@ton/crypto";
 import { WalletContractV5R1, internal, SendMode, fromNano, toNano, Address } from "@ton/ton";
-import type { SenderArguments } from "@ton/core";
+import { Cell, loadStateInit, type SenderArguments } from "@ton/core";
 import { tonClient, type TcMessage } from "./client";
-import { buildBuyArgs, buildSellArgs } from "./swap";
+import { buildSellArgs } from "./swap";
 
 /**
  * Multi-wallet trading ("bundles"). Burner W5 wallets are generated in the
@@ -130,23 +130,50 @@ export function fundingMessages(wallets: BundleWallet[], amounts: number[]): TcM
   return wallets.map((w, i) => ({ address: w.address, amount: toNano(amounts[i].toFixed(9)).toString() }));
 }
 
+const GAS_RESERVE = toNano("0.05"); // wallet's own fees for the external message
+
 async function sendSigned(w: BundleWallet, password: string, tx: SenderArguments, extra: SenderArguments[] = []) {
   const words = (await decrypt(w.secret, password)).split(" ");
   const { key, contract } = await walletFromMnemonic(words);
   const opened = tonClient().open(contract);
+  // Refuse up front instead of letting the chain drop it
+  const need = [tx, ...extra].reduce((s, m) => s + m.value, 0n) + GAS_RESERVE;
+  const bal = await tonClient().getBalance(contract.address);
+  if (bal < need) throw new Error(`Not enough TON in ${w.label}: has ${Number(fromNano(bal)).toFixed(3)}, this trade needs ~${Number(fromNano(need)).toFixed(3)} incl. gas`);
   const seqno = await opened.getSeqno();
   await opened.sendTransfer({
     seqno,
     secretKey: key.secretKey,
     sendMode: SendMode.PAY_GAS_SEPARATELY | SendMode.IGNORE_ERRORS,
-    messages: [tx, ...extra].map((m) => internal({ to: m.to, value: m.value, body: m.body ?? undefined, bounce: m === tx })),
+    messages: [tx, ...extra].map((m) => internal({ to: m.to, value: m.value, body: m.body ?? undefined, init: m.init ?? undefined, bounce: m === tx })),
   });
+}
+
+/**
+ * Buy legs are built server-side (/api/buy-tx): the same route as ⚡ quick
+ * buy, i.e. Bitpad pools, STON.fi, DeDust or Omniston for stocks, with the
+ * keyed RPC. Returns sender arguments for the burner wallet to sign.
+ */
+async function buildBuyLeg(wallet: string, jetton: string, tonAmount: number, slippagePct: number): Promise<{ msgs: SenderArguments[]; via: string; expectedOut?: string }> {
+  const qs = new URLSearchParams({ token: jetton, pay: "TON", amount: String(tonAmount), wallet, slippage: String(slippagePct) });
+  const d = await fetch(`/api/buy-tx?${qs}`).then((r) => r.json());
+  if (d.error) throw new Error(d.error);
+  const msgs = (d.messages as TcMessage[]).map((m): SenderArguments => ({
+    to: Address.parse(m.address),
+    value: BigInt(m.amount),
+    body: m.payload ? Cell.fromBase64(m.payload) : undefined,
+    init: m.stateInit ? loadStateInit(Cell.fromBase64(m.stateInit).beginParse()) : undefined,
+  }));
+  if (!msgs.length) throw new Error("No transaction was built for this buy");
+  return { msgs, via: d.via, expectedOut: d.expectedOut };
 }
 
 export interface BundleProgress {
   walletId: string;
   status: "pending" | "sent" | "error";
   error?: string;
+  /** buys: route used */
+  via?: string;
 }
 
 /**
@@ -168,13 +195,15 @@ export async function runBundle(opts: {
     const w = opts.wallets[i];
     opts.onProgress({ walletId: w.id, status: "pending" });
     try {
-      const built =
-        opts.side === "buy"
-          ? await buildBuyArgs({ wallet: w.address, jetton: opts.jetton, amount: opts.amounts[i], slippage: opts.slippage })
-          : await buildSellArgs({ wallet: w.address, jetton: opts.jetton, units: BigInt(Math.floor(opts.amounts[i] * 1e9)), slippage: opts.slippage });
-      // Routers that refuse our referral get the platform fee as a plain transfer in the same message batch
-      await sendSigned(w, opts.password, built.tx, "feeTx" in built && built.feeTx ? [built.feeTx as SenderArguments] : []);
-      opts.onProgress({ walletId: w.id, status: "sent" });
+      if (opts.side === "buy") {
+        const leg = await buildBuyLeg(w.address, opts.jetton, opts.amounts[i], opts.slippage * 100);
+        await sendSigned(w, opts.password, leg.msgs[0], leg.msgs.slice(1));
+        opts.onProgress({ walletId: w.id, status: "sent", via: leg.via });
+      } else {
+        const built = await buildSellArgs({ wallet: w.address, jetton: opts.jetton, units: BigInt(Math.floor(opts.amounts[i] * 1e9)), slippage: opts.slippage });
+        await sendSigned(w, opts.password, built.tx);
+        opts.onProgress({ walletId: w.id, status: "sent", via: "STON.fi" });
+      }
     } catch (e) {
       opts.onProgress({ walletId: w.id, status: "error", error: (e as Error).message });
     }

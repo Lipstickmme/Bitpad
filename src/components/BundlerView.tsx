@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import { Eye, KeyRound, Layers, Plus, RefreshCw, Send, ShieldCheck, Trash2, Undo2, Upload, Zap } from "lucide-react";
 import type { BundleProgress, BundleWallet, SplitMode } from "@/lib/ton/bundler";
@@ -8,6 +8,8 @@ import { toast } from "./Toast";
 import { CopyButton } from "./CopyButton";
 import { OnchainBundle } from "./bitpad/OnchainBundle";
 import { sendTx } from "@/lib/ton/send";
+import { humanError } from "@/lib/errors";
+import { BundleTokenChart, readLastBuy, saveLastBuy, type LastBuy } from "./BundleTokenChart";
 
 type Lib = typeof import("@/lib/ton/bundler");
 const loadLib = () => import("@/lib/ton/bundler");
@@ -32,6 +34,11 @@ export function BundlerView() {
   const [progress, setProgress] = useState<Record<string, BundleProgress>>({});
   const [running, setRunning] = useState(false);
   const [seed, setSeed] = useState(0);
+  const validJetton = /^[EU]Q[A-Za-z0-9_-]{46}$/.test(jetton);
+  const [lastBuy, setLastBuy] = useState<LastBuy | null>(null);
+  const livePx = useRef<number | null>(null);
+  const onPrice = useCallback((p: number | null) => { livePx.current = p; }, []);
+  useEffect(() => setLastBuy(validJetton ? readLastBuy(jetton) : null), [jetton, validJetton]);
 
   useEffect(() => {
     loadLib().then((l) => {
@@ -107,12 +114,28 @@ export function BundlerView() {
     if (!/^[EU]Q[A-Za-z0-9_-]{46}$/.test(jetton)) return toast.error("Enter a valid jetton master address");
     setRunning(true);
     setProgress({});
+    const pxAtStart = livePx.current;
+    const sent = new Set<string>();
+    let failed = 0;
     await lib.runBundle({
       side, wallets: active, amounts: tradeSplit, jetton, password, slippage: slippage / 100, staggerMs: stagger,
-      onProgress: (p) => setProgress((s) => ({ ...s, [p.walletId]: p })),
+      onProgress: (p) => {
+        if (p.status === "sent") sent.add(p.walletId);
+        if (p.status === "error") failed++;
+        setProgress((s) => ({ ...s, [p.walletId]: p }));
+      },
     });
     setRunning(false);
-    toast.success("Bundle finished", "Check each wallet's status below.");
+    // Remember where this buy filled, for the "since last buy" readout
+    if (side === "buy" && sent.size && pxAtStart) {
+      const ton = active.reduce((sum, w, i) => sum + (sent.has(w.id) ? tradeSplit[i] ?? 0 : 0), 0);
+      const b = { priceUsd: pxAtStart, time: Date.now(), ton, wallets: sent.size };
+      saveLastBuy(jetton, b);
+      setLastBuy(b);
+    }
+    if (failed && !sent.size) toast.error("Bundle didn't go through", "Every wallet failed. The reason is shown next to each wallet.");
+    else if (failed) toast.info("Bundle partly sent", `${sent.size} sent, ${failed} failed. The reason is shown next to each wallet.`);
+    else toast.success("Bundle sent", `${sent.size} wallet${sent.size === 1 ? "" : "s"} submitted. Balances refresh in a few seconds.`);
     setTimeout(refresh, 8000);
   }
 
@@ -162,6 +185,10 @@ export function BundlerView() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 space-y-4">
+        {validJetton ? <BundleTokenChart jetton={jetton} lastBuy={lastBuy} onPrice={onPrice} /> : (
+          <div className="card p-4 text-sm text-muted">Paste a jetton address in <b className="text-ink-2">Bundle trade</b> to load its chart and track profit since your last bundle buy.</div>
+        )}
         <section className="card overflow-hidden">
           <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
             <Layers className="size-4 text-ink-2" />
@@ -191,7 +218,9 @@ export function BundlerView() {
                       <td className="text-right">{w.balance === undefined ? "—" : Number.isFinite(w.balance) ? num(w.balance, 3) : "err"}</td>
                       <td className="text-right text-ink-2">{idx >= 0 ? `${num(tradeSplit[idx] ?? 0, 3)} ${side === "buy" ? "TON" : "tok"}` : "—"}</td>
                       <td className="px-3">
-                        {p && <span className={`chip ${p.status === "sent" ? "border-up/25 bg-up-soft text-up" : p.status === "error" ? "border-down/25 bg-down-soft text-down" : ""}`} title={p.error}>{p.status}</span>}
+                        {p && <span className={`chip ${p.status === "sent" ? "border-up/25 bg-up-soft text-up" : p.status === "error" ? "border-down/25 bg-down-soft text-down" : ""}`}>{p.status}</span>}
+                        {p?.status === "error" && p.error && <div className="mt-1 max-w-[260px] whitespace-normal text-[11px] leading-snug text-down" title={p.error}>{humanError(p.error)}</div>}
+                        {p?.status === "sent" && p.via && <div className="mt-1 text-[11px] text-muted">via {p.via}</div>}
                       </td>
                       <td className="pr-3 text-right whitespace-nowrap">
                         <button onClick={() => reveal(w)} className="p-1 text-muted hover:text-ink" aria-label="Copy mnemonic"><Eye className="size-4" /></button>
@@ -209,6 +238,7 @@ export function BundlerView() {
             <button onClick={doImport} disabled={!importText} className="btn btn-ghost h-9"><Upload className="size-4" /> Import</button>
           </div>
         </section>
+        </div>
 
         <aside className="space-y-4">
           <section className="card p-4">
@@ -225,7 +255,7 @@ export function BundlerView() {
           <OnchainBundle recipients={active.map((w) => ({ address: w.address, label: w.label }))} splits={tradeSplit} slippage={slippage} />
 
           <section className="card p-4">
-            <h3 className="flex items-center gap-2 text-sm font-semibold"><Zap className="size-4" /> Bundle trade (any TON token, STON.fi)</h3>
+            <h3 className="flex items-center gap-2 text-sm font-semibold"><Zap className="size-4" /> Bundle trade (any TON token)</h3>
             <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1">
               {(["buy", "sell"] as const).map((s) => (
                 <button key={s} onClick={() => setSide(s)} className={`rounded-lg py-1.5 text-sm font-bold capitalize ${side === s ? (s === "buy" ? "bg-up-soft text-up" : "bg-down-soft text-down") : "text-muted"}`}>{s}</button>
@@ -243,7 +273,7 @@ export function BundlerView() {
             <button onClick={execute} disabled={running || !active.length || tradeTotal <= 0} className={`btn mt-4 h-11 w-full ${side === "buy" ? "btn-up" : "btn-down"}`}>
               {running ? "Executing…" : `${side === "buy" ? "Buy" : "Sell"} from ${active.length} wallets`}
             </button>
-            <p className="mt-2 text-[11px] text-muted">Each wallet signs its own STON.fi swap locally (platform referral fee applies). Keep ~0.3 TON per wallet for gas.</p>
+            <p className="mt-2 text-[11px] text-muted">Buys use the best route (Bitpad pool, STON.fi, DeDust or Omniston for stocks), built for each wallet and signed locally. Each wallet's balance is checked first. Keep ~0.3 TON per wallet for gas on top of its buy.</p>
           </section>
         </aside>
       </div>
