@@ -22,6 +22,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
   const [amount, setAmount] = useState("");
   const [routes, setRoutes] = useState<RouteQuote[]>([]);
   const [quoteErr, setQuoteErr] = useState<string[]>([]);
+  const [minimum, setMinimum] = useState<{ amount: number; asset: string; usd: number | null } | null>(null);
   const [switched, setSwitched] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [routeId, setRouteId] = useState<string>();
@@ -56,6 +57,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
         .then((d) => {
           setRoutes(d.routes ?? []);
           setQuoteErr(d.errors ?? (d.error ? [d.error] : []));
+          setMinimum(d.minimum ?? null);
           setSwitched(d.switchedFrom && d.pay ? `No ${d.switchedFrom} pool for $${token.symbol}: this buy pays ${d.routes?.[0]?.payAmount ?? ""} ${d.pay.symbol} (same value).` : null);
           setRouteId((d.routes ?? []).find((r: RouteQuote) => r.best)?.id);
         })
@@ -167,7 +169,12 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
             ))}
             {!routes.length && !loading && (
               <p className="rounded-xl border border-dashed border-line p-3 text-center text-xs text-muted">
-                {Number(amount) > 0 && quoteErr.length ? (
+                {Number(amount) > 0 && minimum ? (
+                  <>
+                    Too small for the market makers right now. The smallest buy they quote is <b className="text-ink">{minimum.amount} {minimum.asset}</b>{minimum.usd ? ` (~$${minimum.usd.toFixed(0)})` : ""}.{" "}
+                    <button onClick={() => { setPayAsset(minimum.asset as typeof payAsset); setAmount(String(minimum.amount)); }} className="font-semibold text-brand hover:underline">Use this amount</button>
+                  </>
+                ) : Number(amount) > 0 && quoteErr.length ? (
                   <>
                     No pool route for this token. It may only trade through STON.fi&apos;s aggregator (xStocks do).{" "}
                     <a href={stonAppSwapUrl(token.address)} target="_blank" rel="noreferrer" className="font-semibold text-brand hover:underline">Buy on STON.fi ↗</a>

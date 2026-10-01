@@ -56,7 +56,9 @@ async function asTon(amount: number, asset: QuickAsset) {
  *  - Other TON jettons, paying GRAM: STON.fi GRAM → jetton (referral fee in the swap)
  *  - Other TON jettons, paying TON: best of STON.fi / DeDust (tagged fee transfer)
  */
-async function buildQuickBuy(t: QuickBuyTarget, amount: number, asset: QuickAsset, wallet: string, slippagePct: number): Promise<{ messages: TcMessage[]; via: string; spent: string }> {
+interface MinimumBuy { amount: number; asset: string; usd: number | null }
+
+async function buildQuickBuy(t: QuickBuyTarget, amount: number, asset: QuickAsset | "USDT", wallet: string, slippagePct: number): Promise<{ messages: TcMessage[]; via: string; spent: string }> {
   if (t.bitpadPool) {
     const ref = storedReferral(t.address);
     const qs = new URLSearchParams({ address: t.bitpadPool, ...(ref && { ref }) });
@@ -64,7 +66,7 @@ async function buildQuickBuy(t: QuickBuyTarget, amount: number, asset: QuickAsse
     if (d.error || !d.pool) throw new Error(d.error ?? "Pool unavailable");
     if (d.pool.pairMaster) throw Object.assign(new Error("pair"), { code: "pair" });
     if (!d.pool.tradingOpen) throw new Error("The pool isn't open for trading yet");
-    const ton = await asTon(amount, asset);
+    const ton = await asTon(amount, asset as QuickAsset); // USDT only ever comes from the market-maker minimum (not Bitpad pools)
     const inU = toNano(ton.toFixed(9));
     const q = quoteBuy(bigState(d.pool), inU);
     if (q.out <= 0n) throw new Error("Amount too small for this pool");
@@ -77,7 +79,7 @@ async function buildQuickBuy(t: QuickBuyTarget, amount: number, asset: QuickAsse
   const ref = generalReferrer(wallet);
   const qs = new URLSearchParams({ token: t.address, pay: asset, amount: String(amount), wallet, slippage: String(slippagePct), ...(ref && { ref }) });
   const d = await fetch(`/api/buy-tx?${qs}`).then((r) => r.json());
-  if (d.error) throw new Error(d.error);
+  if (d.error) throw Object.assign(new Error(d.error), { minimum: d.minimum as MinimumBuy | undefined });
   return { messages: d.messages, via: d.via, spent: d.spent };
 }
 
@@ -90,15 +92,20 @@ export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarge
   const hydrated = useHydrated();
   const [busy, setBusy] = useState(false);
 
-  async function go(e: React.MouseEvent) {
+  function go(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+    return run();
+  }
+
+  /** `override`: a different size the user approved (the market makers' minimum). */
+  async function run(override?: MinimumBuy) {
     haptic("medium");
     if (!wallet) return tc.openModal();
     if (!(amount > 0)) return toast.error("Set a quick-buy amount", `Enter how much ${asset} each ⚡ buy spends.`);
     setBusy(true);
     try {
-      const { messages, via, spent } = await buildQuickBuy(token, amount, asset, wallet, slippage);
+      const { messages, via, spent } = await buildQuickBuy(token, override?.amount ?? amount, (override?.asset as QuickAsset | "USDT") ?? asset, wallet, slippage);
       await sendTx(tc, messages);
       haptic("success");
       toast.success(`Buying $${token.symbol}`, `${spent} via ${via}. If the price moves past ${slippage}% slippage the swap refunds.`);
@@ -110,6 +117,13 @@ export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarge
       }
       haptic("error");
       const msg = (err as Error).message;
+      const min = (err as { minimum?: MinimumBuy }).minimum;
+      if (min) {
+        // Too small for the market makers: offer the smallest size they quote; nothing happens unless approved
+        const label = `${min.amount} ${min.asset}${min.usd ? ` (~$${min.usd.toFixed(0)})` : ""}`;
+        toast.info(`Minimum buy for $${token.symbol}: ${label}`, `Your ${amount} ${asset} is below what market makers quote right now. Buy ${label} instead? You'll still confirm in your wallet.`, { ms: 20_000, action: { label: `Buy ${label}`, onClick: () => void run(min) } });
+        return;
+      }
       // No pool route (e.g. xStocks trade through STON.fi's market makers): offer the same swap in the STON.fi app
       toast.error("Quick buy not sent", msg,
         /No live route/.test(msg) && !token.bitpadPool ? { ms: 12_000, action: { label: "Buy on STON.fi ↗", onClick: () => window.open(stonAppSwapUrl(token.address), "_blank", "noopener") } } : {});

@@ -35,7 +35,9 @@ export async function payInfo(symbol: string): Promise<PayInfo | null> {
  * pool at all (xStocks trade through market makers) are quoted on STON.fi's
  * Omniston aggregator. `pay` tells the caller which asset the routes spend.
  */
-export async function quoteBuy(token: MarketToken, pay: string, amount: number, opts: { omniston?: boolean } = { omniston: true }): Promise<{ routes: RouteQuote[]; pay: PayInfo | null; errors: string[]; switchedFrom?: string; candidates?: { info: PayInfo; amount: number }[] }> {
+export interface MinimumBuy { amount: number; asset: string; usd: number | null }
+
+export async function quoteBuy(token: MarketToken, pay: string, amount: number, opts: { omniston?: boolean } = { omniston: true }): Promise<{ routes: RouteQuote[]; pay: PayInfo | null; errors: string[]; switchedFrom?: string; candidates?: { info: PayInfo; amount: number }[]; minimum?: MinimumBuy | null }> {
   await ensureRuntimeConfig();
   const first = await payInfo(pay);
   if (!first) return { routes: [], pay: null, errors: [`${pay} is not available on TON`] };
@@ -69,11 +71,38 @@ export async function quoteBuy(token: MarketToken, pay: string, amount: number, 
           tried.push(`${c.amount} ${c.info.symbol}${e.acked ? "" : " (not acknowledged)"}`);
         }
       }
-      if (tried.length) errors.push(`Omniston: no market maker quoted ${tried.join(" or ")}`);
+      if (tried.length) {
+        errors.push(`Omniston: no market maker quoted ${tried.join(" or ")}`);
+        // Too small for the market makers? Find the smallest size they'd take, for the user to approve
+        const minimum = await omnistonMinimum(token, candidates).catch(() => null);
+        return { routes: [], pay: first, errors, candidates, minimum };
+      }
     }
     return { routes: [], pay: first, errors, candidates };
   }
   return { routes: [], pay: first, errors };
+}
+
+const LADDER_USD = [5, 10, 25, 50, 100, 250];
+
+/**
+ * Smallest buy a market maker quotes right now, in TON or USDT (the
+ * currencies they trade xStocks against), larger than what was asked.
+ */
+export async function omnistonMinimum(token: MarketToken, candidates: { info: PayInfo; amount: number }[]): Promise<MinimumBuy | null> {
+  const { omniSmallest } = await import("./ton/omniston");
+  for (const c of candidates.filter((x) => x.info.symbol === "TON" || x.info.symbol === "USDT")) {
+    const px = c.info.priceUsd;
+    if (!px) continue;
+    const askedUsd = c.amount * px;
+    const sizes = LADDER_USD.filter((u) => u > askedUsd * 1.05).map((u) => Number((u / px).toFixed(c.info.decimals === 6 ? 2 : 3)));
+    const hit = await omniSmallest(c.info.address, token.address, sizes.map((n) => BigInt(Math.round(n * 10 ** c.info.decimals))));
+    if (hit) {
+      const amount = Number(hit.units) / 10 ** c.info.decimals;
+      return { amount, asset: c.info.symbol, usd: px ? amount * px : null };
+    }
+  }
+  return null;
 }
 
 /** Tokenized stocks and commodities from the pair catalog (the assets Omniston is used for). */

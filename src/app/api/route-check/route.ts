@@ -24,9 +24,11 @@ export async function GET(req: NextRequest) {
       // Probe with ~$20 of TON: market makers often ignore dust-sized requests
       const tonUsd = assets.find((x) => x.symbol === "TON")?.priceUsd ?? null;
       const probe = tonUsd ? Number((20 / tonUsd).toFixed(2)) : 5;
-      const q = await quoteBuy(token, "TON", probe).catch((e) => ({ routes: [], errors: [(e as Error).message] }));
+      const q: { routes: Awaited<ReturnType<typeof quoteBuy>>["routes"]; errors: string[]; minimum?: { amount: number; asset: string; usd: number | null } | null } = await quoteBuy(token, "TON", probe).catch((e) => ({ routes: [], errors: [(e as Error).message] }));
       const best = q.routes.find((r) => r.best) ?? q.routes[0];
-      route = best ? { ok: true, via: best.venue, detail: `${best.payAmount} ${best.payAsset} → ${best.receiveAmount.toPrecision(4)} ${a.symbol}${best.note?.includes("no Bitpad fee") ? " · no Bitpad fee" : ""}` } : { ok: false, via: "—", detail: q.errors.join(" · ") || "No route" };
+      route = best ? { ok: true, via: best.venue, detail: `${best.payAmount} ${best.payAsset} → ${best.receiveAmount.toPrecision(4)} ${a.symbol}${best.note?.includes("no Bitpad fee") ? " · no Bitpad fee" : ""}` } : q.minimum
+          ? { ok: true, via: "STON.fi Omniston (minimum size)", detail: `Buyable from ${q.minimum.amount} ${q.minimum.asset}${q.minimum.usd ? ` (~$${q.minimum.usd.toFixed(0)})` : ""}; smaller buys get offered this minimum` }
+          : { ok: false, via: "—", detail: q.errors.join(" · ") || "No route" };
     }
   } else if (a.solanaMint) route = { ok: true, via: "LI.FI on Solana (paid in SOL)" };
   else route = { ok: false, via: "—", detail: "No TON or Solana token for this asset" };

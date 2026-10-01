@@ -194,3 +194,19 @@ export async function omniBuild(offer: string, ask: string, inputUnits: bigint, 
     omni.transport.close();
   }
 }
+
+/**
+ * Smallest of `ladder` (input units, ascending) that a market maker will
+ * quote right now. All sizes are asked at once on one connection, so this
+ * takes one quote window, not one per size. Null if none of them quote.
+ */
+export async function omniSmallest(offer: string, ask: string, ladder: bigint[], slippagePct = 1): Promise<{ units: bigint; q: OmniQuote } | null> {
+  if (!ladder.length) return null;
+  const omni = open();
+  try {
+    const res = await Promise.all(ladder.map((u) => rfqWithFallback(omni, offer, ask, u, slippagePct).then((q) => ({ units: u, q })).catch(() => null)));
+    return res.find((r) => r) ?? null;
+  } finally {
+    omni.transport.close();
+  }
+}

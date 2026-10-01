@@ -22,6 +22,8 @@ const addr = (s: string | null) => {
  * second instead of waiting on several rate-limited RPC calls from the browser.
  * Nothing here signs or holds funds: the user's wallet still has to approve.
  */
+const fmtAmt = (n: number) => (n >= 100 ? n.toFixed(0) : n >= 1 ? n.toFixed(2) : n.toPrecision(3));
+
 /** Hard cap on TON an Omniston-built transaction may send beyond the amount being swapped (gas). */
 const OMNI_GAS_CAP = 1_500_000_000n;
 
@@ -64,7 +66,11 @@ export async function GET(req: NextRequest) {
     if (!routes.length && d.candidates) {
       const built = await buildViaOmniston(d.candidates, token.address, wallet, slippage * 100);
       if (built) return NextResponse.json(built);
-      return NextResponse.json({ error: "No market maker is quoting this stock right now. Try a different amount, or try again in a minute." }, { status: 404 });
+      // Most likely too small: offer the smallest size a market maker will take (the user approves it)
+      const { omnistonMinimum } = await import("@/lib/routing");
+      const minimum = await omnistonMinimum(token, d.candidates).catch(() => null);
+      if (minimum) return NextResponse.json({ error: `Too small for the market makers right now. The smallest buy they'll quote is ${fmtAmt(minimum.amount)} ${minimum.asset}${minimum.usd ? ` (~$${minimum.usd.toFixed(0)})` : ""}.`, minimum }, { status: 422 });
+      return NextResponse.json({ error: "No market maker is quoting this stock right now, at any size. Try again in a minute." }, { status: 404 });
     }
     const best = routes.find((r) => r.id === want) ?? routes.find((r) => r.best) ?? routes[0];
     if (!best || !d.pay) return NextResponse.json({ error: d.errors.length ? `No live route: ${d.errors.join(" · ")}` : "No live route for this token" }, { status: 404 });
