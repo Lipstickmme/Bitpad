@@ -6,8 +6,9 @@ import type { CreatorProfile, MarketToken } from "./types";
 import type { Launch } from "./launches";
 
 /**
- * Creator jettons: a creator's own coin, launched through the normal Bitpad
- * factory and tagged in its metadata (bitpad_type "creator"). When the creator
+ * Creator jettons: every Bitpad launch is a creator's own coin, backed by a
+ * pool against a stock, commodity or jetton (tagged bitpad_type "creator" in
+ * its metadata since the rebrand; older launches count too). When the creator
  * is logged in with Telegram, Bitpad signs their Telegram identity together
  * with the launching wallet and ticker; the signature goes into the metadata,
  * so anyone can later check the coin really belongs to that Telegram account.
@@ -34,10 +35,8 @@ export function verifyCreator(meta: Launch["meta"], creatorWallet?: string): boo
   }
 }
 
-export const isCreatorLaunch = (meta: Launch["meta"]) => meta.bitpad_type === "creator";
-
-export function creatorProfile(l: Launch): CreatorProfile | undefined {
-  if (!isCreatorLaunch(l.meta)) return undefined;
+/** Every Bitpad launch is a creator jetton; `verified` only when the Telegram proof checks out. */
+export function creatorProfile(l: Launch): CreatorProfile {
   return { tg: l.meta.creator_tg, tgId: l.meta.creator_tg_id ? Number(l.meta.creator_tg_id) : undefined, name: l.meta.creator_name, verified: verifyCreator(l.meta, l.creator) };
 }
 

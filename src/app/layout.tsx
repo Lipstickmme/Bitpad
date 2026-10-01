@@ -11,8 +11,8 @@ import { botUsername } from "@/lib/telegram";
 import { ensureRuntimeConfig } from "@/lib/runtime";
 
 export const metadata: Metadata = {
-  title: { default: "BITPAD · Buy stocks on TON · Launch paired jettons", template: "%s · BITPAD" },
-  description: "Launch tokens paired with stocks, commodities and jettons. Liquidity goes straight into the pool — trade from block one. Cross-chain analytics and multi-wallet bundles.",
+  title: { default: "BITPAD · Buy stocks on TON · Launch creator jettons", template: "%s · BITPAD" },
+  description: "Buy tokenized stocks and gold on TON. Launch your creator jetton backed by stocks, commodities or jettons, live from block one, and earn on every trade through referral links.",
   icons: { icon: "/favicon.png", apple: "/icon-180.png" },
 };
 

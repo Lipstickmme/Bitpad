@@ -31,7 +31,7 @@ export function AssetTicker({ assets: initial }: { assets: PairAsset[] }) {
   ));
 
   return (
-    <div className="ticker relative overflow-hidden border-y border-line py-2.5 [mask-image:linear-gradient(90deg,transparent,#000_6%,#000_94%,transparent)]" aria-label="Live prices">
+    <div className="ticker relative overflow-hidden border-y border-line py-1.5 [mask-image:linear-gradient(90deg,transparent,#000_6%,#000_94%,transparent)]" aria-label="Live prices">
       <div className="ticker-track" style={{ animationDuration: `${Math.max(30, row.length * 4)}s` }}>
         <div className="flex">{items}</div>
         <div className="flex" aria-hidden>{items}</div>

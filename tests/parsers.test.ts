@@ -157,3 +157,20 @@ test("revenue: fee-wallet transfers classified by source and bucketed per day", 
   assert.equal(d[28]["Launch fees"], 2);
   assert.equal(d.reduce((s, x) => s + x.Other, 0), 0, "older than the window is dropped");
 });
+
+test("news: RSS and Atom feeds parse, tags and interleaving", async () => {
+  const { parseFeed, mixNews } = await import("../src/lib/news");
+  const rss = `<rss><channel><item><title><![CDATA[Dogecoin &amp; PEPE rally as memecoins rip]]></title><link>https://example.com/a</link><pubDate>Wed, 30 Sep 2026 10:00:00 GMT</pubDate></item>
+  <item><title>Telegram adds TON payments</title><link>https://example.com/b</link><pubDate>Wed, 30 Sep 2026 09:00:00 GMT</pubDate></item>
+  <item><title>Bitcoin ETF flows</title><link>https://example.com/c</link><pubDate>Wed, 30 Sep 2026 08:00:00 GMT</pubDate></item>
+  <item><title>No link</title></item></channel></rss>`;
+  const crypto = parseFeed(rss, "Feed", "Crypto");
+  assert.deepEqual(crypto.map((i) => i.tag), ["Memecoins", "TON", "Crypto"]);
+  assert.equal(crypto[0].title, "Dogecoin & PEPE rally as memecoins rip");
+  const atom = `<feed><entry><title>Stocks close higher</title><link href="https://example.com/d"/><updated>2026-09-30T11:00:00Z</updated></entry></feed>`;
+  const markets = parseFeed(atom, "Wire", "Markets");
+  assert.equal(markets[0].url, "https://example.com/d");
+  assert.equal(parseFeed(`<item><title>a ton of stocks</title><link>https://x.y/z</link></item>`, "W", "Crypto")[0].tag, "Crypto", "lowercase 'ton' is not TON");
+  const mixed = mixNews([...crypto, ...markets, { ...markets[0], url: "https://dup" }], 10, Date.parse("2026-09-30T12:00:00Z"));
+  assert.deepEqual(mixed.map((i) => i.tag), ["Markets", "Crypto", "Memecoins", "TON"], "one of each tag first, duplicate title dropped");
+});

@@ -90,7 +90,7 @@ export function MarketsView({ bitpad, ton, tonSource }: { bitpad: MarketToken[];
 
       {!!bp.length && (
         <div>
-          <SectionTitle right={<span className="text-xs text-muted">Read from the Bitpad factory on-chain</span>}>Bitpad launches</SectionTitle>
+          <SectionTitle right={<span className="text-xs text-muted">Read from the Bitpad factory on-chain</span>}>Creator jettons</SectionTitle>
           {view === "table" ? <TokenTable tokens={bpShown} /> : <Grid tokens={bpShown} />}
           <Pager page={bpPage} pageSize={PAGE} total={bp.length} onPage={setBpPage} />
         </div>

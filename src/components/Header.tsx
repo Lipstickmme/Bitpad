@@ -11,11 +11,11 @@ import { config } from "@/lib/config";
 const NAV = [
   { href: "/", label: "Markets" },
   { href: "/stocks", label: "Stocks" },
-  { href: "/creators", label: "Creators" },
   { href: "/analytics", label: "Analytics" },
   { href: "/bundler", label: "Bundler" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/revenue", label: "Revenue" },
+  { href: "/docs", label: "Docs" },
 ];
 
 export function Header({ telegramBot }: { telegramBot: string }) {
@@ -42,7 +42,7 @@ export function Header({ telegramBot }: { telegramBot: string }) {
           <SearchBox />
           <a href={config.links.telegram} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 md:inline-flex" aria-label="Telegram"><TelegramIcon /></a>
           <a href={config.links.x} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 md:inline-flex" aria-label="X"><XIcon /></a>
-          <Link href="/launch" className="btn btn-launch hidden sm:inline-flex"><Mark /> <span className="hidden md:inline">Launch jetton</span><Plus className="size-4 md:hidden" /></Link>
+          <Link href="/launch" className="btn btn-launch hidden sm:inline-flex"><Mark /> <span className="hidden xl:inline">Launch Creator Jetton</span><span className="hidden md:inline xl:hidden">Launch</span><Plus className="size-4 md:hidden" /></Link>
           <ConnectMenu telegramBot={telegramBot} />
           <button className="btn btn-ghost w-10 px-0 lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu">
             {open ? <X className="size-4" /> : <Menu className="size-4" />}
@@ -51,7 +51,7 @@ export function Header({ telegramBot }: { telegramBot: string }) {
       </div>
       {open && (
         <nav className="border-t border-line bg-surface px-4 py-2 lg:hidden">
-          {[...NAV, { href: "/launch", label: "Launch jetton" }].map((n) => (
+          {[...NAV, { href: "/launch", label: "Launch Creator Jetton" }].map((n) => (
             <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className={`block rounded-md px-3 py-2.5 text-sm font-medium ${active(n.href) ? "bg-surface-2 text-ink" : "text-ink-2"}`}>
               {n.label}
             </Link>

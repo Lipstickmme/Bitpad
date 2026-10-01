@@ -40,7 +40,7 @@ export function TokenView({ token }: { token: MarketToken }) {
               <span className="text-ink-2">{token.name}</span>
               {token.bitpad && <span className="chip"><Rocket className="size-3" />Bitpad #{token.bitpad.index + 1}</span>}
               {token.bitpad?.creatorJetton && (
-                <Link href="/creators" className="chip hover:text-ink" title={token.bitpad.creatorJetton.verified ? "Creator jetton: Bitpad verified this Telegram account launched it" : "Creator jetton: the Telegram link isn't verified"}>
+                <Link href="/launch#creator-jettons" className="chip hover:text-ink" title={token.bitpad.creatorJetton.verified ? "Creator jetton: Bitpad verified this Telegram account launched it" : "Creator jetton: the Telegram link isn't verified"}>
                   {token.bitpad.creatorJetton.verified && <BadgeCheck className="size-3 text-brand" />}Creator{token.bitpad.creatorJetton.tg ? ` · @${token.bitpad.creatorJetton.tg}` : ""}{!token.bitpad.creatorJetton.verified && " (unverified)"}
                 </Link>
               )}
