@@ -20,8 +20,20 @@ export async function POST(req: NextRequest) {
   const app = { text: "Open Bitpad", web_app: { url: origin } };
   let text = "";
 
-  if (cmd.startsWith("/start")) {
-    text = "<b>Bitpad</b> — launch tokens paired with stocks, gold and TON jettons. Liquidity is live from block one.\n\n/trending — top movers\n/price SYMBOL — token price";
+  if (cmd === "/start" && /^login_[a-f0-9]{32}$/.test(arg ?? "") && msg.from?.id) {
+    // Bot login: the update is webhook-verified, so msg.from is the real Telegram user
+    const { signLoginToken } = await import("@/lib/auth");
+    const f = msg.from;
+    const user = { id: Number(f.id), first_name: String(f.first_name ?? ""), last_name: f.last_name, username: f.username };
+    const link = `${origin}/api/auth/telegram/bot?t=${signLoginToken(user, arg.slice(6))}`;
+    await fetch(`https://api.telegram.org/bot${bot}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chat_id: msg.chat.id, text: "Tap below to finish logging in to <b>Bitpad</b>. The link works for 10 minutes.\n\nDidn't ask to log in? Ignore this message.", parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "✅ Log in to Bitpad", url: link }]] } }),
+    });
+    return NextResponse.json({ ok: true });
+  } else if (cmd.startsWith("/start")) {
+    text = "<b>Bitpad</b> — buy tokenized stocks on TON and launch creator jettons backed by them.\n\n/trending — top movers\n/price SYMBOL — token price";
   } else if (cmd.startsWith("/trending")) {
     const [bp, ton] = await Promise.all([getBitpadTokens(), getTonMarket()]);
     const list = [...bp.tokens, ...ton.tokens].sort((a, b) => (b.volume24h ?? 0) - (a.volume24h ?? 0)).slice(0, 8);

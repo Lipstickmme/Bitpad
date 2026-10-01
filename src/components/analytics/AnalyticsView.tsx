@@ -285,11 +285,11 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
         }
       >
         <div className="scroll-x">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-[900px] text-sm">
             <thead className="text-left text-xs text-muted">
               <tr className="border-b border-line">
                 <th className="py-2 font-medium">Pool</th><th className="font-medium">Chain · DEX</th>
-                <th className="text-right font-medium">Price</th><th className="text-right font-medium">1h</th><th className="text-right font-medium">24h</th>
+                <th className="text-right font-medium">Price</th><th className="text-right font-medium">Mcap</th><th className="text-right font-medium">1h</th><th className="text-right font-medium">24h</th>
                 <th className="text-right font-medium">Volume</th><th className="text-right font-medium">Liquidity</th><th className="text-right font-medium">Txns</th><th className="text-right font-medium">Age</th><th className="pl-3 text-right font-medium">Buy</th>
               </tr>
             </thead>
@@ -299,6 +299,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
                   <td className="py-2.5 font-medium">{p.poolAddress ? <Link href={`/pool/${p.chain}/${p.poolAddress}`} className="hover:underline">{p.base}<span className="font-normal text-muted"> / {p.quote}</span></Link> : <>{p.base}<span className="font-normal text-muted"> / {p.quote}</span></>}</td>
                   <td className="text-xs text-ink-2">{CHAINS[p.chain].short} · {p.dex}</td>
                   <td className="text-right">{price(p.priceUsd)}</td>
+                  <td className="text-right" title={!p.marketCap && p.fdv ? "Fully diluted value (market cap not reported)" : undefined}>{p.marketCap || p.fdv ? usd((p.marketCap || p.fdv)!, { compact: true }) : "—"}</td>
                   <td className={`text-right ${p.change1h >= 0 ? "text-up" : "text-down"}`}>{pct(p.change1h)}</td>
                   <td className={`text-right font-medium ${p.change24h >= 0 ? "text-up" : "text-down"}`}>{pct(p.change24h)}</td>
                   <td className="text-right">{usd(p.volume24h, { compact: true })}</td>
@@ -316,7 +317,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
                   </td>
                 </tr>
               ))}
-              {!trending.length && <tr><td colSpan={10} className="py-6 text-center text-muted">No pools for this filter</td></tr>}
+              {!trending.length && <tr><td colSpan={11} className="py-6 text-center text-muted">No pools for this filter</td></tr>}
             </tbody>
           </table>
         </div>

@@ -30,3 +30,28 @@ export function XIcon({ className = "size-4" }: { className?: string }) {
     </svg>
   );
 }
+
+/** Chain marks for wallet rows and chain labels. */
+export function TonIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path d="M5.1 4.5h13.8c1.2 0 1.9 1.3 1.3 2.3l-7 11.9c-.5.9-1.9.9-2.4 0L3.8 6.8c-.6-1 .1-2.3 1.3-2.3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M12 4.5v14.6" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+export function SolanaIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M6.4 15.6c.1-.1.3-.2.5-.2h13.6c.3 0 .5.4.2.6l-2.9 2.9c-.1.1-.3.2-.5.2H3.7c-.3 0-.5-.4-.2-.6l2.9-2.9ZM6.4 4.7c.2-.1.3-.2.5-.2h13.6c.3 0 .5.4.2.6l-2.9 2.9c-.1.1-.3.2-.5.2H3.7c-.3 0-.5-.4-.2-.6l2.9-2.9ZM17.6 10.1c-.1-.1-.3-.2-.5-.2H3.5c-.3 0-.5.4-.2.6l2.9 2.9c.1.1.3.2.5.2h13.6c.3 0 .5-.4.2-.6l-2.9-2.9Z" />
+    </svg>
+  );
+}
+export function EthIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M12 2 5.5 12.3 12 16l6.5-3.7L12 2Z" opacity=".9" />
+      <path d="M12 17.3 5.5 13.6 12 22l6.5-8.4-6.5 3.7Z" opacity=".6" />
+    </svg>
+  );
+}

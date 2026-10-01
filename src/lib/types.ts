@@ -181,6 +181,9 @@ export interface TrendingPool {
   baseAddress?: string;
   /** Pool contract, for the /pool chart page */
   poolAddress?: string;
+  /** Market cap when the source reports it (else see fdv) */
+  marketCap?: number | null;
+  baseImage?: string;
 }
 
 export interface PairTypeStat {

@@ -9,6 +9,7 @@ import { TokenCard } from "./TokenCard";
 import { TokenTable } from "./TokenTable";
 import { QuickBuyAmount } from "./QuickBuy";
 import { SectionTitle } from "./ui";
+import { ChainMarket } from "./ChainMarket";
 
 const FILTERS: { id: "all" | PairKind | "ton" | "stable"; label: string }[] = [
   { id: "all", label: "All" },
@@ -107,6 +108,9 @@ export function MarketsView({ bitpad, ton, tonSource }: { bitpad: MarketToken[];
           <div className="card p-8 text-center text-sm text-muted">{ton.length ? "No markets match." : "GeckoTerminal and STON.fi didn't respond. Retrying on the next refresh."}</div>
         )}
       </div>
+
+      <ChainMarket chain="ethereum" />
+      <ChainMarket chain="solana" />
     </section>
   );
 }

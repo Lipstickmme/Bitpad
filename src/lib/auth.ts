@@ -73,3 +73,31 @@ export function readSession(token?: string): Session | null {
 }
 
 export const SESSION_COOKIE = "bitpad_session";
+
+/**
+ * Bot login (no Login Widget, so no /setdomain needed): the bot answers
+ * `/start login_<nonce>` with a short-lived signed link carrying the Telegram
+ * user it saw in the (webhook-verified) update.
+ */
+const LOGIN_TTL_MS = 10 * 60_000;
+export const LOGIN_NONCE_COOKIE = "bitpad_tg_nonce";
+
+export function signLoginToken(user: TelegramUser, nonce: string, now = Date.now()): string {
+  const body = Buffer.from(JSON.stringify({ u: user, n: nonce, e: now + LOGIN_TTL_MS })).toString("base64url");
+  const sig = createHmac("sha256", secret()).update(`login:${body}`).digest("base64url");
+  return `${body}.${sig}`;
+}
+
+export function readLoginToken(token: string | null | undefined, now = Date.now()): { user: TelegramUser; nonce: string } | null {
+  if (!token || !process.env.TELEGRAM_BOT_TOKEN) return null;
+  const [body, sig] = token.split(".");
+  if (!body || !sig) return null;
+  const expect = createHmac("sha256", secret()).update(`login:${body}`).digest("base64url");
+  if (expect.length !== sig.length || !timingSafeEqual(Buffer.from(expect), Buffer.from(sig))) return null;
+  try {
+    const d = JSON.parse(Buffer.from(body, "base64url").toString()) as { u: TelegramUser; n: string; e: number };
+    return now < d.e && d.u?.id ? { user: d.u, nonce: d.n } : null;
+  } catch {
+    return null;
+  }
+}

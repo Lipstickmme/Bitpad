@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { CheckCircle2, AlertTriangle, Info, X } from "lucide-react";
+import { humanError } from "@/lib/errors";
 
 type Kind = "success" | "error" | "info";
 interface Action { label: string; onClick: () => void }
@@ -17,7 +18,8 @@ const useToasts = create<{ items: T[]; push: (t: Omit<T, "id">) => void; drop: (
 
 export const toast = {
   success: (title: string, body?: string) => useToasts.getState().push({ kind: "success", title, body }),
-  error: (title: string, body?: string, opts: { action?: Action; ms?: number } = {}) => useToasts.getState().push({ kind: "error", title, body, ...opts }),
+  // Error bodies are translated into plain language (see lib/errors.ts)
+  error: (title: string, body?: string, opts: { action?: Action; ms?: number } = {}) => useToasts.getState().push({ kind: "error", title, body: body != null ? humanError(body) : undefined, ...opts }),
   info: (title: string, body?: string, opts: { action?: Action; ms?: number } = {}) => useToasts.getState().push({ kind: "info", title, body, ...opts }),
 };
 

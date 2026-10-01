@@ -65,7 +65,7 @@ Press **Connect** (top right) and choose Tonkeeper, Telegram Wallet, MyTonWallet
 
 ## 2. Log in with Telegram (recommended)
 
-Logging in links your Telegram account. It lets you launch a **verified** creator jetton, shows your name in the app, and works automatically inside the Telegram Mini App.
+Press **Log in with Telegram** in the Connect menu. Telegram opens a chat with the Bitpad bot: press Start, then tap **Log in to Bitpad**. Logging in links your Telegram account. It lets you launch a **verified** creator jetton, shows your name in the app, and works automatically inside the Telegram Mini App.
 
 ## 3. Add Solana or EVM wallets (optional)
 
@@ -233,6 +233,7 @@ Set an amount once at the top of a list, then press ⚡ next to any token. Bitpa
 | --- | --- |
 | Creator jettons | Their Bitpad pool, directly |
 | Other TON tokens | STON.fi or DeDust, whichever gives more |
+| Tokenized stocks (xStocks) | STON.fi Omniston, which gets quotes from market makers (xStocks have no regular pools) |
 | Solana / EVM tokens | LI.FI's best route, paid from Phantom or MetaMask |
 
 ## The trade panel
@@ -402,7 +403,7 @@ Open your wallet app and look for the request. If it isn't there, the wallet lin
 
 ### "No live route" when buying a stock
 
-That stock has no pool in the currency you chose. Bitpad retries in TON, then USDT. If there's still no route, the token currently has no liquid pool.
+Most xStocks have no regular pools on TON; market makers quote them through STON.fi's Omniston aggregator, and Bitpad uses it automatically. If no market maker is quoting right now, try another amount or try again shortly, or use the **Buy on STON.fi** button.
 
 ### Can I remove liquidity from my launch?
 

@@ -111,7 +111,7 @@ export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarge
       haptic("error");
       const msg = (err as Error).message;
       // No pool route (e.g. xStocks trade through STON.fi's market makers): offer the same swap in the STON.fi app
-      toast.error("Quick buy not sent", /No live route/.test(msg) ? `${msg}. This token may only trade through STON.fi's aggregator.` : msg,
+      toast.error("Quick buy not sent", msg,
         /No live route/.test(msg) && !token.bitpadPool ? { ms: 12_000, action: { label: "Buy on STON.fi ↗", onClick: () => window.open(stonAppSwapUrl(token.address), "_blank", "noopener") } } : {});
     } finally {
       setBusy(false);

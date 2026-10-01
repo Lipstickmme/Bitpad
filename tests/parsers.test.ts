@@ -174,3 +174,26 @@ test("news: RSS and Atom feeds parse, tags and interleaving", async () => {
   const mixed = mixNews([...crypto, ...markets, { ...markets[0], url: "https://dup" }], 10, Date.parse("2026-09-30T12:00:00Z"));
   assert.deepEqual(mixed.map((i) => i.tag), ["Markets", "Crypto", "Memecoins", "TON"], "one of each tag first, duplicate title dropped");
 });
+
+test("errors are translated into plain language", async () => {
+  const { humanError } = await import("../src/lib/errors");
+  assert.match(humanError("No live route: STON.fi (GRAM): STON.fi has no route for this pair ([POST]: 400 Bad Request)"), /no market for this token/);
+  assert.match(humanError(new Error("[TON_CONNECT_SDK_ERROR] UserRejectsError: User rejects the action")), /cancelled it in your wallet/);
+  assert.match(humanError("TypeError: Failed to fetch"), /Network problem/);
+  assert.match(humanError("503 Service Unavailable ← https://x.y/z"), /having trouble/);
+  assert.equal(humanError("Not enough SOL: you have 0.0100, this buy needs ~0.0500 incl. fees"), "Not enough SOL: you have 0.0100, this buy needs ~0.0500 incl. fees");
+  assert.equal(humanError(""), "Something went wrong. Please try again.");
+});
+
+test("Telegram bot-login tokens: signed, expiring, tamper-proof", async () => {
+  process.env.TELEGRAM_BOT_TOKEN = "123456:TEST_TOKEN";
+  const { signLoginToken, readLoginToken } = await import("../src/lib/auth");
+  const user = { id: 42, first_name: "Ada", username: "ada" };
+  const t = signLoginToken(user, "n1", 1_000);
+  assert.deepEqual(readLoginToken(t, 2_000), { user, nonce: "n1" });
+  assert.equal(readLoginToken(t, 1_000 + 11 * 60_000), null, "expired after 10 minutes");
+  const [body, sig] = t.split(".");
+  const forged = Buffer.from(JSON.stringify({ u: { id: 1, first_name: "Mallory" }, n: "n1", e: 9e15 })).toString("base64url");
+  assert.equal(readLoginToken(`${forged}.${sig}`, 2_000), null);
+  assert.equal(readLoginToken(`${body}.x${sig.slice(1)}`, 2_000), null);
+});

@@ -4,30 +4,44 @@ import { Wallet, ChevronDown, LogOut, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/lib/store";
 import { shortAddr } from "@/lib/format";
-import { TelegramIcon } from "./Brand";
+import { EthIcon, SolanaIcon, TelegramIcon, TonIcon } from "./Brand";
 import { toast } from "./Toast";
+import { humanError } from "@/lib/errors";
+import type { TelegramUser } from "@/lib/auth-types";
 
-function TelegramLoginWidget({ bot, onAuth }: { bot: string; onAuth: (u: Record<string, string | number>) => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!bot || !ref.current) return;
-    window.onTelegramAuth = onAuth;
-    const s = document.createElement("script");
-    s.src = "https://telegram.org/js/telegram-widget.js?22";
-    s.async = true;
-    s.setAttribute("data-telegram-login", bot);
-    s.setAttribute("data-size", "medium");
-    s.setAttribute("data-radius", "10");
-    s.setAttribute("data-onauth", "onTelegramAuth(user)");
-    s.setAttribute("data-request-access", "write");
-    ref.current.innerHTML = "";
-    ref.current.appendChild(s);
-  }, [bot, onAuth]);
-  if (!bot) return <p className="text-xs text-muted">Telegram login isn&apos;t configured on this deployment.</p>;
+/**
+ * Telegram login through the bot (no Login Widget, so it doesn't depend on
+ * @BotFather /setdomain): the bot sends a one-tap login link, and this tab
+ * notices the new session.
+ */
+function TelegramBotLogin({ bot, onUser }: { bot: string; onUser: (u: TelegramUser) => void }) {
+  const [waiting, setWaiting] = useState(false);
+  if (!bot) return <p className="text-xs text-muted">Telegram login isn&apos;t set up on this site yet.</p>;
+  async function start() {
+    const w = window.open("", "_blank"); // open now so the popup isn't blocked
+    try {
+      const r = await fetch("/api/auth/telegram/bot", { method: "PUT" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      if (w) w.location.href = d.url; else window.location.href = d.url;
+      setWaiting(true);
+      for (let i = 0; i < 120; i++) {
+        await new Promise((res) => setTimeout(res, 2500));
+        const s = await fetch("/api/auth/telegram").then((x) => x.json()).catch(() => null);
+        if (s?.session?.tg) return onUser(s.session.tg);
+      }
+      toast.info("Telegram login timed out", "Press Log in with Telegram to try again.");
+    } catch (e) {
+      w?.close();
+      toast.error("Couldn't start Telegram login", humanError(e));
+    } finally {
+      setWaiting(false);
+    }
+  }
   return (
     <div>
-      <div ref={ref} />
-      <p className="mt-1.5 text-[10px] text-muted">Button says &quot;Bot domain invalid&quot;? In @BotFather run /setdomain for @{bot} and enter this site&apos;s domain.</p>
+      <button onClick={start} disabled={waiting} className="btn btn-primary h-9 w-full text-sm"><TelegramIcon className="size-4" /> {waiting ? "Waiting for Telegram…" : "Log in with Telegram"}</button>
+      <p className="mt-1.5 text-[11px] text-muted">{waiting ? `Press Start in @${bot}, then tap “Log in to Bitpad”.` : `Opens @${bot}. One tap there signs you in here.`}</p>
     </div>
   );
 }
@@ -69,13 +83,9 @@ export function ConnectMenu({ telegramBot }: { telegramBot: string }) {
       toast.error("EVM connection rejected", (e as Error).message);
     }
   }
-  async function onTelegram(u: Record<string, string | number>) {
-    const r = await fetch("/api/auth/telegram", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(u) });
-    const d = await r.json();
-    if (r.ok) {
-      setTgUser(d.user);
-      toast.success(`Signed in as ${d.user.username ? "@" + d.user.username : d.user.first_name}`);
-    } else toast.error("Telegram login failed", d.error);
+  function onTelegram(u: TelegramUser) {
+    setTgUser(u);
+    toast.success(`Signed in as ${u.username ? "@" + u.username : u.first_name}`);
   }
   async function logoutTg() {
     await fetch("/api/auth/telegram", { method: "DELETE" });
@@ -87,7 +97,7 @@ export function ConnectMenu({ telegramBot }: { telegramBot: string }) {
 
   const Row = ({ title, sub, ok, onConnect, onOff, icon }: { title: string; sub?: string; ok: boolean; onConnect: () => void; onOff: () => void; icon: React.ReactNode }) => (
     <div className="flex items-center gap-3 rounded-xl px-2 py-2.5 hover:bg-surface-2">
-      <div className="grid size-9 place-items-center rounded-lg border border-line bg-surface">{icon}</div>
+      <div className="grid size-9 place-items-center rounded-lg border border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgb(255_255_255/0.08)]">{icon}</div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-sm font-semibold">{title}{ok && <Check className="size-3.5 text-up" />}</div>
         <div className="truncate text-xs text-muted">{sub}</div>
@@ -108,11 +118,11 @@ export function ConnectMenu({ telegramBot }: { telegramBot: string }) {
         <ChevronDown className="size-3.5 opacity-60" />
       </button>
       {open && (
-        <div className="card absolute right-0 mt-2 w-[min(340px,calc(100vw-2rem))] p-2 shadow-2xl shadow-black/40">
+        <div className="card glass absolute right-0 mt-2 w-[min(340px,calc(100vw-2rem))] p-2 shadow-2xl shadow-black/40">
           <div className="px-2 pb-1 pt-1 text-xs font-bold uppercase tracking-wider text-muted">Sign in & wallets</div>
-          <Row title="TON wallet" sub={ton ? shortAddr(ton, 6, 6) : "Tonkeeper, MyTonWallet, Telegram Wallet"} ok={!!ton} onConnect={() => tc.openModal()} onOff={() => tc.disconnect()} icon={<span className="text-sm font-black text-ink-2">◆</span>} />
-          <Row title="Solana" sub={sol ? shortAddr(sol.address, 6, 6) : "Phantom, Solflare, Backpack"} ok={!!sol} onConnect={connectSolana} onOff={() => removeExternal("solana")} icon={<span className="text-sm font-black text-ink-2">◎</span>} />
-          <Row title="EVM" sub={evm ? shortAddr(evm.address, 6, 4) : "MetaMask, Rabby, Coinbase"} ok={!!evm} onConnect={connectEvm} onOff={() => removeExternal("evm")} icon={<span className="text-sm font-black text-ink-2">Ξ</span>} />
+          <Row title="TON wallet" sub={ton ? shortAddr(ton, 6, 6) : "Tonkeeper, MyTonWallet, Telegram Wallet"} ok={!!ton} onConnect={() => tc.openModal()} onOff={() => tc.disconnect()} icon={<TonIcon className="size-[18px] text-[#0098ea]" />} />
+          <Row title="Solana" sub={sol ? shortAddr(sol.address, 6, 6) : "Phantom, Solflare, Backpack"} ok={!!sol} onConnect={connectSolana} onOff={() => removeExternal("solana")} icon={<SolanaIcon className="size-[18px] text-[#14f195]" />} />
+          <Row title="EVM" sub={evm ? shortAddr(evm.address, 6, 4) : "MetaMask, Rabby, Coinbase"} ok={!!evm} onConnect={connectEvm} onOff={() => removeExternal("evm")} icon={<EthIcon className="size-[18px] text-[#8c9eff]" />} />
           <div className="mt-1 border-t border-line px-2 pb-1 pt-3">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><TelegramIcon className="size-4 text-ink-2" /> Telegram</div>
             {tgUser ? (
@@ -121,7 +131,7 @@ export function ConnectMenu({ telegramBot }: { telegramBot: string }) {
                 <button onClick={logoutTg} className="flex items-center gap-1 text-xs font-semibold text-muted hover:text-down"><LogOut className="size-3.5" /> Sign out</button>
               </div>
             ) : (
-              <TelegramLoginWidget bot={telegramBot} onAuth={onTelegram} />
+              <TelegramBotLogin bot={telegramBot} onUser={onTelegram} />
             )}
           </div>
         </div>

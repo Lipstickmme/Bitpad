@@ -9,7 +9,7 @@ import { toggleNav } from "./Sidebar";
 /** Top bar: search and wallet. Navigation lives in the sidebar (a drawer below lg). */
 export function Header({ telegramBot }: { telegramBot: string }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur">
+    <header className="glass sticky top-0 z-30 border-b border-line">
       <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-2 px-3 sm:gap-3 sm:px-6">
         <button className="btn btn-ghost w-10 shrink-0 px-0 lg:hidden" onClick={toggleNav} aria-label="Menu"><Menu className="size-4" /></button>
         <div className="lg:hidden"><Logo size={40} /></div>

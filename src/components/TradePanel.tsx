@@ -12,6 +12,7 @@ import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
 import { sendTx } from "@/lib/ton/send";
 import { stonAppSwapUrl } from "@/lib/ton/links";
+import { humanError } from "@/lib/errors";
 
 const PAY = ["TON", "USDT", "GRAM", "USDC"] as const;
 const PRESETS: Record<(typeof PAY)[number], number[]> = { TON: [5, 25, 100, 500], USDT: [10, 50, 250, 1000], GRAM: [5000, 25000, 100000, 500000], USDC: [10, 50, 250, 1000] };
@@ -170,7 +171,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
                   <>
                     No pool route for this token. It may only trade through STON.fi&apos;s aggregator (xStocks do).{" "}
                     <a href={stonAppSwapUrl(token.address)} target="_blank" rel="noreferrer" className="font-semibold text-brand hover:underline">Buy on STON.fi ↗</a>
-                    <span className="mt-1 block text-[10px]">{quoteErr.join(" · ")}</span>
+                    <span className="mt-1 block text-[10px]">{humanError(quoteErr.join(" · "))}</span>
                   </>
                 ) : "Enter an amount to compare live STON.fi and DeDust quotes."}
               </p>

@@ -39,7 +39,7 @@ export function Sidebar() {
     <Link
       key={href}
       href={href}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-colors ${active(href) ? "bg-surface-2 text-ink" : "text-muted hover:bg-surface-2/60 hover:text-ink"}`}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-colors ${active(href) ? "bg-white/[0.06] text-ink shadow-[inset_0_1px_0_rgb(255_255_255/0.08),inset_0_0_0_1px_rgb(255_255_255/0.06)]" : "text-muted hover:bg-white/[0.04] hover:text-ink"}`}
     >
       <Icon className={`size-[18px] ${active(href) ? "text-brand" : ""}`} />
       {label}
@@ -50,7 +50,7 @@ export function Sidebar() {
     <>
       {open && <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setOpen(false)} aria-hidden />}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-line bg-bg transition-transform lg:w-60 lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`glass fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-line transition-transform lg:w-60 lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
         aria-label="Main navigation"
       >
         <div className="flex h-[68px] shrink-0 items-center gap-2 border-b border-line px-4">
