@@ -129,7 +129,9 @@ export function fundingMessages(wallets: BundleWallet[], amounts: number[]): TcM
   return wallets.map((w, i) => ({ address: w.address, amount: toNano(amounts[i].toFixed(9)).toString() }));
 }
 
-const GAS_RESERVE = toNano("0.05"); // wallet's own fees for the external message
+// The wallet's own fee for sending its message (a W5 external message costs ~0.003-0.006 GRAM).
+// Everything else is the gas the DEX attaches to the swap message; the unused part is refunded.
+const GAS_RESERVE = toNano("0.012");
 
 async function sendSigned(w: BundleWallet, password: string, tx: SenderArguments, extra: SenderArguments[] = []) {
   const words = (await decrypt(w.secret, password)).split(" ");
@@ -138,7 +140,10 @@ async function sendSigned(w: BundleWallet, password: string, tx: SenderArguments
   // Refuse up front instead of letting the chain drop it
   const need = [tx, ...extra].reduce((s, m) => s + m.value, 0n) + GAS_RESERVE;
   const bal = await tonClient().getBalance(contract.address);
-  if (bal < need) throw new Error(`Not enough TON in ${w.label}: has ${Number(fromNano(bal)).toFixed(3)}, this trade needs ~${Number(fromNano(need)).toFixed(3)} incl. gas`);
+  if (bal < need) {
+    const short = Number(fromNano(need - bal));
+    throw new Error(`Not enough GRAM for gas in ${w.label}: has ${Number(fromNano(bal)).toFixed(3)}, this trade attaches ~${Number(fromNano(need)).toFixed(3)} (mostly refunded after the swap). Top it up by ${Math.max(0.01, short).toFixed(3)} GRAM or more.`);
+  }
   const seqno = await opened.getSeqno();
   await opened.sendTransfer({
     seqno,

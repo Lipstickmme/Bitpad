@@ -116,6 +116,24 @@ export function BundlerView() {
     setWallets((ws) => ws.map((w) => ({ ...w, balance: b[w.id] })));
   }
 
+  /** Bring every selected wallet up to GAS_TARGET GRAM (enough for a swap's attached gas), in one signature. */
+  const GAS_TARGET = 0.4;
+  const lowGas = active.filter((w) => Number.isFinite(w.balance) && (w.balance ?? 0) < GAS_TARGET);
+  async function topUpGas() {
+    if (!lib) return;
+    if (!wallet) return tc.openModal();
+    if (!lowGas.length) return toast.info("Gas is fine", `Every selected wallet already has ${GAS_TARGET} GRAM or more.`);
+    const amounts = lowGas.map((w) => Math.max(0.05, GAS_TARGET - (w.balance ?? 0)));
+    try {
+      const msgs = lib.fundingMessages(lowGas, amounts);
+      for (let i = 0; i < msgs.length; i += 4) await sendTx(tc, msgs.slice(i, i + 4));
+      toast.success("Gas topped up", `${lowGas.length} wallet${lowGas.length === 1 ? "" : "s"} topped up to ${GAS_TARGET} GRAM.`);
+      setTimeout(refresh, 8000);
+    } catch (e) {
+      toast.error("Top-up cancelled", (e as Error).message);
+    }
+  }
+
   async function fund() {
     if (!lib) return;
     if (!wallet) return tc.openModal();
@@ -299,6 +317,7 @@ export function BundlerView() {
             </div>
             <SplitPicker mode={fundMode} setMode={setFundMode} onShuffle={() => setSeed((s) => s + 1)} />
             <button onClick={fund} disabled={!active.length || fundTotal <= 0} className="btn btn-ghost mt-3 w-full">{wallet ? `Send to ${active.length} wallets` : "Connect TON wallet"}</button>
+            <button onClick={topUpGas} disabled={!active.length} className="btn btn-ghost mt-2 w-full" title={`Sends just enough GRAM to bring each selected wallet to ${GAS_TARGET} GRAM`}>{lowGas.length ? `Top up gas · ${lowGas.length} wallet${lowGas.length === 1 ? "" : "s"} below ${GAS_TARGET} GRAM` : `Top up gas (to ${GAS_TARGET} GRAM)`}</button>
           </section>
 
           <OnchainBundle recipients={active.map((w) => ({ address: w.address, label: w.label }))} splits={tradeSplit} slippage={slippage} />
@@ -341,7 +360,7 @@ export function BundlerView() {
             <button onClick={() => execute()} disabled={running || !active.length || (side === "buy" ? tradeTotal <= 0 : heldTotal <= 0n)} className={`btn mt-4 h-11 w-full ${side === "buy" ? "btn-up" : "btn-down"}`}>
               {running ? "Executing…" : side === "buy" ? `Buy from ${active.length} wallets` : `Sell ${sellPct === 100 ? "all" : `${sellPct}%`} from ${active.filter((w) => (holdings[w.id] ?? 0n) > 0n).length} wallets`}
             </button>
-            <p className="mt-2 text-[11px] text-muted">Buys and sells use the first route that works (Bitpad pool, STON.fi, DeDust, or Omniston, which also reaches TONCO and market makers), built for each wallet and signed locally. Sells take a share of what each wallet holds. Keep ~0.3 GRAM per wallet for gas.</p>
+            <p className="mt-2 text-[11px] text-muted">Buys and sells use the first route that works (Bitpad pool, STON.fi, DeDust, or Omniston, which also reaches TONCO and market makers), built for each wallet and signed locally. Sells take a share of what each wallet holds. Each swap attaches ~0.3 GRAM of gas set by the DEX (most of it is refunded right after), so keep ~0.4 GRAM per wallet; Top up gas does that in one signature.</p>
           </section>
         </aside>
       </div>
