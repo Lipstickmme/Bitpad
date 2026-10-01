@@ -113,16 +113,25 @@ export function BundlerView() {
     }
   }
 
-  async function execute() {
+  /** Re-run only the wallets whose last leg failed, with the same amounts. */
+  function retryFailed() {
+    const failed = active.filter((w) => progress[w.id]?.status === "error");
+    if (!failed.length) return;
+    return execute(failed);
+  }
+
+  async function execute(only?: BundleWallet[]) {
     if (!lib) return;
     if (!/^[EU]Q[A-Za-z0-9_-]{46}$/.test(jetton)) return toast.error("Enter a valid jetton master address");
     setRunning(true);
-    setProgress({});
     const pxAtStart = livePx.current;
     const sent = new Set<string>();
     let failed = 0;
+    const targets = only ?? active;
+    const amounts = targets.map((w) => tradeSplit[active.indexOf(w)] ?? 0);
+    if (!only) setProgress({});
     await lib.runBundle({
-      side, wallets: active, amounts: tradeSplit, jetton, password, slippage: slippage / 100, staggerMs: stagger,
+      side, wallets: targets, amounts, jetton, password, slippage: slippage / 100, staggerMs: stagger,
       onProgress: (p) => {
         if (p.status === "sent") sent.add(p.walletId);
         if (p.status === "error") failed++;
@@ -132,7 +141,7 @@ export function BundlerView() {
     setRunning(false);
     // Remember where this buy filled, for the "since last buy" readout
     if (side === "buy" && sent.size && pxAtStart) {
-      const ton = active.reduce((sum, w, i) => sum + (sent.has(w.id) ? tradeSplit[i] ?? 0 : 0), 0);
+      const ton = targets.reduce((sum, w, i) => sum + (sent.has(w.id) ? amounts[i] ?? 0 : 0), 0);
       const b = { priceUsd: pxAtStart, time: Date.now(), ton, wallets: sent.size };
       saveLastBuy(jetton, b);
       setLastBuy(b);
@@ -279,7 +288,10 @@ export function BundlerView() {
               <label className="block"><span className="label">Stagger (ms)</span><input className="input num mt-1 h-9 text-sm" value={stagger} onChange={(e) => setStagger(Number(e.target.value) || 0)} /></label>
               <label className="block"><span className="label">Slippage %</span><input className="input num mt-1 h-9 text-sm" value={slippage} onChange={(e) => setSlippage(Number(e.target.value) || 0)} /></label>
             </div>
-            <button onClick={execute} disabled={running || !active.length || tradeTotal <= 0} className={`btn mt-4 h-11 w-full ${side === "buy" ? "btn-up" : "btn-down"}`}>
+            {!running && active.some((w) => progress[w.id]?.status === "error") && (
+              <button onClick={retryFailed} className="btn btn-ghost mt-4 h-10 w-full">Retry {active.filter((w) => progress[w.id]?.status === "error").length} failed wallet{active.filter((w) => progress[w.id]?.status === "error").length === 1 ? "" : "s"}</button>
+            )}
+            <button onClick={() => execute()} disabled={running || !active.length || tradeTotal <= 0} className={`btn mt-4 h-11 w-full ${side === "buy" ? "btn-up" : "btn-down"}`}>
               {running ? "Executing…" : `${side === "buy" ? "Buy" : "Sell"} from ${active.length} wallets`}
             </button>
             <p className="mt-2 text-[11px] text-muted">Buys use the best route (Bitpad pool, STON.fi, DeDust or Omniston for stocks), built for each wallet and signed locally. Each wallet's balance is checked first. Keep ~0.3 GRAM per wallet for gas on top of its buy.</p>

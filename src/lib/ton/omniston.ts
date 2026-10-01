@@ -87,12 +87,30 @@ async function rfq(omni: Omniston, offer: string, ask: string, inputUnits: bigin
 }
 
 /** With Bitpad's fee first; if nobody quotes, once more without it so the buy still has a route. */
+/**
+ * The SDK sometimes rejects a perfectly good stream when the server sends the
+ * first quote before its acknowledgement ("Received quoteUpdated before ack").
+ * That's a race, not a refusal: ask again (up to 3 tries).
+ */
+const isAckRace = (e: unknown) => /before\s+"?ack"?/i.test((e as Error)?.message ?? "");
+
+async function rfqRetry(omni: Omniston, offer: string, ask: string, inputUnits: bigint, slippagePct: number, withFee: boolean): Promise<OmniQuote> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await rfq(omni, offer, ask, inputUnits, slippagePct, withFee);
+    } catch (e) {
+      if (!isAckRace(e) || attempt >= 3) throw e;
+      await new Promise((r) => setTimeout(r, 250 * attempt));
+    }
+  }
+}
+
 async function rfqWithFallback(omni: Omniston, offer: string, ask: string, inputUnits: bigint, slippagePct: number): Promise<OmniQuote> {
   try {
-    return await rfq(omni, offer, ask, inputUnits, slippagePct, true);
+    return await rfqRetry(omni, offer, ask, inputUnits, slippagePct, true);
   } catch (e) {
     if (!(e instanceof NoQuote) || !config.feeWallet) throw e;
-    return rfq(omni, offer, ask, inputUnits, slippagePct, false);
+    return rfqRetry(omni, offer, ask, inputUnits, slippagePct, false);
   }
 }
 
