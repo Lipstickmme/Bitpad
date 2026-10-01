@@ -224,8 +224,10 @@ body {
   background-image: linear-gradient(180deg, rgb(255 255 255 / 0.22) 0%, rgb(255 255 255 / 0.06) 48%, rgb(0 0 0 / 0.06) 52%, rgb(0 0 0 / 0.12) 100%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), inset 0 -1px 0 rgb(0 0 0 / 0.2), 0 6px 18px -8px rgb(0 0 0 / 0.6);
 }
-.btn-launch {
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), inset 0 -1px 0 rgb(0 0 0 / 0.2), 0 8px 24px -10px rgb(229 72 77 / 0.7);
+/* red buttons: glass + shine only, no outer glow */
+.btn-launch,
+.btn-down {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), inset 0 -1px 0 rgb(0 0 0 / 0.2);
 }
 .btn-ghost {
   background-color: rgb(255 255 255 / 0.03);
@@ -284,8 +286,53 @@ body {
   -webkit-backdrop-filter: blur(16px) saturate(150%);
 }
 
+/* Unusual volume: a soft amber pulse */
+@keyframes spike-pulse {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgb(245 197 24 / 0.08); }
+}
+.spike {
+  animation: spike-pulse 2.4s ease-in-out infinite;
+}
+.spike > td:first-child {
+  box-shadow: inset 2px 0 0 rgb(245 197 24 / 0.55);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .spike { animation: none; background-color: rgb(245 197 24 / 0.05); }
   .btn::after { display: none; }
   .btn:active:not(:disabled) { transform: none; }
 }
+}
+
+/* ── Sidebar: full (15rem) or icon rail (4.5rem) on desktop ─────────────── */
+.sidebar {
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sb-label {
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+@media (min-width: 1024px) {
+  .sidebar { width: 15rem; }
+  .app-shell {
+    padding-left: 15rem;
+    transition: padding-left 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  html[data-sidebar="collapsed"] .sidebar { width: 4.5rem; }
+  html[data-sidebar="collapsed"] .app-shell { padding-left: 4.5rem; }
+  html[data-sidebar="collapsed"] .sidebar .sb-label {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+  }
+  html[data-sidebar="collapsed"] .sidebar .sb-launch { padding: 0; gap: 0; }
+  html[data-sidebar="collapsed"] .sidebar .sb-socials { flex-direction: column; align-items: center; padding: 0.25rem 0 0; }
+  html[data-sidebar="collapsed"] .sidebar nav a,
+  html[data-sidebar="collapsed"] .sidebar nav button,
+  html[data-sidebar="collapsed"] .sidebar .mt-auto > a,
+  html[data-sidebar="collapsed"] .sidebar .mt-auto > button { justify-content: center; gap: 0; padding-left: 0; padding-right: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar, .app-shell { transition: none; }
 }

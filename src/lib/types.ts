@@ -69,6 +69,8 @@ export interface MarketToken {
   fdv: number | null;
   liquidityUsd: number | null;
   volume24h: number | null;
+  /** Last hour's volume, when known (spike detection) */
+  volume1h?: number | null;
   change24h: number | null;
   /** Real % changes over 5m/1h/6h/24h, used to draw card sparklines */
   changes?: { m5: number; h1: number; h6: number; h24: number };
@@ -184,6 +186,8 @@ export interface TrendingPool {
   /** Market cap when the source reports it (else see fdv) */
   marketCap?: number | null;
   baseImage?: string;
+  /** Last hour's volume, when the source reports it (spike detection) */
+  volume1h?: number | null;
 }
 
 export interface PairTypeStat {

@@ -5,7 +5,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { Header } from "@/components/Header";
-import { Sidebar } from "@/components/Sidebar";
+import { Sidebar, SIDEBAR_BOOT } from "@/components/Sidebar";
 import { Footer } from "@/components/Footer";
 import { TrenchChat } from "@/components/TrenchChat";
 import { botUsername } from "@/lib/telegram";
@@ -22,12 +22,15 @@ export const viewport: Viewport = { themeColor: "#0a1215", width: "device-width"
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [bot, runtime] = await Promise.all([botUsername(), ensureRuntimeConfig().catch(() => null)]);
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: SIDEBAR_BOOT }} />
+      </head>
       <body className="min-h-screen">
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />
         <Providers feeWallet={runtime?.feeWallet ?? ""} twaReturnUrl={bot ? `https://t.me/${bot}${process.env.TELEGRAM_APP_NAME ? `/${process.env.TELEGRAM_APP_NAME}` : ""}` : undefined}>
           <Sidebar />
-          <div className="lg:pl-60">
+          <div className="app-shell">
             <Header telegramBot={bot} />
             <main className="mx-auto w-full max-w-[1400px] px-4 pb-16 pt-5 sm:px-6">{children}</main>
             <Footer />

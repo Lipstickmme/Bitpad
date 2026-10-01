@@ -13,6 +13,7 @@ import { QuickBuyAmount, QuickBuyButton } from "../QuickBuy";
 import { Pager } from "../Pager";
 import { Leaders } from "./Leaders";
 import { XBuyButton, xBuyable } from "../XBuy";
+import { volumeSpike } from "@/lib/spike";
 
 const CHAIN_FILTERS: ("all" | ChainId)[] = ["all", "ton", "solana", "ethereum", "base", "bsc", "arbitrum", "polygon", "avalanche", "sui", "tron"];
 const winRate = (l: LaunchpadStat) => (l.wins + l.losses ? (100 * l.wins) / (l.wins + l.losses) : 0);
@@ -295,7 +296,7 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
             </thead>
             <tbody className="num">
               {trending.slice(tPage * 15, (tPage + 1) * 15).map((p) => (
-                <tr key={p.id} onClick={() => p.poolAddress && router.push(`/pool/${p.chain}/${p.poolAddress}`)} className={`border-b border-line/60 last:border-0 hover:bg-surface-2/60 ${p.poolAddress ? "cursor-pointer" : ""}`}>
+                <tr key={p.id} onClick={() => p.poolAddress && router.push(`/pool/${p.chain}/${p.poolAddress}`)} title={volumeSpike(p) ? "Unusual volume right now" : undefined} className={`border-b border-line/60 last:border-0 hover:bg-surface-2/60 ${p.poolAddress ? "cursor-pointer" : ""} ${volumeSpike(p) ? "spike" : ""}`}>
                   <td className="py-2.5 font-medium">{p.poolAddress ? <Link href={`/pool/${p.chain}/${p.poolAddress}`} className="hover:underline">{p.base}<span className="font-normal text-muted"> / {p.quote}</span></Link> : <>{p.base}<span className="font-normal text-muted"> / {p.quote}</span></>}</td>
                   <td className="text-xs text-ink-2">{CHAINS[p.chain].short} · {p.dex}</td>
                   <td className="text-right">{price(p.priceUsd)}</td>

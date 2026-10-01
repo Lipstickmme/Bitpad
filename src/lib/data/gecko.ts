@@ -101,6 +101,7 @@ export function mapPools(res: { data: GeckoPool[]; included?: GeckoToken[] }, ch
       changeM5: n(a.price_change_percentage.m5) ?? 0,
       changeH6: n(a.price_change_percentage.h6) ?? 0,
       volume24h: n(a.volume_usd.h24) ?? 0,
+      volume1h: n(a.volume_usd.h1),
       liquidityUsd: n(a.reserve_in_usd) ?? 0,
       fdv: n(a.fdv_usd) ?? 0,
       marketCap: n(a.market_cap_usd),

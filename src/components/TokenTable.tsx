@@ -4,6 +4,7 @@ import type { MarketToken } from "@/lib/types";
 import { ago, price, usd } from "@/lib/format";
 import { AssetDot, Change, TokenAvatar, orDash } from "./ui";
 import { QuickBuyButton } from "./QuickBuy";
+import { volumeSpike } from "@/lib/spike";
 
 /** Dense market table — the default view for traders. */
 export function TokenTable({ tokens }: { tokens: MarketToken[] }) {
@@ -28,7 +29,7 @@ export function TokenTable({ tokens }: { tokens: MarketToken[] }) {
         </thead>
         <tbody className="num">
           {tokens.map((t) => (
-            <tr key={t.address} onClick={() => router.push(`/token/${t.address}`)} className="cursor-pointer border-b border-line/60 last:border-0 hover:bg-surface-2/70">
+            <tr key={t.address} onClick={() => router.push(`/token/${t.address}`)} title={volumeSpike(t) ? "Unusual volume right now" : undefined} className={`cursor-pointer border-b border-line/60 last:border-0 hover:bg-surface-2/70 ${volumeSpike(t) ? "spike" : ""}`}>
               <td className="px-4 py-2">
                 <div className="flex items-center gap-2.5">
                   <TokenAvatar token={t} size={26} />

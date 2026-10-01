@@ -43,6 +43,7 @@ async function fromPool(p: GeckoPoolRow, source: string): Promise<MarketToken> {
     fdv: p.fdv || null,
     liquidityUsd: p.liquidityUsd || null,
     volume24h: p.volume24h,
+    volume1h: p.volume1h,
     change24h: p.change24h,
     changes: { m5: p.changeM5, h1: p.change1h, h6: p.changeH6, h24: p.change24h },
     buys24h: p.buys24h,
