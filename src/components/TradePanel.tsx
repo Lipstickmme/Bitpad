@@ -11,6 +11,7 @@ import { toast } from "./Toast";
 // Platform fee: STON.fi routes take it on-chain via referral; DeDust routes add a separate fee transfer.
 import { haptic } from "./TelegramBridge";
 import { sendTx } from "@/lib/ton/send";
+import { stonAppSwapUrl } from "@/lib/ton/links";
 
 const PAY = ["TON", "USDT", "GRAM", "USDC"] as const;
 const PRESETS: Record<(typeof PAY)[number], number[]> = { TON: [5, 25, 100, 500], USDT: [10, 50, 250, 1000], GRAM: [5000, 25000, 100000, 500000], USDC: [10, 50, 250, 1000] };
@@ -165,7 +166,13 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
             ))}
             {!routes.length && !loading && (
               <p className="rounded-xl border border-dashed border-line p-3 text-center text-xs text-muted">
-                {Number(amount) > 0 && quoteErr.length ? `No live route: ${quoteErr.join(" · ")}` : "Enter an amount to compare live STON.fi and DeDust quotes."}
+                {Number(amount) > 0 && quoteErr.length ? (
+                  <>
+                    No pool route for this token. It may only trade through STON.fi&apos;s aggregator (xStocks do).{" "}
+                    <a href={stonAppSwapUrl(token.address)} target="_blank" rel="noreferrer" className="font-semibold text-brand hover:underline">Buy on STON.fi ↗</a>
+                    <span className="mt-1 block text-[10px]">{quoteErr.join(" · ")}</span>
+                  </>
+                ) : "Enter an amount to compare live STON.fi and DeDust quotes."}
               </p>
             )}
           </div>

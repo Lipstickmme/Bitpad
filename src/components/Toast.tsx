@@ -17,7 +17,7 @@ const useToasts = create<{ items: T[]; push: (t: Omit<T, "id">) => void; drop: (
 
 export const toast = {
   success: (title: string, body?: string) => useToasts.getState().push({ kind: "success", title, body }),
-  error: (title: string, body?: string) => useToasts.getState().push({ kind: "error", title, body }),
+  error: (title: string, body?: string, opts: { action?: Action; ms?: number } = {}) => useToasts.getState().push({ kind: "error", title, body, ...opts }),
   info: (title: string, body?: string, opts: { action?: Action; ms?: number } = {}) => useToasts.getState().push({ kind: "info", title, body, ...opts }),
 };
 

@@ -12,6 +12,7 @@ import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
 import { bigState, refreshSoon, type PoolResponse } from "./bitpad/usePool";
 import { sendTx } from "@/lib/ton/send";
+import { stonAppSwapUrl } from "@/lib/ton/links";
 
 /** False during SSR and hydration, true after — the persisted amount only exists in the browser. */
 const useHydrated = () => useSyncExternalStore(() => () => {}, () => true, () => false);
@@ -108,7 +109,10 @@ export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarge
         return;
       }
       haptic("error");
-      toast.error("Quick buy not sent", (err as Error).message);
+      const msg = (err as Error).message;
+      // No pool route (e.g. xStocks trade through STON.fi's market makers): offer the same swap in the STON.fi app
+      toast.error("Quick buy not sent", /No live route/.test(msg) ? `${msg}. This token may only trade through STON.fi's aggregator.` : msg,
+        /No live route/.test(msg) && !token.bitpadPool ? { ms: 12_000, action: { label: "Buy on STON.fi ↗", onClick: () => window.open(stonAppSwapUrl(token.address), "_blank", "noopener") } } : {});
     } finally {
       setBusy(false);
     }
