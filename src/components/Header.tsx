@@ -1,68 +1,24 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Plus, Menu, X } from "lucide-react";
-import { useState } from "react";
-import { Logo, Mark, TelegramIcon, XIcon } from "./Brand";
+import { Menu } from "lucide-react";
+import { Logo, Mark } from "./Brand";
 import { ConnectMenu } from "./ConnectMenu";
 import { SearchBox } from "./SearchBox";
-import { config } from "@/lib/config";
+import { toggleNav } from "./Sidebar";
 
-const NAV = [
-  { href: "/", label: "Markets" },
-  { href: "/stocks", label: "Stocks" },
-  { href: "/analytics", label: "Analytics" },
-  { href: "/bundler", label: "Bundler" },
-  { href: "/portfolio", label: "Portfolio" },
-  { href: "/revenue", label: "Revenue" },
-  { href: "/docs", label: "Docs" },
-];
-
+/** Top bar: search and wallet. Navigation lives in the sidebar (a drawer below lg). */
 export function Header({ telegramBot }: { telegramBot: string }) {
-  const path = usePathname();
-  const [open, setOpen] = useState(false);
-  const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
-
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur">
-      <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-3 px-3 sm:gap-6 sm:px-6">
-        <Logo size={44} />
-        <nav className="hidden items-center gap-1 lg:flex">
-          {NAV.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              className={`relative rounded-md px-3 py-2 text-[15px] font-medium transition-colors ${active(n.href) ? "text-ink after:absolute after:inset-x-3 after:-bottom-[15px] after:h-0.5 after:rounded-full after:bg-brand" : "text-muted hover:text-ink"}`}
-            >
-              {n.label}
-            </Link>
-          ))}
-        </nav>
+    <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur">
+      <div className="mx-auto flex h-[68px] max-w-[1400px] items-center gap-2 px-3 sm:gap-3 sm:px-6">
+        <button className="btn btn-ghost w-10 shrink-0 px-0 lg:hidden" onClick={toggleNav} aria-label="Menu"><Menu className="size-4" /></button>
+        <div className="lg:hidden"><Logo size={40} /></div>
         <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">
           <SearchBox />
-          <a href={config.links.telegram} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 md:inline-flex" aria-label="Telegram"><TelegramIcon /></a>
-          <a href={config.links.x} target="_blank" rel="noreferrer" className="btn btn-ghost hidden w-10 px-0 md:inline-flex" aria-label="X"><XIcon /></a>
-          <Link href="/launch" className="btn btn-launch hidden sm:inline-flex"><Mark /> <span className="hidden xl:inline">Launch Creator Jetton</span><span className="hidden md:inline xl:hidden">Launch</span><Plus className="size-4 md:hidden" /></Link>
+          <Link href="/launch" className="btn btn-launch hidden sm:inline-flex lg:hidden"><Mark /> Launch</Link>
           <ConnectMenu telegramBot={telegramBot} />
-          <button className="btn btn-ghost w-10 px-0 lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="Menu">
-            {open ? <X className="size-4" /> : <Menu className="size-4" />}
-          </button>
         </div>
       </div>
-      {open && (
-        <nav className="border-t border-line bg-surface px-4 py-2 lg:hidden">
-          {[...NAV, { href: "/launch", label: "Launch Creator Jetton" }].map((n) => (
-            <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className={`block rounded-md px-3 py-2.5 text-sm font-medium ${active(n.href) ? "bg-surface-2 text-ink" : "text-ink-2"}`}>
-              {n.label}
-            </Link>
-          ))}
-          <button onClick={() => { setOpen(false); window.dispatchEvent(new Event("bitpad:open-chat")); }} className="block w-full rounded-md px-3 py-2.5 text-left text-sm font-medium text-ink-2">Trench chat</button>
-          <div className="flex gap-2 px-3 py-2.5">
-            <a href={config.links.telegram} target="_blank" rel="noreferrer" className="btn btn-ghost w-10 px-0" aria-label="Telegram"><TelegramIcon /></a>
-            <a href={config.links.x} target="_blank" rel="noreferrer" className="btn btn-ghost w-10 px-0" aria-label="X"><XIcon /></a>
-          </div>
-        </nav>
-      )}
     </header>
   );
 }
