@@ -10,9 +10,9 @@
   --color-action: #8cbfd1;         /* primary buttons */
   --color-action-hover: #a3cddc;
   --color-action-ink: #081114;     /* text on primary buttons */
-  --color-launch: #e5484d;         /* launch buttons */
+  --color-launch: #1fcf7a;         /* launch buttons: bright buy green */
   --color-gold: #d9b56b;           /* highlight for stocks & gold */
-  --color-launch-hover: #ef5f63;
+  --color-launch-hover: #34dc8b;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }

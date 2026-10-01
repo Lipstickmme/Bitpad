@@ -257,7 +257,7 @@ export function LaunchForm({ assets, factory, registeredPairs, initialPair }: { 
             <Row k="Network gas (est.)" v="≈ 0.5 TON" />
             <Row k="Trading fee" v={factory ? `${(factory.tradeFeeBps / 100).toFixed(2)}% (protocol + creator)` : "—"} />
           </div>
-          <button onClick={launch} disabled={!valid || step === "deploying" || step === "seeding"} className="btn btn-primary mt-4 h-12 w-full text-base">
+          <button onClick={launch} disabled={!valid || step === "deploying" || step === "seeding"} className="btn btn-launch mt-4 h-12 w-full text-base">
             <Rocket className="size-4" />
             {!wallet ? "Connect TON wallet" : step === "deploying" ? "Deploying jetton…" : step === "done" ? "Launched ✓" : "Launch creator jetton"}
           </button>

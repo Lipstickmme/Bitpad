@@ -149,7 +149,7 @@ export function TrenchChat() {
       {!open && (
         <button onClick={() => setOpen(true)} aria-label="Trench chat" className={`fixed bottom-4 right-4 z-40 items-center gap-2 rounded-full border border-line-strong bg-surface p-3 text-sm font-semibold shadow-2xl shadow-black/50 hover:bg-surface-2 sm:flex sm:px-4 sm:py-2.5 ${scrolled ? "flex" : "hidden"}`}>
           <Mark size={18} /> <span className="hidden sm:inline">Trench chat</span>
-          {unread && <span className="size-2 rounded-full bg-launch" />}
+          {unread && <span className="size-2 rounded-full bg-down" />}
         </button>
       )}
       {open && (
@@ -206,7 +206,7 @@ function Message({ m, me, tg, replies, onPost, mode, offOk, nested = false }: { 
         {m.text && <p className="mt-1 whitespace-pre-wrap break-words text-sm"><RichText text={m.text} /></p>}
         {m.media && <MediaView media={m.media} />}
         <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted">
-          {!m.offchain && <button onClick={like} disabled={m.liked} className={`flex items-center gap-1 ${m.liked ? "text-launch" : "hover:text-ink"}`}><Heart className={`size-3 ${m.liked ? "fill-current" : ""}`} /> {m.likes || ""}</button>}
+          {!m.offchain && <button onClick={like} disabled={m.liked} className={`flex items-center gap-1 ${m.liked ? "text-down" : "hover:text-ink"}`}><Heart className={`size-3 ${m.liked ? "fill-current" : ""}`} /> {m.likes || ""}</button>}
           {!nested && <button onClick={() => setReplying((r) => !r)} className="flex items-center gap-1 hover:text-ink"><MessageCircle className="size-3" /> Reply</button>}
           {!nested && !!replies?.length && <button onClick={() => setShowReplies((s) => !s)} className="hover:text-ink">{showReplies ? "Hide" : `${replies.length} repl${replies.length === 1 ? "y" : "ies"}`}</button>}
           <a href={m.offchain ? m.url : `https://tonviewer.com/transaction/${m.id}`} target="_blank" rel="noreferrer" className="ml-auto hover:text-ink" title={m.offchain ? "View on Telegram" : "View on-chain"}>↗</a>

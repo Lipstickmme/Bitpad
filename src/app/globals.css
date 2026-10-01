@@ -78,7 +78,7 @@ body {
 }
 .btn-launch {
   background: var(--color-launch);
-  color: #fff;
+  color: #03170d;
   font-weight: 600;
 }
 .btn-launch:hover:not(:disabled) {
@@ -341,5 +341,8 @@ body {
 main h1:not(.normal-case),
 main h2:not(.normal-case) {
   text-transform: uppercase;
+}
+/* a touch of tracking for small section titles only (big headlines keep their own) */
+main h2:not(.normal-case) {
   letter-spacing: 0.03em;
 }

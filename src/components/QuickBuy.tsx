@@ -1,8 +1,8 @@
 "use client";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
-import { Zap } from "lucide-react";
+import { Settings, Zap } from "lucide-react";
 import { toNano } from "@ton/core";
 import { useApp } from "@/lib/store";
 import { generalReferrer, storedReferral } from "@/lib/referral";
@@ -134,36 +134,74 @@ export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarge
 
 /** Quick-buy size and currency (GRAM or TON), shared by every ⚡ button. */
 export function QuickBuyAmount() {
-  const { setQuickBuy, setQuickBuyGram, setQuickBuyAsset } = useApp();
+  const { setQuickBuy, setQuickBuyGram, setQuickBuyAsset, slippage, setSlippage } = useApp();
   const { asset, amount } = useQuickBuy();
   const hydrated = useHydrated();
   const [draft, setV] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
   const v = draft ?? (hydrated ? String(amount) : "");
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  const pickAsset = (a: "GRAM" | "TON") => {
+    setV(null);
+    if (a !== asset) setQuickBuyAsset(a);
+  };
   return (
-    <label className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-xs text-muted focus-within:border-line-strong" title="Spent by each ⚡ quick buy">
-      <Zap className="size-3.5 text-brand" />
-      Quick buy
-      <input
-        inputMode="decimal"
-        value={v}
-        onChange={(e) => {
-          const s = e.target.value.replace(/[^0-9.]/g, "");
-          setV(s);
-          if (Number(s) > 0) (asset === "GRAM" ? setQuickBuyGram : setQuickBuy)(Number(s));
-        }}
-        className="num w-14 bg-transparent text-right text-sm font-semibold text-ink outline-none"
-      />
-      <button
-        type="button"
-        onClick={() => {
-          setV(null);
-          setQuickBuyAsset(asset === "GRAM" ? "TON" : "GRAM");
-        }}
-        className="rounded bg-surface-2 px-1.5 py-0.5 font-semibold text-ink hover:bg-line-strong"
-        title="Switch between GRAM and TON"
-      >
-        {hydrated ? asset : "GRAM"}
-      </button>
-    </label>
+    <div ref={box} className="relative">
+      {/* Highlighted so people see they can set how much each ⚡ buy spends */}
+      <label className="quickbuy flex h-9 items-center gap-1.5 rounded-lg border border-brand/60 bg-brand-soft/40 px-2.5 text-xs text-brand-ink shadow-[0_0_0_3px_var(--color-brand-soft)] focus-within:border-brand" title="How much each ⚡ quick buy spends">
+        <Zap className="size-3.5 fill-current text-brand" />
+        <span className="font-semibold">Set quick buy</span>
+        <input
+          inputMode="decimal"
+          value={v}
+          aria-label="Quick buy amount"
+          onChange={(e) => {
+            const s = e.target.value.replace(/[^0-9.]/g, "");
+            setV(s);
+            if (Number(s) > 0) (asset === "GRAM" ? setQuickBuyGram : setQuickBuy)(Number(s));
+          }}
+          className="num w-14 rounded bg-black/20 px-1 text-right text-sm font-semibold text-ink outline-none"
+        />
+        <button type="button" onClick={() => pickAsset(asset === "GRAM" ? "TON" : "GRAM")} className="rounded bg-surface-2 px-1.5 py-0.5 font-semibold text-ink hover:bg-line-strong" title="Switch between GRAM and TON">
+          {hydrated ? asset : "GRAM"}
+        </button>
+        <button type="button" onClick={(e) => { e.preventDefault(); setOpen((o) => !o); }} className="grid size-6 place-items-center rounded text-brand-ink hover:bg-white/10" aria-label="Quick buy settings" aria-expanded={open}>
+          <Settings className={`size-4 transition-transform ${open ? "rotate-90" : ""}`} />
+        </button>
+      </label>
+      {open && (
+        <div className="card glass absolute right-0 z-30 mt-2 w-64 space-y-3 p-3 text-xs shadow-2xl shadow-black/40">
+          <div>
+            <div className="mb-1.5 font-semibold text-ink">Pay with</div>
+            <div className="seg w-full">
+              {(["GRAM", "TON"] as const).map((a) => <button key={a} data-on={hydrated && asset === a} onClick={() => pickAsset(a)} className="flex-1">{a}</button>)}
+            </div>
+          </div>
+          <div>
+            <div className="mb-1.5 font-semibold text-ink">Amount per ⚡ buy</div>
+            <div className="grid grid-cols-4 gap-1">
+              {(asset === "GRAM" ? [100, 500, 1000, 5000] : [0.5, 1, 5, 10]).map((n) => (
+                <button key={n} onClick={() => { setV(null); (asset === "GRAM" ? setQuickBuyGram : setQuickBuy)(n); }} className={`rounded-md border py-1.5 font-semibold ${hydrated && amount === n ? "border-brand bg-brand-soft text-brand-ink" : "border-line hover:border-line-strong"}`}>{n}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="mb-1.5 font-semibold text-ink">Max slippage</div>
+            <div className="grid grid-cols-4 gap-1">
+              {[0.5, 1, 3, 5].map((n) => (
+                <button key={n} onClick={() => setSlippage(n)} className={`rounded-md border py-1.5 font-semibold ${slippage === n ? "border-brand bg-brand-soft text-brand-ink" : "border-line hover:border-line-strong"}`}>{n}%</button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-muted">If the price moves more than this before your swap lands, it refunds instead.</p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
