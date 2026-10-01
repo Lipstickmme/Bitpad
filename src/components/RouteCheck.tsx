@@ -36,7 +36,7 @@ export function RouteCheck({ assets }: { assets: { symbol: string; name: string;
         <div>
           <h1 className="flex items-center gap-1.5 text-2xl font-bold tracking-tight">
             Route check
-            <Hint>Runs a live 1 TON quote for every asset in Bitpad&apos;s catalog (pools first, then STON.fi Omniston for stocks), and reads the factory to see whether each one can back a creator jetton. Nothing is bought.</Hint>
+            <Hint>Runs a live quote worth about $20 for every asset in Bitpad&apos;s catalog (pools first, then STON.fi Omniston for stocks), and reads the factory to see whether each one can back a creator jetton. Nothing is bought.</Hint>
           </h1>
           <p className="text-sm text-ink-2">{done < assets.length ? `Checking ${done}/${assets.length}…` : `${buyable}/${assets.length} buyable right now · ${pairable}/${assets.length} can back a launch`}</p>
         </div>

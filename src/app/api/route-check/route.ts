@@ -21,9 +21,12 @@ export async function GET(req: NextRequest) {
     const token = await getToken(a.tonAddress).catch(() => undefined);
     if (!token) route = { ok: false, via: "—", detail: "Token data unavailable" };
     else {
-      const q = await quoteBuy(token, "TON", 1).catch((e) => ({ routes: [], errors: [(e as Error).message] }));
+      // Probe with ~$20 of TON: market makers often ignore dust-sized requests
+      const tonUsd = assets.find((x) => x.symbol === "TON")?.priceUsd ?? null;
+      const probe = tonUsd ? Number((20 / tonUsd).toFixed(2)) : 5;
+      const q = await quoteBuy(token, "TON", probe).catch((e) => ({ routes: [], errors: [(e as Error).message] }));
       const best = q.routes.find((r) => r.best) ?? q.routes[0];
-      route = best ? { ok: true, via: best.venue, detail: `1 TON → ${best.receiveAmount.toPrecision(4)} ${a.symbol}` } : { ok: false, via: "—", detail: q.errors.join(" · ") || "No route" };
+      route = best ? { ok: true, via: best.venue, detail: `${best.payAmount} ${best.payAsset} → ${best.receiveAmount.toPrecision(4)} ${a.symbol}${best.note?.includes("no Bitpad fee") ? " · no Bitpad fee" : ""}` } : { ok: false, via: "—", detail: q.errors.join(" · ") || "No route" };
     }
   } else if (a.solanaMint) route = { ok: true, via: "LI.FI on Solana (paid in SOL)" };
   else route = { ok: false, via: "—", detail: "No TON or Solana token for this asset" };

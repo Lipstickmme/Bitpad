@@ -14,8 +14,7 @@ import type { TcMessage } from "./client";
  * wallet in the token bought). SDK pinned to an exact version in package.json.
  */
 const API = "wss://omni-ws.ston.fi";
-const QUOTE_WINDOW_MS = 3500; // collect quotes this long, keep the latest/best
-const QUOTE_TIMEOUT_MS = 9000;
+const QUOTE_TIMEOUT_MS = 6000; // market makers get this long to answer
 
 const tonAsset = (addr: string) =>
   addr === TON_ASSETS.TON
@@ -28,23 +27,39 @@ export interface OmniQuote {
   outputUnits: bigint;
   inputUnits: bigint;
   resolver: string;
+  /** Quoted only without Bitpad's integrator fee (some market makers refuse fee-carrying requests) */
+  feeWaived?: boolean;
 }
 
-/** Best Omniston quote to spend `inputUnits` of `offer` for `ask`, or null if no resolver answers. */
-async function rfq(omni: Omniston, offer: string, ask: string, inputUnits: bigint, slippagePct: number): Promise<OmniQuote | null> {
-  const fee = config.feeWallet && config.swapFeeBps > 0 ? { integratorAddress: tonAddr(config.feeWallet), integratorFeePips: config.swapFeeBps * 100 } : {};
+/** Why Omniston returned nothing (shown in errors and the route check). */
+export class NoQuote extends Error {
+  constructor(public readonly acked: boolean, public readonly noQuoteEvents: number) {
+    super(acked ? "no market maker quoted this amount" : "the request wasn't acknowledged");
+  }
+}
+
+/**
+ * Best Omniston quote to spend `inputUnits` of `offer` for `ask`. Waits the
+ * whole quote window (market makers answer at different speeds and "no
+ * quote" events are normal while they do), keeping the latest quote.
+ */
+async function rfq(omni: Omniston, offer: string, ask: string, inputUnits: bigint, slippagePct: number, withFee: boolean): Promise<OmniQuote> {
+  const fee = withFee && config.feeWallet && config.swapFeeBps > 0 ? { integratorAddress: tonAddr(config.feeWallet), integratorFeePips: config.swapFeeBps * 100 } : {};
   return new Promise((resolve, reject) => {
     let best: Quote | null = null;
     let done = false;
+    let acked = false;
+    let noQuotes = 0;
+    let settle: ReturnType<typeof setTimeout> | undefined;
     const finish = (err?: Error) => {
       if (done) return;
       done = true;
       clearTimeout(window);
-      clearTimeout(hard);
+      clearTimeout(settle);
       sub.unsubscribe();
       status.unsubscribe();
-      if (err && !best) reject(err);
-      else resolve(best ? { quote: best, outputUnits: BigInt(best.outputUnits), inputUnits: BigInt(best.inputUnits), resolver: best.resolverName } : null);
+      if (best) resolve({ quote: best, outputUnits: BigInt(best.outputUnits), inputUnits: BigInt(best.inputUnits), resolver: best.resolverName, feeWaived: !withFee });
+      else reject(err ?? new NoQuote(acked, noQuotes));
     };
     const sub = omni.requestForQuote({
       inputAsset: tonAsset(offer),
@@ -54,20 +69,31 @@ async function rfq(omni: Omniston, offer: string, ask: string, inputUnits: bigin
       settlementParams: [{ params: { $case: "swap", value: { maxPriceSlippagePips: Math.round(slippagePct * 10_000), maxRoutes: 4, flexibleIntegratorFee: true } } }],
     }).subscribe({
       next: (e) => {
-        if (e.$case === "quoteUpdated") {
-          // each update supersedes the previous quote (better terms or the old one expired)
+        if (e.$case === "ack") acked = true;
+        else if (e.$case === "quoteUpdated") {
+          // each update supersedes the previous one (better terms, or the old one expired)
           best = e.value;
-        } else if (e.$case === "noQuote" && !best) finish();
+          // give other market makers a moment to beat it, then go
+          settle ??= setTimeout(() => finish(), 1200);
+        } else if (e.$case === "noQuote") noQuotes++;
       },
       error: (err) => finish(new Error(err?.message || "Omniston error")),
       complete: () => finish(),
     });
     // Fail fast when the connection can't be made (after the transport's retries)
     const status = omni.connectionStatusEvents.subscribe((e) => { if (e.status === "error" || e.status === "closed") finish(new Error("Couldn't reach STON.fi's aggregator")); });
-    // first quote usually lands within a second or two; give resolvers a short window
-    const window = setTimeout(() => best && finish(), QUOTE_WINDOW_MS);
-    const hard = setTimeout(() => finish(), QUOTE_TIMEOUT_MS);
+    const window = setTimeout(() => finish(), QUOTE_TIMEOUT_MS);
   });
+}
+
+/** With Bitpad's fee first; if nobody quotes, once more without it so the buy still has a route. */
+async function rfqWithFallback(omni: Omniston, offer: string, ask: string, inputUnits: bigint, slippagePct: number): Promise<OmniQuote> {
+  try {
+    return await rfq(omni, offer, ask, inputUnits, slippagePct, true);
+  } catch (e) {
+    if (!(e instanceof NoQuote) || !config.feeWallet) throw e;
+    return rfq(omni, offer, ask, inputUnits, slippagePct, false);
+  }
 }
 
 const hexToB64 = (hex: string) => (hex ? Cell.fromBoc(Buffer.from(hex, "hex"))[0].toBoc().toString("base64") : undefined);
@@ -138,22 +164,21 @@ function open() {
   return new Omniston({ apiUrl: API, transport });
 }
 
-/** Quote only (for showing the route). */
-export async function omniQuote(offer: string, ask: string, inputUnits: bigint, slippagePct = 1): Promise<OmniQuote | null> {
+/** Quote only (for showing the route). Throws NoQuote when no market maker answers. */
+export async function omniQuote(offer: string, ask: string, inputUnits: bigint, slippagePct = 1): Promise<OmniQuote> {
   const omni = open();
   try {
-    return await rfq(omni, offer, ask, inputUnits, slippagePct);
+    return await rfqWithFallback(omni, offer, ask, inputUnits, slippagePct);
   } finally {
     omni.transport.close();
   }
 }
 
 /** Quote and build the swap transaction for `wallet` in one connection. */
-export async function omniBuild(offer: string, ask: string, inputUnits: bigint, wallet: string, slippagePct = 1): Promise<{ q: OmniQuote; messages: TcMessage[] } | null> {
+export async function omniBuild(offer: string, ask: string, inputUnits: bigint, wallet: string, slippagePct = 1): Promise<{ q: OmniQuote; messages: TcMessage[] }> {
   const omni = open();
   try {
-    const q = await rfq(omni, offer, ask, inputUnits, slippagePct);
-    if (!q) return null;
+    const q = await rfqWithFallback(omni, offer, ask, inputUnits, slippagePct);
     if (q.quote.settlementData?.$case !== "swap") throw new Error("Omniston returned a non-swap quote");
     const owner = Address.parse(wallet).toString({ bounceable: false });
     const tx = await omni.tonBuildSwap({ quoteId: q.quote.quoteId, transferSrcAddress: tonAddr(owner), useRecommendedSlippage: false });

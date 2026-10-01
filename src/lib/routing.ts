@@ -58,13 +58,18 @@ export async function quoteBuy(token: MarketToken, pay: string, amount: number, 
   // No AMM pool at all: stocks & gold trade through Omniston's market makers
   if (await isStockAsset(token.address)) {
     if (opts.omniston) {
-      let unreachable = false;
+      const tried: string[] = [];
       for (const c of candidates) {
-        const o = await omnistonRoute(token, c.info, c.amount).catch((e) => { errors.push(`Omniston: ${(e as Error).message}`); unreachable = true; return null; });
-        if (o) return { routes: [o], pay: c.info, errors: [], switchedFrom: c.info.symbol !== pay ? pay : undefined, candidates };
-        if (unreachable) break;
+        try {
+          const o = await omnistonRoute(token, c.info, c.amount);
+          return { routes: [o], pay: c.info, errors: [], switchedFrom: c.info.symbol !== pay ? pay : undefined, candidates };
+        } catch (e) {
+          const { NoQuote } = await import("./ton/omniston");
+          if (!(e instanceof NoQuote)) { errors.push(`Omniston: ${(e as Error).message}`); break; } // can't reach it: don't retry
+          tried.push(`${c.amount} ${c.info.symbol}${e.acked ? "" : " (not acknowledged)"}`);
+        }
       }
-      if (!unreachable) errors.push("Omniston: no market maker quoted this amount");
+      if (tried.length) errors.push(`Omniston: no market maker quoted ${tried.join(" or ")}`);
     }
     return { routes: [], pay: first, errors, candidates };
   }
@@ -77,18 +82,17 @@ export async function isStockAsset(address: string): Promise<boolean> {
   return assets.some((a) => (a.kind === "stock" || a.kind === "commodity") && a.tonAddress === address);
 }
 
-async function omnistonRoute(token: MarketToken, info: PayInfo, amount: number): Promise<RouteQuote | null> {
+async function omnistonRoute(token: MarketToken, info: PayInfo, amount: number): Promise<RouteQuote> {
   const { omniQuote } = await import("./ton/omniston");
   const units = BigInt(Math.floor(amount * 10 ** info.decimals));
   const q = await omniQuote(info.address, token.address, units);
-  if (!q) return null;
   const recv = Number(q.outputUnits) / 10 ** token.decimals;
   const payUsd = info.priceUsd ? amount * info.priceUsd : null;
   return {
     id: "omniston", venue: `STON.fi Omniston · ${q.resolver}`, chain: "ton", kind: "onchain", payAsset: info.symbol, payAmount: amount,
     receiveAmount: recv, receiveUsd: token.priceUsd ? recv * token.priceUsd : 0, priceImpact: 0,
     platformFeeUsd: payUsd != null ? payUsd * (config.swapFeeBps / 10_000) : 0, networkFeeUsd: 0, etaSeconds: 15, live: true, executable: true, best: true,
-    note: "Market-maker quote via STON.fi's aggregator",
+    note: q.feeWaived ? "Market-maker quote via STON.fi's aggregator (no Bitpad fee on this one)" : "Market-maker quote via STON.fi's aggregator",
   };
 }
 

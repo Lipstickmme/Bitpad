@@ -26,18 +26,21 @@ const addr = (s: string | null) => {
 const OMNI_GAS_CAP = 1_500_000_000n;
 
 async function buildViaOmniston(candidates: { info: { symbol: string; address: string; decimals: number }; amount: number }[], token: string, wallet: string, slippagePct: number) {
-  const { omniBuild } = await import("@/lib/ton/omniston");
+  const { omniBuild, NoQuote } = await import("@/lib/ton/omniston");
   for (const c of candidates) {
     const units = BigInt(Math.floor(c.amount * 10 ** c.info.decimals));
-    let unreachable = false;
-    const r = await omniBuild(c.info.address, token, units, wallet, slippagePct).catch(() => { unreachable = true; return null; });
-    if (unreachable) break;
-    if (!r) continue;
+    let r;
+    try {
+      r = await omniBuild(c.info.address, token, units, wallet, slippagePct);
+    } catch (e) {
+      if (e instanceof NoQuote) continue; // try the next currency
+      throw e; // can't reach Omniston, or it failed to build the swap
+    }
     // Never pass on a transaction that would send more TON than the swap plus gas
     const tonOut = r.messages.reduce((s, m) => s + BigInt(m.amount), 0n);
     const allowed = (c.info.address === TON_ASSETS.TON ? units : 0n) + OMNI_GAS_CAP;
     if (tonOut > allowed) throw new Error("The aggregator's transaction asked for more TON than this buy needs, so it was not sent");
-    return { messages: r.messages, via: `STON.fi Omniston · ${r.q.resolver}`, spent: `${c.amount} ${c.info.symbol}`, switchedFrom: null };
+    return { messages: r.messages, via: `STON.fi Omniston · ${r.q.resolver}${r.q.feeWaived ? " (no Bitpad fee)" : ""}`, spent: `${c.amount} ${c.info.symbol}`, switchedFrom: null };
   }
   return null;
 }
