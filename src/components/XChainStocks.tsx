@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { StockPaired, XStock } from "@/lib/xchain-stocks";
 import { CHAINS } from "@/lib/chains";
 import { price, usd } from "@/lib/format";
-import { Change, Hint } from "./ui";
+import { Change, Hint, Verified } from "./ui";
 import { XBuyButton, xBuyable } from "./XBuy";
 import { Pager } from "./Pager";
 
@@ -55,7 +55,7 @@ export function XChainStocks({ assets, paired, live }: { assets: XStock[]; paire
                   <td className="py-2.5">
                     <a href={a.url} target="_blank" rel="noreferrer" className="flex items-center gap-2.5">
                       <Img src={a.image} />
-                      <div><div className="font-medium hover:underline">{a.symbol}</div><div className="text-[11px] text-muted">{a.underlying} · {a.issuer}</div></div>
+                      <div><div className="flex items-center gap-1 font-medium hover:underline">{a.symbol}{a.verified && <Verified />}</div><div className="text-[11px] text-muted">{a.underlying} · {a.issuer}</div></div>
                     </a>
                   </td>
                   <td className="text-ink-2">{CHAINS[a.chain]?.name ?? a.chain}</td>

@@ -31,6 +31,8 @@ export interface PairAsset {
   tonAddress?: string;
   /** Solana mint (e.g. xStocks), resolved live from Jupiter */
   solanaMint?: string;
+  /** Confirmed genuine: STON.fi canonical/essential token or Jupiter-verified mint */
+  verified?: boolean;
   /** Real-market reference price (Pyth oracle, else Yahoo) — stocks & commodities */
   oraclePriceUsd?: number | null;
   /** What the TON jetton trades at on-chain (STON.fi / TonAPI) */
@@ -71,6 +73,8 @@ export interface MarketToken {
   volume24h: number | null;
   /** Last hour's volume, when known (spike detection) */
   volume1h?: number | null;
+  /** Confirmed genuine token (STON.fi canonical / essential list) */
+  verified?: boolean;
   change24h: number | null;
   /** Real % changes over 5m/1h/6h/24h, used to draw card sparklines */
   changes?: { m5: number; h1: number; h6: number; h24: number };
@@ -188,6 +192,8 @@ export interface TrendingPool {
   baseImage?: string;
   /** Last hour's volume, when the source reports it (spike detection) */
   volume1h?: number | null;
+  /** Confirmed genuine base token */
+  verified?: boolean;
 }
 
 export interface PairTypeStat {

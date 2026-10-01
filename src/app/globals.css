@@ -336,3 +336,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .sidebar, .app-shell { transition: none; }
 }
+
+/* Section titles and page titles in caps ("STOCKS & GOLD ON TON"); docs prose keeps normal case */
+main h1:not(.normal-case),
+main h2:not(.normal-case) {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}

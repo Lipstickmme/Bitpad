@@ -4,7 +4,7 @@ import { pythQuotes, type PythWant } from "./data/pyth";
 import { yahooQuote } from "./data/yahoo";
 import { cgPrices } from "./data/coingecko";
 import { jupResolve } from "./data/jupiter";
-import { resolveTonSymbol } from "./data/stonfi";
+import { rawAddr, resolveTonSymbol, verifiedTon } from "./data/stonfi";
 import { tokenRates } from "./data/tonapi";
 import { safe, memo } from "./data/http";
 import type { PairAsset } from "./types";
@@ -41,7 +41,7 @@ async function load(): Promise<{ assets: PairAsset[]; live: boolean }> {
   ]);
 
   const jettonAddrs = ASSET_DEFS.map((a, i) => a.tonAddress ?? tonResolved[i]?.contractAddress).filter((x): x is string => !!x);
-  const rates = await safe(tokenRates(jettonAddrs), {}, "tonapi rates");
+  const [rates, vset] = await Promise.all([safe(tokenRates(jettonAddrs), {}, "tonapi rates"), safe(verifiedTon(), new Set<string>(), "ston verified")]);
 
   let anyLive = false;
   const assets = ASSET_DEFS.map((def, i): PairAsset => {
@@ -72,6 +72,8 @@ async function load(): Promise<{ assets: PairAsset[]; live: boolean }> {
       priceSource: hit?.[0],
       tonAddress,
       solanaMint: j?.id,
+      // Genuine: native TON / pinned USDT, STON.fi's canonical token for the ticker, or a Jupiter-verified xStock mint
+      verified: !!((def.tonAddress && def.kind === "jetton") || (tonAddress && vset.value.has(rawAddr(tonAddress))) || (!tonAddress && j?.isVerified)),
       oraclePriceUsd: def.kind === "stock" || def.kind === "commodity" ? p?.price ?? y?.price ?? null : undefined,
       tonPriceUsd: tonAddress ? (ston?.dexPriceUsd ? Number(ston.dexPriceUsd) : tr?.prices?.USD ?? null) : null,
       nextDividendEst: y?.lastDividend && y.dividendsPerYear > 0 ? nextDividend(y.lastDividend.date * 1000, y.dividendsPerYear) : null,

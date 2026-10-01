@@ -1,4 +1,5 @@
 import { StonApiClient } from "@ston-fi/api";
+import { Address } from "@ton/core";
 import { memo } from "./http";
 
 /** STON.fi public API — free, no key. */
@@ -31,3 +32,26 @@ export async function stonPoolSwaps(pool: string, minutes = 60) {
   const ops = await ston.getOperations({ since, until });
   return ops.filter((o) => o.operation.poolAddress === pool && o.operation.operationType === "Swap" && o.operation.success);
 }
+
+/**
+ * TON jettons we can show as verified: STON.fi lists them as the canonical
+ * token for their ticker (default symbol) or as essential, and they carry no
+ * risk tags. Raw-form addresses.
+ */
+export const verifiedTon = () =>
+  memo("ston:verified", 10 * 60_000, async () => {
+    const set = new Set<string>();
+    for (const a of await stonAssets()) {
+      if (!isSafe(a) || !(a.defaultSymbol || a.tags.includes("asset:essential"))) continue;
+      try { set.add(Address.parse(a.contractAddress).toRawString()); } catch { /* skip */ }
+    }
+    return set;
+  });
+
+export const rawAddr = (a: string) => {
+  try {
+    return Address.parse(a).toRawString();
+  } catch {
+    return a;
+  }
+};

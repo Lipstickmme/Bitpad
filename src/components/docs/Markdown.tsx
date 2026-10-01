@@ -54,7 +54,7 @@ export function Markdown({ md }: { md: string }) {
     const h = line.match(/^(#{2,3}) (.+)$/);
     if (h) {
       const Tag = h[1].length === 2 ? "h2" : "h3";
-      blocks.push(<Tag key={k++} id={slugify(h[2])} className={`scroll-mt-24 font-semibold tracking-tight text-ink ${Tag === "h2" ? "mt-10 border-t border-line pt-6 text-xl" : "mt-7 text-base"}`}>{inline(h[2])}</Tag>);
+      blocks.push(<Tag key={k++} id={slugify(h[2])} className={`normal-case scroll-mt-24 font-semibold tracking-tight text-ink ${Tag === "h2" ? "mt-10 border-t border-line pt-6 text-xl" : "mt-7 text-base"}`}>{inline(h[2])}</Tag>);
       i++;
       continue;
     }

@@ -3,7 +3,7 @@ import type { PairAsset } from "@/lib/types";
 import Link from "next/link";
 import { pct, price } from "@/lib/format";
 import { priceGap } from "@/lib/market-hours";
-import { AssetDot, Change, Hint } from "./ui";
+import { AssetDot, Change, Hint, Verified } from "./ui";
 import { QuickBuyButton } from "./QuickBuy";
 import { XBuyButton } from "./XBuy";
 
@@ -13,7 +13,8 @@ import { XBuyButton } from "./XBuy";
  * TON listing yet but exists on Solana, ⚡ buys the Solana xStock instead.
  */
 export function StockBoard({ assets }: { assets: PairAsset[] }) {
-  const rows = assets.filter((a) => (a.kind === "stock" || a.kind === "commodity") && a.priceUsd != null);
+  // Only assets with a token to buy (TON jetton, or the Solana xStock); price-only references are left out
+  const rows = assets.filter((a) => (a.kind === "stock" || a.kind === "commodity") && a.priceUsd != null && (a.tonAddress || a.solanaMint));
   if (!rows.length) return null;
   return (
     <section>
@@ -30,7 +31,7 @@ export function StockBoard({ assets }: { assets: PairAsset[] }) {
             <div className="flex items-center gap-2">
               <AssetDot asset={a} size={24} />
               <div className="min-w-0">
-                <div className="text-sm font-semibold">{a.symbol}</div>
+                <div className="flex items-center gap-1 text-sm font-semibold">{a.symbol}{a.verified && <Verified />}</div>
                 <div className="truncate text-[11px] text-muted">{a.name}</div>
               </div>
             </div>

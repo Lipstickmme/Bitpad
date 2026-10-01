@@ -106,3 +106,14 @@ export function Hint({ children, align = "left" }: { children: React.ReactNode; 
     </span>
   );
 }
+
+/** Blue check for tokens we can confirm are genuine (see markVerified / prices.ts). */
+export function Verified({ className = "size-3.5", title = "Verified: a confirmed genuine token (STON.fi's official token for this ticker, a Jupiter-verified mint, or a tokenized asset in Bitpad's catalog)" }: { className?: string; title?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`inline-block shrink-0 ${className}`} role="img" aria-label="Verified">
+      <title>{title}</title>
+      <path fill="#1d9bf0" d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91C2.63 9.33 1.75 10.57 1.75 12s.88 2.67 2.19 3.34c-.46 1.39-.2 2.9.81 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.46 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34Z" />
+      <path fill="#fff" d="m10.54 16.2-3.7-3.7 1.41-1.42 2.29 2.29 5.2-5.2 1.42 1.41-6.62 6.62Z" />
+    </svg>
+  );
+}

@@ -5,7 +5,7 @@ import { getLaunches, type Launch } from "./launches";
 import { creatorProfile } from "./creators";
 import { poolOhlcv, poolTrades, tokenPools, tokensMulti, topPools, trendingPools, type GeckoPoolRow } from "./data/gecko";
 import { dsTokenPairs } from "./data/dexscreener";
-import { isSafe, ston, stonAsset, stonAssets, stonPoolSwaps } from "./data/stonfi";
+import { isSafe, rawAddr, ston, stonAsset, stonAssets, stonPoolSwaps, verifiedTon } from "./data/stonfi";
 import { friendly, jettonHolders, jettonInfo, rateChart } from "./data/tonapi";
 import { tcJettonHolders, tcJettonMaster } from "./data/toncenter";
 import { firstOf, memo, safe } from "./data/http";
@@ -102,7 +102,7 @@ export async function getTonMarket(): Promise<{ tokens: MarketToken[]; source: s
     }],
     ["STON.fi", stonMarket],
   ], (v) => !!v?.length);
-  return { tokens: res.value ?? [], source: res.source };
+  return { tokens: await markVerified(res.value ?? []), source: res.source };
 }
 
 /** Bitpad launches with market data computed from their pools on-chain. */
@@ -196,6 +196,24 @@ interface JMeta {
 
 /** Full detail for any TON jetton. */
 export async function getToken(address: string): Promise<MarketToken | undefined> {
+  const t = await getTokenRaw(address);
+  return t ? (await markVerified([t]))[0] : t;
+}
+
+/**
+ * Blue check: STON.fi's canonical/essential tokens (no risk tags) and the
+ * tokenized stocks, gold and jettons in Bitpad's catalog.
+ */
+export async function markVerified(tokens: MarketToken[]): Promise<MarketToken[]> {
+  const [set, { assets }] = await Promise.all([verifiedTon().catch(() => new Set<string>()), getPairAssets().catch(() => ({ assets: [] as PairAsset[] }))]);
+  const catalog = new Set(assets.filter((a) => a.tonAddress && a.verified).map((a) => rawAddr(a.tonAddress!)));
+  return tokens.map((t) => {
+    const r = rawAddr(t.address);
+    return set.has(r) || catalog.has(r) ? { ...t, verified: true } : t;
+  });
+}
+
+async function getTokenRaw(address: string): Promise<MarketToken | undefined> {
   const addr = normalise(address);
   if (!addr) return undefined;
   const [launches, meta, pools] = await Promise.all([

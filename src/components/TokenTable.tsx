@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import type { MarketToken } from "@/lib/types";
 import { ago, price, usd } from "@/lib/format";
-import { AssetDot, Change, TokenAvatar, orDash } from "./ui";
+import { AssetDot, Change, TokenAvatar, orDash, Verified } from "./ui";
 import { QuickBuyButton } from "./QuickBuy";
 import { volumeSpike } from "@/lib/spike";
 
@@ -34,7 +34,7 @@ export function TokenTable({ tokens }: { tokens: MarketToken[] }) {
                 <div className="flex items-center gap-2.5">
                   <TokenAvatar token={t} size={26} />
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 font-medium">{t.symbol}{t.bitpad && <span className="chip">Bitpad</span>}</div>
+                    <div className="flex items-center gap-1.5 font-medium">{t.symbol}{t.verified && <Verified />}{t.bitpad && <span className="chip">Bitpad</span>}</div>
                     <div className="max-w-[160px] truncate text-xs text-muted">{t.name}</div>
                   </div>
                 </div>

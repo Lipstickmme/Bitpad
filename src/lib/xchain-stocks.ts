@@ -2,6 +2,7 @@ import "server-only";
 import type { ChainId } from "./types";
 import { dsChain, dsSearch, type DsPair } from "./data/dexscreener";
 import { memo, safe } from "./data/http";
+import { getPairAssets } from "./prices";
 
 /**
  * Tokenized stocks and commodities living on Solana and EVM chains, plus the
@@ -39,6 +40,8 @@ export interface XStock {
   liquidityUsd: number;
   volume24h: number;
   url: string;
+  /** Same mint as the Jupiter-verified xStock in Bitpad's catalog */
+  verified?: boolean;
 }
 
 export interface StockPaired {
@@ -110,6 +113,8 @@ async function load() {
         });
     }
   }
+  const mints = new Set((await getPairAssets().catch(() => ({ assets: [] as { solanaMint?: string; verified?: boolean }[] }))).assets.filter((a) => a.solanaMint && a.verified).map((a) => a.solanaMint!));
+  for (const a of assets.values()) if (a.chain === "solana" && mints.has(a.address)) a.verified = true;
   return {
     assets: [...assets.values()].sort((a, b) => b.liquidityUsd - a.liquidityUsd),
     paired: [...paired.values()].sort((a, b) => b.volume24h - a.volume24h).slice(0, 30),

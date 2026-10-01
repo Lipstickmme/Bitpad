@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { MarketToken } from "@/lib/types";
 import { price, usd } from "@/lib/format";
-import { AssetDot, Change, PairBadge, Sparkline, TokenAvatar, changePath, orDash } from "./ui";
+import { AssetDot, Change, PairBadge, Sparkline, TokenAvatar, changePath, orDash, Verified } from "./ui";
 import { CopyButton } from "./CopyButton";
 import { QuickBuyButton } from "./QuickBuy";
 import { volumeSpike } from "@/lib/spike";
@@ -15,7 +15,7 @@ export function TokenCard({ token }: { token: MarketToken }) {
         <TokenAvatar token={token} size={36} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-sm font-semibold">{token.symbol}</span>
+            <span className="truncate text-sm font-semibold">{token.symbol}</span>{token.verified && <Verified />}
             {token.bitpad && <span className="chip">Bitpad</span>}
           </div>
           <div className="truncate text-xs text-muted">{token.name}</div>

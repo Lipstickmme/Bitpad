@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { PairAsset } from "@/lib/types";
 import { pct, price } from "@/lib/format";
 import { priceGap, usMarket } from "@/lib/market-hours";
-import { AssetDot, Change, Hint } from "./ui";
+import { AssetDot, Change, Hint, Verified } from "./ui";
 import { QuickBuyAmount, QuickBuyButton } from "./QuickBuy";
 import { XBuyButton } from "./XBuy";
 
@@ -18,7 +18,7 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
   const [sort, setSort] = useState<Sort>("gap");
   const market = usMarket();
   const rows = useMemo(() => {
-    const list = assets.filter((a) => a.kind === kind && (a.oraclePriceUsd != null || a.tonPriceUsd != null));
+    const list = assets.filter((a) => a.kind === kind && (a.oraclePriceUsd != null || a.tonPriceUsd != null) && (a.tonAddress || a.solanaMint));
     const v = (a: PairAsset) =>
       sort === "gap" ? Math.abs(priceGap(a.tonPriceUsd, a.oraclePriceUsd) ?? -1) : sort === "symbol" ? 0 : (a[sort] ?? -Infinity);
     return sort === "symbol" ? list.sort((a, b) => a.symbol.localeCompare(b.symbol)) : list.sort((a, b) => v(b) - v(a));
@@ -84,7 +84,7 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
                     <td className="py-2.5">
                       <div className="flex items-center gap-2.5">
                         <AssetDot asset={a} size={24} />
-                        <div><Link href={`/stocks/${encodeURIComponent(a.symbol)}`} className="font-medium hover:underline">{a.symbol}</Link><div className="text-[11px] text-muted">{a.name}{a.sector ? ` · ${a.sector}` : ""}</div></div>
+                        <div><Link href={`/stocks/${encodeURIComponent(a.symbol)}`} className="inline-flex items-center gap-1 font-medium hover:underline">{a.symbol}{a.verified && <Verified />}</Link><div className="text-[11px] text-muted">{a.name}{a.sector ? ` · ${a.sector}` : ""}</div></div>
                       </div>
                     </td>
                     <td className="text-right" title={a.priceSource ? `via ${a.priceSource}` : undefined}>{a.oraclePriceUsd != null ? price(a.oraclePriceUsd) : "—"}</td>

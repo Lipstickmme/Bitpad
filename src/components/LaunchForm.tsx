@@ -8,7 +8,7 @@ import type { PairAsset, PairKind } from "@/lib/types";
 import { PAIR_KIND_LABEL } from "@/lib/assets";
 import { config, TON_ASSETS } from "@/lib/config";
 import { num, price, usd } from "@/lib/format";
-import { AssetDot, Change, PairBadge } from "./ui";
+import { AssetDot, Change, PairBadge, Verified } from "./ui";
 import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
 import { sendTx } from "@/lib/ton/send";
@@ -193,7 +193,7 @@ export function LaunchForm({ assets, factory, registeredPairs, initialPair }: { 
               <button key={a.symbol} onClick={() => { setPair(a); setCustomJetton(""); }} className={`flex items-center gap-3 rounded-xl border p-3 text-left ${pair.symbol === a.symbol ? "border-brand bg-brand-soft/50 ring-2 ring-brand-soft" : "border-line hover:border-line-strong"}`}>
                 <AssetDot asset={a} size={32} />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 text-sm font-bold">{a.symbol} {pair.symbol === a.symbol && <Check className="size-3.5 text-brand" />}</div>
+                  <div className="flex items-center gap-1.5 text-sm font-bold">{a.symbol}{a.verified && <Verified />} {pair.symbol === a.symbol && <Check className="size-3.5 text-brand" />}</div>
                   <div className="truncate text-xs text-muted">{a.name}{a.dividendYield ? ` · ${a.dividendYield}% div` : ""}{a.kind === "creator" ? ` · ${a.badge.includes("✓") ? "verified" : "unverified"}` : ""}</div>
                 </div>
                 <div className="text-right">

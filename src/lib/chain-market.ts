@@ -31,7 +31,7 @@ export function getChainMarket(chain: MarketChain): Promise<ChainMarket> {
     const stockAssets: TrendingPool[] = x.value.assets.filter((a) => a.chain === chain).map((a) => ({
       id: `asset:${a.chain}:${a.address}`, chain: a.chain as ChainId, dex: a.issuer, name: a.symbol, base: a.symbol, quote: a.underlying,
       quoteKind: "stock", priceUsd: a.priceUsd ?? 0, change1h: 0, change24h: a.change24h ?? 0, volume24h: a.volume24h, liquidityUsd: a.liquidityUsd,
-      fdv: 0, marketCap: null, txns24h: 0, ageHours: 0, url: a.url, baseAddress: a.address, baseImage: a.image,
+      fdv: 0, marketCap: null, txns24h: 0, ageHours: 0, url: a.url, baseAddress: a.address, baseImage: a.image, verified: a.verified,
     }));
     const stockPaired: TrendingPool[] = x.value.paired.filter((p) => p.chain === chain).map((p) => ({
       id: `pair:${p.chain}:${p.pairAddress}`, chain: p.chain as ChainId, dex: p.dex, name: `${p.base} / ${p.quote}`, base: p.base, quote: p.quote,

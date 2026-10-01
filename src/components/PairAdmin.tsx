@@ -78,7 +78,8 @@ export function PairAdmin({ candidates, owner }: { candidates: PairCandidate[]; 
           </h1>
           <p className="text-sm text-ink-2">Owner {owner ? <span className="font-mono">{shortAddr(owner, 6, 6)}</span> : "unknown (factory unreachable)"} · {isOwner ? <span className="text-up">you are connected as the owner</span> : wallet ? <span className="text-warn">connected wallet is not the owner</span> : "connect the owner wallet"}</p>
         </div>
-        <button onClick={registerAll} disabled={!!busy || !todo.length || (!!wallet && !isOwner)} className="btn btn-primary ml-auto">
+        <a href="/admin/routes" className="btn btn-ghost ml-auto">Route check</a>
+        <button onClick={registerAll} disabled={!!busy || !todo.length || (!!wallet && !isOwner)} className="btn btn-primary">
           {busy ?? (!wallet ? "Connect owner wallet" : `Register ${todo.length} pair${todo.length === 1 ? "" : "s"} · ≈${((Number(ADD_PAIR_VALUE) / 1e9) * todo.length).toFixed(2)} TON`)}
         </button>
       </div>

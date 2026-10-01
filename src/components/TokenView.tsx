@@ -5,7 +5,7 @@ import { captureReferral } from "@/lib/referral";
 import { ArrowLeft, BadgeCheck, ExternalLink, Globe, Rocket } from "lucide-react";
 import type { MarketToken } from "@/lib/types";
 import { price, usd, num, shortAddr } from "@/lib/format";
-import { AssetDot, Change, PairBadge, Stat, TokenAvatar, orDash } from "./ui";
+import { AssetDot, Change, PairBadge, Stat, TokenAvatar, orDash, Verified } from "./ui";
 import { CopyButton } from "./CopyButton";
 import { PriceChart } from "./PriceChart";
 import { TradePanel } from "./TradePanel";
@@ -36,7 +36,7 @@ export function TokenView({ token }: { token: MarketToken }) {
           <TokenAvatar token={token} size={64} />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold tracking-tight">{token.symbol}</h1>
+              <h1 className="flex items-center gap-1.5 text-xl font-semibold tracking-tight">{token.symbol}{token.verified && <Verified className="size-5" />}</h1>
               <span className="text-ink-2">{token.name}</span>
               {token.bitpad && <span className="chip"><Rocket className="size-3" />Bitpad #{token.bitpad.index + 1}</span>}
               {token.bitpad?.creatorJetton && (
