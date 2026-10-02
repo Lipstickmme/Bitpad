@@ -13,7 +13,8 @@ import { QuickBuyAmount, QuickBuyButton } from "../QuickBuy";
 import { Pager } from "../Pager";
 import { Leaders } from "./Leaders";
 import { XBuyButton, xBuyable } from "../XBuy";
-import { volumeSpike } from "@/lib/spike";
+import { hotReason, isHot } from "@/lib/spike";
+import { HotFlame } from "../HotFlame";
 import { coin } from "@/lib/coin";
 
 const CHAIN_FILTERS: ("all" | ChainId)[] = ["all", "ton", "solana", "ethereum", "base", "bsc", "arbitrum", "polygon", "avalanche", "sui", "tron"];
@@ -297,8 +298,8 @@ export function AnalyticsView({ data }: { data: AnalyticsSnapshot }) {
             </thead>
             <tbody className="num">
               {trending.slice(tPage * 15, (tPage + 1) * 15).map((p) => (
-                <tr key={p.id} onClick={() => p.poolAddress && router.push(`/pool/${p.chain}/${p.poolAddress}`)} title={volumeSpike(p) ? "Unusual volume right now" : undefined} className={`border-b border-line/60 last:border-0 hover:bg-surface-2/60 ${p.poolAddress ? "cursor-pointer" : ""} ${volumeSpike(p) ? "spike" : ""}`}>
-                  <td className="py-2.5 font-medium">{p.poolAddress ? <Link href={`/pool/${p.chain}/${p.poolAddress}`} className="hover:underline">{p.base}<span className="font-normal text-muted"> / {coin(p.quote)}</span></Link> : <>{p.base}<span className="font-normal text-muted"> / {coin(p.quote)}</span></>}</td>
+                <tr key={p.id} onClick={() => p.poolAddress && router.push(`/pool/${p.chain}/${p.poolAddress}`)} title={hotReason(p)} className={`border-b border-line/60 last:border-0 hover:bg-surface-2/60 ${p.poolAddress ? "cursor-pointer" : ""} ${isHot(p) ? "spike" : ""}`}>
+                  <td className="py-2.5 font-medium">{p.poolAddress ? <Link href={`/pool/${p.chain}/${p.poolAddress}`} className="hover:underline">{p.base}{isHot(p) && <HotFlame size={14} className="ml-1 align-[-2px]" title={hotReason(p)} />}<span className="font-normal text-muted"> / {coin(p.quote)}</span></Link> : <>{p.base}{isHot(p) && <HotFlame size={14} className="ml-1 align-[-2px]" title={hotReason(p)} />}<span className="font-normal text-muted"> / {coin(p.quote)}</span></>}</td>
                   <td className="text-xs text-ink-2">{CHAINS[p.chain].short} · {p.dex}</td>
                   <td className="text-right">{price(p.priceUsd)}</td>
                   <td className="text-right" title={!p.marketCap && p.fdv ? "Fully diluted value (market cap not reported)" : undefined}>{p.marketCap || p.fdv ? usd((p.marketCap || p.fdv)!, { compact: true }) : "—"}</td>

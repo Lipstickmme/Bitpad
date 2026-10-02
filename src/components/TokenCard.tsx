@@ -4,19 +4,21 @@ import { price, usd } from "@/lib/format";
 import { AssetDot, Change, PairBadge, Sparkline, TokenAvatar, changePath, orDash, Verified } from "./ui";
 import { CopyButton } from "./CopyButton";
 import { QuickBuyButton } from "./QuickBuy";
-import { volumeSpike } from "@/lib/spike";
+import { hotReason, isHot } from "@/lib/spike";
+import { HotFlame } from "./HotFlame";
 import { coin } from "@/lib/coin";
 
 export function TokenCard({ token }: { token: MarketToken }) {
   const cap = token.marketCap ?? token.fdv;
+  const hot = isHot(token);
   const spark = token.priceUsd && token.changes ? changePath(token.priceUsd, token.changes) : null;
   return (
-    <Link href={`/token/${token.address}`} title={volumeSpike(token) ? "Unusual volume right now" : undefined} className={`card group block p-4 transition-colors hover:border-brand/40 ${volumeSpike(token) ? "spike" : ""}`}>
+    <Link href={`/token/${token.address}`} title={hotReason(token)} className={`card group block p-4 transition-colors hover:border-brand/40 ${hot ? "hot-card" : ""}`}>
       <div className="flex items-center gap-3">
         <TokenAvatar token={token} size={36} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-sm font-semibold">{token.symbol}</span>{token.verified && <Verified />}
+            <span className="truncate text-sm font-semibold">{token.symbol}</span>{token.verified && <Verified />}{hot && <HotFlame title={hotReason(token)} />}
             {token.bitpad && <span className="chip">Bitpad</span>}
           </div>
           <div className="truncate text-xs text-muted">{token.name}</div>
