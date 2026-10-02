@@ -13,6 +13,7 @@ import { Hint } from "./ui";
 import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
 import { sendTx } from "@/lib/ton/send";
+import { TgAvatar } from "./TgAvatar";
 
 interface Msg {
   id: string;
@@ -79,7 +80,8 @@ export function TrenchChat() {
   }, [wallet]);
   useEffect(() => {
     load();
-    const t = setInterval(load, open ? 6_000 : 30_000);
+    // Poll fast while open; while closed, slowly and only when the tab is visible
+    const t = setInterval(() => { if (open || !document.hidden) load(); }, open ? 6_000 : 45_000);
     return () => clearInterval(t);
   }, [load, open]);
 
@@ -189,7 +191,7 @@ function Message({ m, me, tg, replies, onPost, mode, offOk, nested = false }: { 
       <div className={`rounded-xl px-3 py-2 ${m.kind === "call" ? "border border-line-strong bg-surface-2" : "bg-surface"}`}>
         <div className="flex items-center gap-1.5 text-[11px] text-muted">
           {m.offchain ? (
-            <span className="font-semibold text-ink-2" title={m.author}>{mine ? "you" : m.author}</span>
+            <span className="inline-flex items-center gap-1.5 font-semibold text-ink-2" title={m.author}><TgAvatar username={m.author.startsWith("@") ? m.author : null} name={m.author} size={18} />{mine ? "you" : m.author}</span>
           ) : (
             <a href={`https://tonviewer.com/${m.author}`} target="_blank" rel="noreferrer" className="font-mono hover:text-ink">{mine ? "you" : shortAddr(m.author, 4, 4)}</a>
           )}

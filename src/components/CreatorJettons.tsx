@@ -4,6 +4,7 @@ import type { MarketToken } from "@/lib/types";
 import { price, usd } from "@/lib/format";
 import { Change } from "./ui";
 import { QuickBuyButton } from "./QuickBuy";
+import { TgAvatar } from "./TgAvatar";
 
 /** Live creator jettons: verified badge, market data, what's backed by each, quick buy. */
 export function CreatorJettons({ board, pairable, ok }: { board: { token: MarketToken; paired: MarketToken[] }[]; pairable: Set<string>; ok: boolean }) {
@@ -20,7 +21,7 @@ export function CreatorJettons({ board, pairable, ok }: { board: { token: Market
                   {t.image ? <img src={t.image} alt="" className="size-11 rounded-full object-cover" /> : <span className="grid size-11 place-items-center rounded-full bg-surface-2 text-xs font-bold">{t.symbol.slice(0, 3)}</span>}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 font-semibold">${t.symbol} {p.verified && <BadgeCheck className="size-4 text-brand" aria-label="Verified creator" />}</div>
-                    <div className="truncate text-xs text-ink-2">{p.name || t.name}{p.tg ? ` · @${p.tg}` : ""}{!p.verified && <span className="text-muted"> · unverified</span>}</div>
+                    <div className="flex items-center gap-1 truncate text-xs text-ink-2">{p.tg && <TgAvatar username={p.tg} name={p.name} size={14} />}{p.name || t.name}{p.tg ? ` · @${p.tg}` : ""}{!p.verified && <span className="text-muted"> · unverified</span>}</div>
                   </div>
                   <div className="num text-right text-sm">
                     <div>{t.priceUsd != null ? price(t.priceUsd) : "—"}</div>

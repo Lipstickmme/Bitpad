@@ -7,7 +7,7 @@ import { Providers } from "@/components/Providers";
 import { Header } from "@/components/Header";
 import { Sidebar, SIDEBAR_BOOT } from "@/components/Sidebar";
 import { Footer } from "@/components/Footer";
-import { TrenchChat } from "@/components/TrenchChat";
+import { LazyChat } from "@/components/LazyChat";
 import { botUsername } from "@/lib/telegram";
 import { ensureRuntimeConfig } from "@/lib/runtime";
 
@@ -35,7 +35,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <main className="mx-auto w-full max-w-[1400px] px-4 pb-16 pt-5 sm:px-6">{children}</main>
             <Footer />
           </div>
-          <TrenchChat />
+          <LazyChat />
         </Providers>
       </body>
     </html>

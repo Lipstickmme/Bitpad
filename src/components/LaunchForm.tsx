@@ -13,6 +13,7 @@ import { toast } from "./Toast";
 import { haptic } from "./TelegramBridge";
 import { sendTx } from "@/lib/ton/send";
 import { coin } from "@/lib/coin";
+import { TgAvatar } from "./TgAvatar";
 
 const KINDS: PairKind[] = ["stock", "commodity", "jetton", "crypto", "creator"];
 type Step = "form" | "deploying" | "seeding" | "done";
@@ -144,9 +145,8 @@ export function LaunchForm({ assets, factory, registeredPairs, initialPair }: { 
         </div>
 
         <section className="card flex flex-wrap items-center gap-3 p-4">
-          {tgUser?.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={tgUser.photo_url} alt="" className="size-10 rounded-full" />
+          {tgUser ? (
+            <TgAvatar me name={[tgUser.first_name, tgUser.last_name].filter(Boolean).join(" ")} size={40} />
           ) : (
             <span className="grid size-10 place-items-center rounded-full bg-surface-2"><UserRound className="size-5 text-muted" /></span>
           )}

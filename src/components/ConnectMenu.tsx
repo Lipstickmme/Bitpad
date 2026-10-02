@@ -8,6 +8,7 @@ import { EthIcon, SolanaIcon, TelegramIcon, TonIcon } from "./Brand";
 import { toast } from "./Toast";
 import { humanError } from "@/lib/errors";
 import type { TelegramUser } from "@/lib/auth-types";
+import { TgAvatar } from "./TgAvatar";
 
 /**
  * Telegram login through the bot (no Login Widget, so it doesn't depend on
@@ -113,7 +114,7 @@ export function ConnectMenu({ telegramBot }: { telegramBot: string }) {
   return (
     <div className="relative" ref={box}>
       <button onClick={() => setOpen((o) => !o)} className="btn btn-ghost num">
-        <Wallet className="size-4" />
+        {mounted && tgUser && !ton ? <TgAvatar me name={tgUser.first_name} size={18} /> : <Wallet className="size-4" />}
         <span className="max-w-[6.5rem] truncate sm:max-w-[9rem]">{label}</span>
         <ChevronDown className="size-3.5 opacity-60" />
       </button>
@@ -127,7 +128,7 @@ export function ConnectMenu({ telegramBot }: { telegramBot: string }) {
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><TelegramIcon className="size-4 text-ink-2" /> Telegram</div>
             {tgUser ? (
               <div className="flex items-center justify-between text-sm">
-                <span className="text-ink-2">{tgUser.username ? `@${tgUser.username}` : tgUser.first_name}</span>
+                <span className="inline-flex items-center gap-2 text-ink-2"><TgAvatar me name={tgUser.first_name} size={24} />{tgUser.username ? `@${tgUser.username}` : tgUser.first_name}</span>
                 <button onClick={logoutTg} className="flex items-center gap-1 text-xs font-semibold text-muted hover:text-down"><LogOut className="size-3.5" /> Sign out</button>
               </div>
             ) : (

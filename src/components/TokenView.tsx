@@ -1,22 +1,27 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { captureReferral } from "@/lib/referral";
 import { ArrowLeft, BadgeCheck, ExternalLink, Globe, Rocket } from "lucide-react";
 import type { MarketToken } from "@/lib/types";
 import { price, usd, num, shortAddr } from "@/lib/format";
 import { AssetDot, Change, PairBadge, Stat, TokenAvatar, orDash, Verified } from "./ui";
 import { CopyButton } from "./CopyButton";
-import { PriceChart } from "./PriceChart";
 import { TradePanel } from "./TradePanel";
 import { BitpadTradePanel } from "./bitpad/BitpadTradePanel";
-import { ReferralPanel } from "./bitpad/ReferralPanel";
-import { StakePanel } from "./bitpad/StakePanel";
 import { PairValuation } from "./PairValuation";
-import { ActivityTabs } from "./ActivityTabs";
 import { TelegramIcon, XIcon } from "./Brand";
 import { QuickBuyButton } from "./QuickBuy";
 import { coin } from "@/lib/coin";
+import { TgAvatar } from "./TgAvatar";
+
+// Heavy parts load in their own chunks so the page (price, stats, buy box) shows first
+const Skeleton = ({ h }: { h: number }) => <div className="card animate-pulse" style={{ height: h }} />;
+const PriceChart = dynamic(() => import("./PriceChart").then((m) => m.PriceChart), { ssr: false, loading: () => <Skeleton h={420} /> });
+const ActivityTabs = dynamic(() => import("./ActivityTabs").then((m) => m.ActivityTabs), { ssr: false, loading: () => <Skeleton h={300} /> });
+const StakePanel = dynamic(() => import("./bitpad/StakePanel").then((m) => m.StakePanel), { ssr: false });
+const ReferralPanel = dynamic(() => import("./bitpad/ReferralPanel").then((m) => m.ReferralPanel), { ssr: false });
 
 export function TokenView({ token }: { token: MarketToken }) {
   const [live, setLive] = useState<number | null>(token.priceUsd);
@@ -42,7 +47,7 @@ export function TokenView({ token }: { token: MarketToken }) {
               {token.bitpad && <span className="chip"><Rocket className="size-3" />Bitpad #{token.bitpad.index + 1}</span>}
               {token.bitpad?.creatorJetton && (
                 <Link href="/launch#creator-jettons" className="chip hover:text-ink" title={token.bitpad.creatorJetton.verified ? "Creator jetton: Bitpad verified this Telegram account launched it" : "Creator jetton: the Telegram link isn't verified"}>
-                  {token.bitpad.creatorJetton.verified && <BadgeCheck className="size-3 text-brand" />}Creator{token.bitpad.creatorJetton.tg ? ` · @${token.bitpad.creatorJetton.tg}` : ""}{!token.bitpad.creatorJetton.verified && " (unverified)"}
+                  {token.bitpad.creatorJetton.tg && <TgAvatar username={token.bitpad.creatorJetton.tg} name={token.bitpad.creatorJetton.name} size={14} />}{token.bitpad.creatorJetton.verified && <BadgeCheck className="size-3 text-brand" />}Creator{token.bitpad.creatorJetton.tg ? ` · @${token.bitpad.creatorJetton.tg}` : ""}{!token.bitpad.creatorJetton.verified && " (unverified)"}
                 </Link>
               )}
             </div>

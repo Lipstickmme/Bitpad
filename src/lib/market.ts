@@ -1,4 +1,5 @@
 import "server-only";
+import { runGet } from "./chain";
 import { adHocAsset } from "./assets";
 import { getPairAssets } from "./prices";
 import { getLaunches, type Launch } from "./launches";
@@ -196,9 +197,12 @@ interface JMeta {
 }
 
 /** Full detail for any TON jetton. */
-export async function getToken(address: string): Promise<MarketToken | undefined> {
-  const t = await getTokenRaw(address);
-  return t ? (await markVerified([t]))[0] : t;
+/** One token's page data. Shared for 20s (and between generateMetadata and the page in one request). */
+export function getToken(address: string): Promise<MarketToken | undefined> {
+  return memo(`token:${address}`, 20_000, async () => {
+    const t = await getTokenRaw(address);
+    return t ? (await markVerified([t]))[0] : t;
+  });
 }
 
 /**
@@ -214,11 +218,30 @@ export async function markVerified(tokens: MarketToken[]): Promise<MarketToken[]
   });
 }
 
+/**
+ * true: answers bitpad_info (a Bitpad minter) · false: the contract answered
+ * "no such method" (definitely not Bitpad) · null: couldn't tell (RPC down),
+ * so callers fall back to scanning the factory.
+ */
+function isBitpadMinter(addr: string): Promise<boolean | null> {
+  return memo(`bitpad-minter:${addr}`, 6 * 3_600_000, async () => {
+    try {
+      await runGet(addr, "bitpad_info");
+      return true;
+    } catch (e) {
+      if (/exited with/.test((e as Error).message)) return false;
+      throw e;
+    }
+  }).catch(() => null);
+}
+
 async function getTokenRaw(address: string): Promise<MarketToken | undefined> {
   const addr = normalise(address);
   if (!addr) return undefined;
+  // Only Bitpad minters answer `bitpad_info`. Everything else skips the (slow, cold) factory scan.
+  const launchesP = isBitpadMinter(addr).then((bp) => (bp === false ? { launches: [] as Launch[] } : getLaunches()));
   const [launches, meta, pools] = await Promise.all([
-    getLaunches(),
+    launchesP,
     firstOf<JMeta | null | undefined>("jetton meta", [
       ["TonAPI", async () => { const j = await jettonInfo(addr); return { name: j.metadata.name, symbol: j.metadata.symbol, image: j.metadata.image, description: j.metadata.description, decimals: Number(j.metadata.decimals ?? 9), supply: j.total_supply, holders: j.holders_count, social: j.metadata.social, websites: j.metadata.websites }; }],
       ["toncenter", async () => { const m = await tcJettonMaster(addr); return m && { name: m.name, symbol: m.symbol, image: m.image, description: m.description, decimals: m.decimals, supply: m.totalSupply, holders: null as number | null, social: undefined, websites: undefined }; }],

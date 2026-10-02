@@ -346,3 +346,83 @@ main h2:not(.normal-case) {
 main h2:not(.normal-case) {
   letter-spacing: 0.03em;
 }
+
+/* ── BIT loader (components/BitLoader.tsx): 2.6s loop ─────────────────── */
+.bit-loader .bl-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: #cfe3ea;
+  animation: bl-twinkle 1.8s steps(2) infinite;
+}
+@keyframes bl-twinkle { 50% { opacity: 0.15; } }
+.bit-loader .bl-rocket { animation: bl-launch 2.6s cubic-bezier(0.5, 0, 0.8, 0.3) infinite; }
+@keyframes bl-launch {
+  0%, 28% { transform: translate(-50%, 0); }
+  30%, 34%, 38%, 42% { transform: translate(calc(-50% - 1px), 1px); }
+  32%, 36%, 40% { transform: translate(calc(-50% + 1px), 0); }
+  44% { transform: translate(-50%, 0); }
+  88% { transform: translate(-50%, -260px); }
+  100% { transform: translate(-50%, -260px); opacity: 0; }
+}
+.bit-loader .bl-flame {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  height: 0;
+  width: 22px;
+  margin-top: -6px;
+  animation: bl-flame-on 2.6s steps(1) infinite;
+}
+.bit-loader .bl-flame span {
+  width: 6px;
+  background: linear-gradient(#fff3c4, #f5c518 40%, #e5484d);
+  image-rendering: pixelated;
+  animation: bl-flicker 0.18s steps(2) infinite;
+}
+.bit-loader .bl-flame span:nth-child(2) { animation-delay: 0.09s; }
+@keyframes bl-flame-on {
+  0%, 28% { height: 0; }
+  30% { height: 6px; }
+  44%, 100% { height: 18px; }
+}
+@keyframes bl-flicker { 50% { transform: scaleY(0.6); transform-origin: top; } }
+.bit-loader .bl-bit { animation: bl-bit 2.6s steps(4) infinite; }
+@keyframes bl-bit {
+  0%, 20% { transform: translateY(0); }
+  10% { transform: translateY(-3px); }
+  44% { transform: translateY(0) rotate(-6deg); }
+  60%, 100% { transform: translateY(0); }
+}
+.bit-loader .bl-smoke {
+  position: absolute;
+  bottom: 22px;
+  width: 10px;
+  height: 10px;
+  background: #3a4e55;
+  opacity: 0;
+  image-rendering: pixelated;
+  animation: bl-smoke 2.6s steps(6) infinite;
+}
+@keyframes bl-smoke {
+  0%, 34% { opacity: 0; transform: translate(0, 0) scale(0.5); }
+  45% { opacity: 0.8; }
+  80% { opacity: 0; transform: translate(var(--dx, 0), -18px) scale(1.8); }
+  100% { opacity: 0; }
+}
+.bit-loader .bl-smoke:nth-of-type(odd) { --dx: -16px; }
+.bit-loader .bl-smoke:nth-of-type(even) { --dx: 16px; }
+.bit-loader .bl-dots::after {
+  content: "";
+  animation: bl-dots 1.2s steps(4) infinite;
+}
+@keyframes bl-dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bit-loader .bl-rocket, .bit-loader .bl-bit, .bit-loader .bl-smoke, .bit-loader .bl-star, .bit-loader .bl-flame span { animation: none; }
+  .bit-loader .bl-flame { height: 14px; animation: none; }
+}

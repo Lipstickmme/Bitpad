@@ -9,6 +9,7 @@ import { CopyButton } from "./CopyButton";
 import { OnchainBundle } from "./bitpad/OnchainBundle";
 import { sendTx } from "@/lib/ton/send";
 import { humanError } from "@/lib/errors";
+import { BundleActivity, loadActivity, newEntry, saveActivity, type ActivityEntry } from "./BundleActivity";
 import { BundleTokenChart, readLastBuy, saveLastBuy, type LastBuy } from "./BundleTokenChart";
 import { tonGramUsd } from "./QuickBuy";
 import type { MarketToken } from "@/lib/types";
@@ -48,6 +49,16 @@ export function BundlerView() {
   useEffect(() => { tonGramUsd().then((p) => setGramUsd(p.ton)).catch(() => {}); }, []);
   // Each wallet's balance of the target token (raw units), for % sells and the portfolio
   const [holdings, setHoldings] = useState<Record<string, bigint>>({});
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  useEffect(() => setActivity(loadActivity()), []);
+  const log = useCallback((entries: ActivityEntry[]) => {
+    if (!entries.length) return;
+    setActivity((prev) => {
+      const next = [...entries.reverse(), ...prev];
+      saveActivity(next);
+      return next;
+    });
+  }, []);
   const [sellPct, setSellPct] = useState(100);
   const dec = tok?.decimals ?? 9;
   const human = (u: bigint) => Number(u) / 10 ** dec;
@@ -127,6 +138,7 @@ export function BundlerView() {
     try {
       const msgs = lib.fundingMessages(lowGas, amounts);
       for (let i = 0; i < msgs.length; i += 4) await sendTx(tc, msgs.slice(i, i + 4));
+      log(lowGas.map((w, i) => newEntry({ kind: "gas", wallet: w.label, address: w.address, amount: `${num(amounts[i], 3)} GRAM`, status: "sent", detail: "from your main wallet" })));
       toast.success("Gas topped up", `${lowGas.length} wallet${lowGas.length === 1 ? "" : "s"} topped up to ${GAS_TARGET} GRAM.`);
       setTimeout(refresh, 8000);
     } catch (e) {
@@ -143,6 +155,7 @@ export function BundlerView() {
       for (let i = 0; i < msgs.length; i += 4) {
         await sendTx(tc, msgs.slice(i, i + 4));
       }
+      log(active.map((w, i) => newEntry({ kind: "fund", wallet: w.label, address: w.address, amount: `${num(fundSplit[i] ?? 0, 3)} GRAM`, status: "sent", detail: "from your main wallet" })));
       toast.success("Funding sent", `${active.length} wallets funded from ${shortAddr(wallet)}`);
       setTimeout(refresh, 8000);
     } catch (e) {
@@ -175,6 +188,12 @@ export function BundlerView() {
         if (p.status === "sent") sent.add(p.walletId);
         if (p.status === "error") failed++;
         setProgress((s) => ({ ...s, [p.walletId]: p }));
+        if (p.status !== "pending") {
+          const i = targets.findIndex((w) => w.id === p.walletId);
+          const w = targets[i];
+          const amount = side === "buy" ? `${num(amounts[i] ?? 0, 3)} GRAM` : `${num(human(sellUnits[i] ?? 0n), 2)}${tok ? ` $${tok.symbol}` : ""}`;
+          log([newEntry({ kind: side, wallet: w?.label, address: w?.address, amount, token: tok?.symbol, status: p.status, detail: p.status === "sent" ? (p.via ? `via ${p.via}` : undefined) : p.error })]);
+        }
       },
     });
     setRunning(false);
@@ -194,9 +213,13 @@ export function BundlerView() {
   async function sweep() {
     if (!lib) return;
     if (!wallet) return tc.openModal();
-    if (!confirm(`Send all TON from ${active.length} wallets to ${shortAddr(wallet)}?`)) return;
+    if (!confirm(`Send all GRAM from ${active.length} wallets to ${shortAddr(wallet)}?`)) return;
     setProgress({});
-    await lib.sweepAll(active, wallet, password, (p) => setProgress((s) => ({ ...s, [p.walletId]: p })));
+    await lib.sweepAll(active, wallet, password, (p) => {
+      setProgress((s) => ({ ...s, [p.walletId]: p }));
+      const w = active.find((x) => x.id === p.walletId);
+      if (p.status !== "pending") log([newEntry({ kind: "sweep", wallet: w?.label, address: w?.address, amount: w?.balance != null && Number.isFinite(w.balance) ? `${num(w.balance, 3)} GRAM` : undefined, status: p.status, detail: p.status === "sent" ? `to ${shortAddr(wallet)}` : p.error })]);
+    });
     setTimeout(refresh, 8000);
   }
 
@@ -305,6 +328,7 @@ export function BundlerView() {
             <button onClick={doImport} disabled={!importText} className="btn btn-ghost h-9"><Upload className="size-4" /> Import</button>
           </div>
         </section>
+        <BundleActivity list={activity} onClear={() => { setActivity([]); saveActivity([]); }} />
         </div>
 
         <aside className="space-y-4">
