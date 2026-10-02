@@ -1,4 +1,5 @@
 "use client";
+import { DividendBadge } from "./DividendBadge";
 import type { PairAsset } from "@/lib/types";
 import Link from "next/link";
 import { pct, price } from "@/lib/format";
@@ -43,7 +44,7 @@ export function StockBoard({ assets }: { assets: PairAsset[] }) {
               const gap = priceGap(a.tonPriceUsd, a.oraclePriceUsd);
               return (
                 <div className="num flex justify-between text-[11px] text-muted">
-                  <span>{a.dividendYield ? `${a.dividendYield.toFixed(2)}% div.` : a.kind === "stock" ? "no dividend" : a.sector}</span>
+                  <DividendBadge asset={a} compact />
                   {gap != null && <span title="On-TON price vs real-market price">{pct(gap)} gap</span>}
                 </div>
               );

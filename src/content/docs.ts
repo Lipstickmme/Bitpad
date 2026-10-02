@@ -255,13 +255,75 @@ The [Stocks](/stocks) page lists tokenized shares and gold with:
 - **Real price**: the Pyth oracle (Yahoo as a fallback), following the actual market.
 - **On TON**: what the jetton trades for on STON.fi right now.
 - **Gap**: the difference. Gaps usually widen when the US market is closed, because TON trades 24/7.
-- **Dividend calendar**: estimated next payment dates. xStock holders don't receive cash: dividends are reinvested into the token.
+- **Dividend score and calendar**: who pays, how much, and estimated next payment dates. xStock holders don't receive cash: dividends are reinvested into the token. See [Dividends](/docs/dividends).
 
 ## On other chains
 
 Below that, tokenized stocks and gold on Solana and EVM chains (xStocks, Ondo, PAX Gold, Tether Gold) are listed with liquidity and volume, plus popular tokens that trade against them. ⚡ buys them with that chain's coin.
 
 Every stock and pool opens a chart page.
+`,
+  },
+  {
+    slug: "dividends",
+    group: "Trading",
+    title: "Dividends",
+    description: "Which assets earn dividends, how xStocks pay them on TON, and what that means for creator jettons backed by stocks.",
+    body: `
+Short version: **tokenized stocks earn dividends, nothing else does**, and on TON they arrive without you doing anything.
+
+## Dividend score
+
+Every stock and pair asset carries a dividend score, live from each company's last 12 months of payouts:
+
+| Score | Means |
+| --- | --- |
+| **High** (3 bars) | Yield of 3% a year or more |
+| **Medium** (2 bars) | 1% to 3% |
+| **Low** (1 bar) | Under 1% (a token payout, e.g. NVIDIA) |
+| **No dividend** (0 bars) | Doesn't pay one (Tesla, Amazon, Coinbase, Robinhood, Strategy, gold, crypto) |
+| **Staking** | No dividend, but there's a separate way to earn (GRAM, creator jettons) |
+
+You'll see it on the [Stocks](/stocks) page, each stock's page, the stock cards on Markets and the asset picker when you launch. Hover it for details. Companies change their payouts, so the badge is live and the names above are only examples.
+
+## How xStocks pay dividends on TON
+
+xStocks (by Backed Finance) **don't pay cash**. When a company pays a dividend, Backed reinvests it, after US withholding tax, into more of the same share, and raises the token's **multiplier**.
+
+- On TON, xStocks are scaled UI jettons (TEP-526). Your on-chain balance never changes, and the multiplier lives in the token's metadata.
+- What one token is worth = one share × multiplier. If the multiplier goes from 1.00 to 1.01, every token you hold is now worth 1% more stock.
+- Wallets that read the multiplier show a slightly bigger balance. Wallets that don't still show the old number, but the value is there either way, because the token's price already includes it.
+- **Nothing to claim, no snapshot, no sign-up.** You get it wherever the token sits: your wallet, a bundler wallet, or inside a pool.
+
+> [!INFO]
+> This is why xStocks on TON often trade a little above the "Real price" on the Stocks page. Real price is one share, while one xStock is one share plus the dividends reinvested so far. A small, steady premium is normal.
+
+## Other assets
+
+| Asset | Dividend? |
+| --- | --- |
+| xStocks on TON, Solana and Ethereum | Yes, same multiplier on every chain |
+| Gold, silver, oil (XAUt, XAG, WTI) | No. Tracks the metal or commodity price only |
+| GRAM | No. You can stake it with a validator or liquid-staking pool, outside Bitpad |
+| ETH, SOL | No. Staking yield exists on those chains, outside Bitpad |
+| BTC, memecoins, other jettons | No |
+| Stablecoins (USDT, USDC, USDe) | Not by themselves. Any yield comes from separate products |
+| Other issuers' tokenized stocks | Depends on the issuer. Check their terms |
+
+## Creator jettons backed by a stock
+
+Holders of a creator jetton **don't receive dividends directly**: a creator jetton is not a share. But a stock-backed jetton gets a slow tailwind from them:
+
+1. The token's pool holds the stock (say SPYx) as its reserve.
+2. When SPY pays a dividend, the SPYx multiplier rises, so every SPYx in the reserve is worth a bit more.
+3. Your jetton's price is set in SPYx, so in dollars it rises by the same few percent a year, even with no trading.
+
+So backing with a **High** or **Medium** asset (Coca-Cola, the S&P 500) adds a small, steady lift on top of the stock's own price moves. A **No dividend** asset (Tesla, gold) moves with its price only.
+
+Holders can also [stake](/docs/staking) in the token's vault to earn a share of its trading fees. That's the creator jetton's own payout, separate from dividends.
+
+> [!WARN]
+> Dividends are small next to price moves. A 2% yield doesn't protect you from a 20% drop in the stock or the jetton. Pairing a token with a stock gives no claim on the company or its dividends beyond what the pool holds.
 `,
   },
   {

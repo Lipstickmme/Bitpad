@@ -1,4 +1,5 @@
 "use client";
+import { DividendBadge } from "./DividendBadge";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -71,7 +72,7 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
                 <th className="text-right font-medium">On TON</th>
                 <H k="gap">Gap</H>
                 <H k="change24h">24h</H>
-                <H k="dividendYield">Div. yield</H>
+                <H k="dividendYield">Dividend</H>
                 <th className="text-right font-medium">Next dividend</th>
                 <th className="pl-3 text-right font-medium">Buy</th>
               </tr>
@@ -91,7 +92,7 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
                     <td className="text-right">{a.tonPriceUsd != null ? price(a.tonPriceUsd) : <span className="text-muted">not on TON</span>}</td>
                     <td className={`text-right font-medium ${gap == null ? "text-muted" : Math.abs(gap) < 0.5 ? "text-ink-2" : gap > 0 ? "text-up" : "text-down"}`}>{gap == null ? "—" : pct(gap)}</td>
                     <td className="text-right text-xs"><Change value={a.change24h} /></td>
-                    <td className="text-right">{a.kind === "stock" ? (a.dividendYield ? `${a.dividendYield.toFixed(2)}%` : "none") : "—"}</td>
+                    <td className="text-right"><DividendBadge asset={a} /></td>
                     <td className="text-right text-ink-2">{a.nextDividendEst ? `~${day(a.nextDividendEst)}` : "—"}</td>
                     <td className="pl-3 text-right">
                       {a.tonAddress ? <QuickBuyButton token={{ address: a.tonAddress, symbol: a.symbol }} /> : a.solanaMint ? <XBuyButton chain="solana" token={a.solanaMint} symbol={a.symbol} /> : <span className="text-xs text-muted">—</span>}

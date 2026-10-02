@@ -1,4 +1,5 @@
 "use client";
+import { DividendBadge } from "./DividendBadge";
 import type { PairAsset } from "@/lib/types";
 import { pct, price } from "@/lib/format";
 import { priceGap } from "@/lib/market-hours";
@@ -53,7 +54,7 @@ export function StockDetail({ asset: a }: { asset: PairAsset }) {
           <Row k="Gap" v={gap != null ? pct(gap) : "—"} hint="How far the TON price is from the real market. Positive means TON buyers pay a premium. It's usually wider when the US market is closed." />
           {a.kind === "stock" && (
             <>
-              <Row k="Dividend yield" v={a.dividendYield ? `${a.dividendYield.toFixed(2)}%` : "none"} />
+              <Row k="Dividend score" v={<DividendBadge asset={a} />} />
               <Row k="Last dividend" v={a.lastDividend ? `$${a.lastDividend.amount.toFixed(3)} · ${day(a.lastDividend.date * 1000)}` : "—"} />
               <Row k="Next (est.)" v={a.nextDividendEst ? `~${day(a.nextDividendEst)}` : "—"} hint="Last payment plus the usual interval. An estimate, not an announced date. xStocks reinvest dividends into the token instead of paying cash." />
             </>

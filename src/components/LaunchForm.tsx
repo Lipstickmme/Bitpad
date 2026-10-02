@@ -1,4 +1,5 @@
 "use client";
+import { DividendBadge } from "./DividendBadge";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
@@ -195,7 +196,8 @@ export function LaunchForm({ assets, factory, registeredPairs, initialPair }: { 
                 <AssetDot asset={a} size={32} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 text-sm font-bold">{coin(a.symbol)}{a.verified && <Verified />} {pair.symbol === a.symbol && <Check className="size-3.5 text-brand" />}</div>
-                  <div className="truncate text-xs text-muted">{a.name}{a.dividendYield ? ` · ${a.dividendYield}% div` : ""}{a.kind === "creator" ? ` · ${a.badge.includes("✓") ? "verified" : "unverified"}` : ""}</div>
+                  {(a.kind === "stock" || a.kind === "commodity") && <DividendBadge asset={a} compact className="mt-0.5" />}
+                  <div className="truncate text-xs text-muted">{a.name}{a.kind === "creator" ? ` · ${a.badge.includes("✓") ? "verified" : "unverified"}` : ""}</div>
                 </div>
                 <div className="text-right">
                   <div className="num text-xs font-semibold">{a.priceUsd != null ? price(a.priceUsd) : "—"}</div>
