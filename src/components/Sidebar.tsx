@@ -62,7 +62,7 @@ export function Sidebar() {
     <>
       {open && <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setOpen(false)} aria-hidden />}
       <aside className={`sidebar glass fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-line lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`} aria-label="Main navigation">
-        <div className="flex h-[68px] shrink-0 items-center gap-2 border-b border-line px-4">
+        <div className="sb-top flex h-[68px] shrink-0 items-center gap-2 border-b border-line px-4">
           <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="Bitpad home">
             <Mark size={36} />
             <span className="sb-label text-lg font-extrabold tracking-[0.08em]">BITPAD</span>
@@ -70,8 +70,8 @@ export function Sidebar() {
           <button onClick={() => setOpen(false)} className="btn btn-ghost ml-auto w-9 px-0 lg:hidden" aria-label="Close menu"><X className="size-4" /></button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden p-3">
-          <Link href="/launch" title="Launch Creator Jetton" className="btn btn-launch sb-launch mb-4 h-11 w-full justify-center text-[14px] font-semibold"><Mark size={20} /> <span className="sb-label">Launch Creator Jetton</span></Link>
-          <nav className="space-y-0.5">
+          <Link href="/launch" title="Launch Creator Jetton" className="btn btn-launch sb-launch mb-4 h-11 w-full shrink-0 justify-center text-[14px] font-semibold"><Mark size={20} /> <span className="sb-label">Launch Creator Jetton</span></Link>
+          <nav className="shrink-0 space-y-0.5">
             {NAV.map(({ href, label, Icon }) => (
               <Link key={href} href={href} title={label} className={itemCls(active(href))}>{icon(Icon, active(href))}<span className="sb-label">{label}</span></Link>
             ))}
@@ -79,7 +79,7 @@ export function Sidebar() {
               {icon(MessagesSquare, false)}<span className="sb-label">Trench chat</span>
             </button>
           </nav>
-          <div className="mt-auto space-y-0.5 border-t border-line pt-3">
+          <div className="mt-auto shrink-0 space-y-0.5 border-t border-line pt-3">
             <Link href="/docs" title="Docs" className={itemCls(active("/docs"))}>{icon(BookOpenText, active("/docs"))}<span className="sb-label">Docs</span></Link>
             <div className="sb-socials flex gap-2 px-1 pt-2">
               <a href={config.links.telegram} target="_blank" rel="noreferrer" className="btn btn-ghost w-10 px-0" aria-label="Telegram"><TelegramIcon /></a>

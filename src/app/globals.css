@@ -461,3 +461,46 @@ main h2:not(.normal-case) {
   .hot-card { animation: none; }
   .hot-flame .hf-outer, .hot-flame .hf-inner { animation: none; }
 }
+
+/* ── Phones and the Telegram Mini App ──────────────────────────────────── */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mnav-h: 62px;
+}
+html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+body { overflow-x: clip; }
+a, button, .btn { touch-action: manipulation; }
+.app-header { padding-top: var(--safe-top); }
+.sidebar .sb-top { margin-top: var(--safe-top); }
+
+.mnav { padding-bottom: var(--safe-bottom); }
+.mnav-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 100%;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: color 0.15s ease, transform 0.1s ease;
+}
+.mnav-tab:active { transform: scale(0.94); }
+.mnav-tab .btn-launch { margin-top: -14px; box-shadow: 0 6px 18px rgb(34 197 94 / 0.28), inset 0 1px 0 rgb(255 255 255 / 0.25); }
+
+@media (max-width: 1023.98px) {
+  /* room for the tab bar, so nothing hides under it */
+  .app-shell { padding-bottom: calc(var(--mnav-h) + var(--safe-bottom)); }
+  .toast-stack { bottom: calc(var(--mnav-h) + var(--safe-bottom) + 0.75rem); }
+  .chat-panel { padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
+  /* iOS zooms into inputs under 16px; keep them at 16px on phones */
+  input, textarea, select, .input { font-size: 16px !important; }
+  /* wide tables scroll sideways inside their card instead of stretching the page */
+  .card:has(> table), .card:has(> div > table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* Inside Telegram: app-like, no rubber-band pull, no web footer */
+html[data-tg] body { overscroll-behavior-y: none; }
+html[data-tg] footer { display: none; }

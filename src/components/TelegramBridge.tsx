@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/lib/store";
 
 /** Inside Telegram: verify initData server-side and sign the user in silently. */
@@ -21,6 +22,50 @@ export function TelegramBridge() {
       .then((d) => d?.user && setTgUser(d.user))
       .catch(() => {});
   }, [setTgUser]);
+  return <MiniAppChrome />;
+}
+
+/**
+ * Mini App polish: full height, dark chrome, no swipe-to-close while scrolling
+ * charts and lists, Telegram's safe areas (fullscreen / notch) as CSS vars, and
+ * Telegram's own back button for in-app navigation.
+ */
+function MiniAppChrome() {
+  const path = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    const wa = window.Telegram?.WebApp;
+    if (!wa?.initData) return;
+    const root = document.documentElement;
+    root.dataset.tg = "1";
+    wa.expand?.();
+    try {
+      wa.setHeaderColor?.("#0a1215");
+      wa.setBackgroundColor?.("#071014");
+      wa.setBottomBarColor?.("#0a1215");
+      wa.disableVerticalSwipes?.();
+    } catch { /* older Telegram clients */ }
+    const insets = () => {
+      const s = wa.safeAreaInset, c = wa.contentSafeAreaInset;
+      root.style.setProperty("--safe-top", `${(s?.top ?? 0) + (c?.top ?? 0)}px`);
+      root.style.setProperty("--safe-bottom", `${(s?.bottom ?? 0) + (c?.bottom ?? 0)}px`);
+    };
+    insets();
+    for (const e of ["safeAreaChanged", "contentSafeAreaChanged", "fullscreenChanged"]) wa.onEvent?.(e, insets);
+    return () => { for (const e of ["safeAreaChanged", "contentSafeAreaChanged", "fullscreenChanged"]) wa.offEvent?.(e, insets); };
+  }, []);
+
+  // Telegram's header back button on every page but home
+  useEffect(() => {
+    const bb = window.Telegram?.WebApp?.initData ? window.Telegram.WebApp.BackButton : undefined;
+    if (!bb) return;
+    const back = () => (window.history.length > 1 ? router.back() : router.push("/"));
+    if (path === "/") bb.hide(); else bb.show();
+    bb.onClick(back);
+    return () => bb.offClick(back);
+  }, [path, router]);
+
   return null;
 }
 

@@ -85,18 +85,11 @@ export function TrenchChat() {
     return () => clearInterval(t);
   }, [load, open]);
 
-  // Open from elsewhere (the phone menu) + on phones, show the floating button only after scrolling past the hero
-  const [scrolled, setScrolled] = useState(false);
+  // Open from elsewhere (the sidebar or the phone tab bar)
   useEffect(() => {
     const openChat = () => setOpen(true);
-    const onScroll = () => setScrolled(window.scrollY > 160);
-    onScroll();
     window.addEventListener("bitpad:open-chat", openChat);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("bitpad:open-chat", openChat);
-      window.removeEventListener("scroll", onScroll);
-    };
+    return () => window.removeEventListener("bitpad:open-chat", openChat);
   }, []);
 
   const latest = msgs[0]?.time ?? 0;
@@ -149,13 +142,13 @@ export function TrenchChat() {
   return (
     <>
       {!open && (
-        <button onClick={() => setOpen(true)} aria-label="Trench chat" className={`fixed bottom-4 right-4 z-40 items-center gap-2 rounded-full border border-line-strong bg-surface p-3 text-sm font-semibold shadow-2xl shadow-black/50 hover:bg-surface-2 sm:flex sm:px-4 sm:py-2.5 ${scrolled ? "flex" : "hidden"}`}>
+        <button onClick={() => setOpen(true)} aria-label="Trench chat" className={`fixed bottom-4 right-4 z-40 hidden items-center gap-2 rounded-full border border-line-strong bg-surface px-4 py-2.5 text-sm font-semibold shadow-2xl shadow-black/50 hover:bg-surface-2 lg:flex`}>
           <Mark size={18} /> <span className="hidden sm:inline">Trench chat</span>
           {unread && <span className="size-2 rounded-full bg-down" />}
         </button>
       )}
       {open && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-bg sm:inset-auto sm:bottom-4 sm:right-4 sm:h-[620px] sm:w-[400px] sm:rounded-2xl sm:border sm:border-line-strong sm:shadow-2xl sm:shadow-black/60">
+        <div className="chat-panel fixed inset-0 z-50 flex flex-col bg-bg sm:inset-auto sm:bottom-4 sm:right-4 sm:h-[620px] sm:w-[400px] sm:rounded-2xl sm:border sm:border-line-strong sm:shadow-2xl sm:shadow-black/60">
           <div className="flex items-center gap-2 border-b border-line px-4 py-3">
             <Mark size={20} />
             <span className="text-sm font-bold">Trench chat</span>

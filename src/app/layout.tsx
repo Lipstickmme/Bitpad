@@ -8,6 +8,7 @@ import { Header } from "@/components/Header";
 import { Sidebar, SIDEBAR_BOOT } from "@/components/Sidebar";
 import { Footer } from "@/components/Footer";
 import { LazyChat } from "@/components/LazyChat";
+import { MobileNav } from "@/components/MobileNav";
 import { botUsername } from "@/lib/telegram";
 import { ensureRuntimeConfig } from "@/lib/runtime";
 
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
   icons: { icon: "/favicon.png", apple: "/icon-180.png" },
 };
 
-export const viewport: Viewport = { themeColor: "#0a1215", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#0a1215", width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [bot, runtime] = await Promise.all([botUsername(), ensureRuntimeConfig().catch(() => null)]);
@@ -35,6 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <main className="mx-auto w-full max-w-[1400px] px-4 pb-16 pt-5 sm:px-6">{children}</main>
             <Footer />
           </div>
+          <MobileNav />
           <LazyChat />
         </Providers>
       </body>
