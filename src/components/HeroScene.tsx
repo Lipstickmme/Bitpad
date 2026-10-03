@@ -2,24 +2,50 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Pixel-art hero background: a 26s story, drawn at low resolution and scaled
+ * Pixel-art hero background: a 17s story, drawn at low resolution and scaled
  * up with nearest-neighbour sampling. The world is two screens tall and a
- * camera pans between the ground and the sky.
+ * camera pans between the ground and a sky with the Milky Way, a moon and a
+ * mothership cruising past.
  *
- *   0–3s    BIT (the logo mascot) stands on the hill stargazing; a shooting star passes
- *   3–7s    he walks to the top of the hill
- *   7–9s    stops, looks up — "!"
- *   9–12.5s the view drifts up to the ships in the sky, then back down
- *   12.5–14 it hops into its rocket; the engine rumbles
- *   14–17s  lift-off, the camera follows it up
- *   17–23s  a drone swarm rises and spells BELIEVE IN TON
- *   23–25s  the mascot streaks away, the drones scatter
- *   25–26s  the view settles back on the hill
- * then BIT stands still under the stars for PAUSE seconds before it replays.
+ *   0–1s     BIT (the logo mascot) on the hill; a shooting star passes
+ *   1–3s     he dashes to the top of the hill
+ *   3–4s     stops, looks up — "!"
+ *   4–6.5s   the view sweeps up to the moon and the ships, then back down
+ *   6.5–7.5  it hops into its rocket; the engine rumbles
+ *   7.5–9.5  lift-off, the camera follows it up
+ *   9.5–14.5 a drone swarm rises and spells BELIEVE IN TON
+ *   14.5–16  the mascot streaks away, the drones scatter
+ *   16–17    the view settles back on the hill
+ * then BIT stands under the stars for PAUSE seconds before it replays.
+ * The scene logic below is written on the original 26s clock; `storyClock`
+ * maps the faster timeline onto it.
  * Decorative only — no data. Reduced motion shows a still of the drone show.
  */
-const STORY = 26;
-const PAUSE = 5;
+const STORY = 17;
+const PAUSE = 3;
+/** Faster timeline (seconds) → the 26s clock the scene logic uses. */
+const KEYS: [number, number][] = [[0, 0], [1, 3], [3, 7], [4, 9], [6.5, 12.5], [7.5, 14], [9.5, 17], [14.5, 23], [16, 25], [17, 26]];
+function storyClock(t: number) {
+  for (let i = 1; i < KEYS.length; i++) {
+    const [a, oa] = KEYS[i - 1], [b, ob] = KEYS[i];
+    if (t <= b) return oa + ((t - a) / (b - a)) * (ob - oa);
+  }
+  return 26;
+}
+
+/** Mothership, 24×9: # hull, h hull light, c canopy, l running lights, e engines. */
+const MOTHERSHIP = [
+  "..........####..........",
+  "........##cccc##........",
+  "......##cccccccc##......",
+  "..####################..",
+  "##hhhhhhhhhhhhhhhhhhhh##",
+  "#llllllllllllllllllllll#",
+  ".##hhhhhhhhhhhhhhhhhh##.",
+  "...####..........####...",
+  "....ee............ee....",
+];
+const MILKY = ["#2b2f52", "#3b3767", "#4f4a86", "#6a6bb0", "#9aa3d6", "#c8d3f0"];
 const LOOP = STORY + PAUSE;
 
 const WH = 300; // world rows (two screens)
@@ -49,6 +75,7 @@ type Star = { x: number; y: number; c: number; p: number };
 type Ship = { x: number; y: number; v: number; kind: 0 | 1 | 2 };
 type Drone = { sx: number; sy: number; a: [number, number] | null; b: [number, number] | null; d: number };
 type Spark = { x: number; y: number; vx: number; vy: number; life: number };
+type Dust = { x: number; y: number; c: number; a: number };
 
 const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t);
 const ease = (t: number) => {
@@ -77,6 +104,7 @@ export function HeroScene() {
     let ships: Ship[] = [];
     let drones: Drone[] = [];
     let sparks: Spark[] = [];
+    let milky: Dust[] = [];
     let hillX = 0;
     let raf = 0;
     let seed = 42;
@@ -100,6 +128,13 @@ export function HeroScene() {
       seed = 42;
       hillX = Math.round(W * (W > 260 ? 0.78 : 0.62));
       stars = Array.from({ length: Math.round((W * WH) / 200) }, () => ({ x: Math.floor(rnd() * W), y: Math.floor(rnd() * (GROUND - 30)), c: Math.floor(rnd() * 3), p: rnd() * 6.28 }));
+      // Milky Way: a soft diagonal band of dust and dense stars across the sky
+      milky = Array.from({ length: Math.round(W * 7) }, () => {
+        const u = rnd();
+        const g = (rnd() + rnd() + rnd() - 1.5) / 1.5; // ~gaussian spread across the band
+        const core = 1 - Math.abs(g);
+        return { x: Math.floor(u * (W + 40) - 20), y: Math.floor(lerp(GROUND - 70, -10, u) + g * 22), c: Math.min(5, Math.floor(core * core * 6 * rnd() + rnd() * 1.5)), a: 0.18 + core * 0.5 * rnd() };
+      });
       ships = Array.from({ length: 6 }, (_, i) => ({ x: rnd() * W, y: 12 + rnd() * 150, v: (3 + rnd() * 7) * (i % 2 ? -1 : 1), kind: (i % 3) as Ship["kind"] }));
       const one = W > 330;
       const a = glyphs(one ? ["BELIEVE IN TON"] : ["BELIEVE", "IN TON"]);
@@ -129,6 +164,56 @@ export function HeroScene() {
       ctx.fillStyle = c;
       ctx.fillRect(Math.round(x), Math.round(y - camY), w, h);
     };
+
+    /** A pixel moon with craters and a faint halo, slow parallax against the stars. */
+    function drawMoon(t: number) {
+      const R = W > 200 ? 11 : 8;
+      const cx = Math.round(W > 330 ? W - R - 18 : W * 0.8); // the open right side, clear of the headline
+      // far away, so it barely moves when the camera pans: in view from the hill and from the sky
+      // (lower on narrow screens, where BELIEVE IN TON fills the top rows)
+      const cy = Math.round(camY * 0.9 + R + (W > 330 ? 36 : 56));
+      if (cy + R + 4 < camY || cy - R - 4 > camY + H) return;
+      ctx.globalAlpha = 0.07 + 0.02 * Math.sin(t);
+      for (let r = R + 6; r > R; r -= 2) for (let y = -r; y <= r; y++) {
+        const w = Math.round(Math.sqrt(r * r - y * y));
+        px(cx - w, cy + y, "#b3d6e2", w * 2 + 1, 1);
+      }
+      ctx.globalAlpha = 1;
+      for (let y = -R; y <= R; y++) {
+        const w = Math.round(Math.sqrt(R * R - y * y));
+        for (let x = -w; x <= w; x++) {
+          const lit = x - y * 0.3 > -R * 0.35; // terminator: the lower-left limb in shadow
+          const crater = (x - 3) ** 2 + (y + 2) ** 2 < 6 || (x + 4) ** 2 + (y - 4) ** 2 < 4 || (x + 1) ** 2 + (y + 6) ** 2 < 2 || (x - 5) ** 2 + (y - 5) ** 2 < 2;
+          px(cx + x, cy + y, crater ? (lit ? "#b9c4c7" : "#5d6a6e") : lit ? "#e7eef0" : "#8a979b");
+        }
+      }
+    }
+
+    /** A big mothership cruising slowly across the upper sky, lights chasing. */
+    function drawMothership(t: number, lt: number) {
+      const S = W > 200 ? 2 : 1; // big: two art pixels per cell on wider screens
+      const sw = MOTHERSHIP[0].length * S;
+      // crosses once per loop, timed to be on screen for the sky sweep and the drone show
+      const x = Math.round(-sw + (W + sw * 2) * ((lt + 3) / (LOOP + 3)));
+      const y = 118; // below the moon and the hovering rocket
+      if (y + 10 * S + 8 < camY || y - 2 > camY + H) return;
+      const chase = Math.floor(t * 8);
+      MOTHERSHIP.forEach((row, ry) => {
+        for (let rx = 0; rx < row.length; rx++) {
+          const ch = row[rx];
+          if (ch === ".") continue;
+          const c = ch === "#" ? "#4b6069" : ch === "h" ? "#8a9ca2" : ch === "c" ? "#8cbfd1" : ch === "l" ? ((rx + chase) % 4 === 0 ? "#f5c518" : "#2a3c43") : (rx + chase) % 2 ? "#e5484d" : "#f5c518";
+          px(x + rx * S, y + ry * S, c, S, S);
+        }
+      });
+      // engine glow trailing behind (it flies left to right)
+      for (let i = 1; i < 7 * S; i++) {
+        ctx.globalAlpha = 0.5 * (1 - i / (7 * S));
+        px(x + 4 * S - i, y + 8 * S, "#e5484d", 1, S);
+        px(x + 18 * S - i, y + 8 * S, "#e5484d", 1, S);
+      }
+      ctx.globalAlpha = 1;
+    }
 
     function drawShip(s: Ship, t: number) {
       const x = ((((s.x + s.v * t) % (W + 40)) + W + 40) % (W + 40)) - 20;
@@ -167,7 +252,7 @@ export function HeroScene() {
     function frame(now: number) {
       // the story, then a quiet hold on the opening frame before it starts again
       const lt = (now / 1000) % LOOP;
-      const t = reduce ? 21.5 : lt < STORY ? lt : 0;
+      const t = reduce ? 21.5 : storyClock(lt < STORY ? lt : 0);
       const sec = now / 1000;
 
       // ── camera ───────────────────────────────────────────────────────
@@ -187,7 +272,7 @@ export function HeroScene() {
         mx = lerp(startX, hillX, k);
         my = hillY(mx);
         look = 0;
-        step = Math.floor(sec / 0.16);
+        step = Math.floor(sec / 0.09);
       } else if (t < 12.5) {
         mx = hillX;
         my = hillY(hillX);
@@ -228,6 +313,14 @@ export function HeroScene() {
       g.addColorStop(1, "#11272e");
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
+      for (const d of milky) {
+        if (d.y < camY - 1 || d.y > camY + H) continue;
+        ctx.globalAlpha = d.a;
+        px(d.x, d.y, MILKY[d.c]);
+      }
+      ctx.globalAlpha = 1;
+      drawMoon(sec);
+      drawMothership(sec, reduce ? 12 : lt);
       for (const s of stars) {
         if (s.y < camY - 1 || s.y > camY + H) continue;
         const tw = Math.sin(s.p + sec * 2);
