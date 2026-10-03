@@ -3,7 +3,7 @@ import { DividendBadge } from "./DividendBadge";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { PairAsset } from "@/lib/types";
+import type { AssetTheme, PairAsset } from "@/lib/types";
 import { pct, price } from "@/lib/format";
 import { priceGap, usMarket } from "@/lib/market-hours";
 import { AssetDot, Change, Hint, Verified } from "./ui";
@@ -11,19 +11,34 @@ import { QuickBuyAmount, QuickBuyButton } from "./QuickBuy";
 import { XBuyButton } from "./XBuy";
 
 type Sort = "gap" | "change24h" | "dividendYield" | "symbol";
+type Tab = "stock" | "metals" | "crypto";
+const THEMES: ("All" | AssetTheme)[] = ["All", "AI", "Meme", "Innovation", "Popular", "Index", "Crypto-linked"];
+const THEME_HINT: Record<string, string> = {
+  AI: "AI chips, cloud and software",
+  Meme: "Retail favourites like GameStop",
+  Innovation: "Biotech, pharma and new tech",
+  Popular: "Household names",
+  Index: "S&P 500 and Nasdaq 100 funds",
+  "Crypto-linked": "Companies tied to Bitcoin and crypto",
+};
+const inTab = (a: PairAsset, t: Tab) =>
+  t === "crypto" ? a.kind === "crypto" : t === "metals" ? a.kind === "commodity" || a.theme === "Metals" : a.kind === "stock" && a.theme !== "Metals";
 const day = (ms: number) => new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
 export function StocksView({ assets }: { assets: PairAsset[] }) {
   const router = useRouter();
-  const [kind, setKind] = useState<"stock" | "commodity">("stock");
+  const [kind, setKind] = useState<Tab>("stock");
+  const [theme, setTheme] = useState<(typeof THEMES)[number]>("All");
   const [sort, setSort] = useState<Sort>("gap");
   const market = usMarket();
   const rows = useMemo(() => {
-    const list = assets.filter((a) => a.kind === kind && (a.oraclePriceUsd != null || a.tonPriceUsd != null) && (a.tonAddress || a.solanaMint));
+    // only what can actually be bought: a verified token on TON or Solana
+    const list = assets.filter((a) => inTab(a, kind) && (kind !== "stock" || theme === "All" || a.theme === theme) && (a.oraclePriceUsd != null || a.tonPriceUsd != null || a.priceUsd != null) && (a.tonAddress || a.solanaMint));
     const v = (a: PairAsset) =>
       sort === "gap" ? Math.abs(priceGap(a.tonPriceUsd, a.oraclePriceUsd) ?? -1) : sort === "symbol" ? 0 : (a[sort] ?? -Infinity);
     return sort === "symbol" ? list.sort((a, b) => a.symbol.localeCompare(b.symbol)) : list.sort((a, b) => v(b) - v(a));
-  }, [assets, kind, sort]);
+  }, [assets, kind, sort, theme]);
+  const themeCount = (t: (typeof THEMES)[number]) => assets.filter((a) => inTab(a, "stock") && (t === "All" || a.theme === t) && (a.tonAddress || a.solanaMint)).length;
 
   const calendar = assets
     .filter((a) => a.kind === "stock" && a.nextDividendEst && a.lastDividend)
@@ -39,9 +54,9 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Stocks &amp; gold on TON</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Stocks, metals &amp; Bitcoin</h1>
           <p className="mt-1 max-w-2xl text-sm text-ink-2">
-            Tokenized shares and gold you can buy with TON and pair your jetton with. Compare what they trade for on TON with the real market price, and see when dividends are due.
+            Verified tokenized shares, gold and the crypto majors you can buy with GRAM (on TON) or SOL (on Solana), and pair your jetton with. Only genuine tokens are listed. Compare prices with the real market and see when dividends are due.
           </p>
         </div>
         <span suppressHydrationWarning className="chip ml-auto" title="Regular NYSE/Nasdaq hours, New York time. Holidays not included.">
@@ -59,10 +74,24 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
           </h2>
           <div className="seg ml-auto">
             <button data-on={kind === "stock"} onClick={() => setKind("stock")}>Stocks</button>
-            <button data-on={kind === "commodity"} onClick={() => setKind("commodity")}>Commodities</button>
+            <button data-on={kind === "metals"} onClick={() => setKind("metals")}>Metals</button>
+            <button data-on={kind === "crypto"} onClick={() => setKind("crypto")}>Bitcoin &amp; majors</button>
           </div>
           <QuickBuyAmount />
         </div>
+        {kind === "stock" && (
+          <div className="scroll-x -mt-1 mb-3 flex gap-1.5">
+            {THEMES.map((t) => {
+              const n = themeCount(t);
+              if (t !== "All" && !n) return null;
+              return (
+                <button key={t} title={THEME_HINT[t]} onClick={() => setTheme(t)} className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${theme === t ? "border-line-strong bg-line-strong text-ink" : "border-line text-ink-2 hover:border-line-strong hover:text-ink"}`}>
+                  {t} <span className="text-muted">{n}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className="scroll-x">
           <table className="w-full min-w-[860px] text-sm">
             <thead className="text-left text-xs text-muted">
@@ -88,8 +117,8 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
                         <div><Link href={`/stocks/${encodeURIComponent(a.symbol)}`} className="inline-flex items-center gap-1 font-medium hover:underline">{a.symbol}{a.verified && <Verified />}</Link><div className="text-[11px] text-muted">{a.name}{a.sector ? ` · ${a.sector}` : ""}</div></div>
                       </div>
                     </td>
-                    <td className="text-right" title={a.priceSource ? `via ${a.priceSource}` : undefined}>{a.oraclePriceUsd != null ? price(a.oraclePriceUsd) : "—"}</td>
-                    <td className="text-right">{a.tonPriceUsd != null ? price(a.tonPriceUsd) : <span className="text-muted">not on TON</span>}</td>
+                    <td className="text-right" title={a.priceSource ? `via ${a.priceSource}` : undefined}>{(a.oraclePriceUsd ?? a.priceUsd) != null ? price((a.oraclePriceUsd ?? a.priceUsd)!) : "—"}</td>
+                    <td className="text-right">{a.tonPriceUsd != null ? price(a.tonPriceUsd) : <span className="text-xs text-muted">{a.solanaMint ? "on Solana" : "not on TON"}</span>}</td>
                     <td className={`text-right font-medium ${gap == null ? "text-muted" : Math.abs(gap) < 0.5 ? "text-ink-2" : gap > 0 ? "text-up" : "text-down"}`}>{gap == null ? "—" : pct(gap)}</td>
                     <td className="text-right text-xs"><Change value={a.change24h} /></td>
                     <td className="text-right"><DividendBadge asset={a} /></td>
@@ -100,7 +129,7 @@ export function StocksView({ assets }: { assets: PairAsset[] }) {
                   </tr>
                 );
               })}
-              {!rows.length && <tr><td colSpan={8} className="py-8 text-center text-muted">No live prices right now (Pyth, Yahoo and STON.fi didn&apos;t answer).</td></tr>}
+              {!rows.length && <tr><td colSpan={8} className="py-8 text-center text-muted">Nothing here right now: either no live price answered, or no verified token is available to buy.</td></tr>}
             </tbody>
           </table>
         </div>

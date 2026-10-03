@@ -23,7 +23,9 @@ export default async function LaunchPage({ searchParams }: { searchParams: Promi
     badge: t.bitpad!.creatorJetton!.verified ? "CREATOR ✓" : "CREATOR", color: colorFor(t.symbol), image: t.image,
     priceUsd: t.priceUsd, change24h: t.change24h, tonAddress: t.address, sector: `${paired.length} paired`,
   }));
-  const all = [...assets, ...creators];
+  // Only assets with a verified jetton on TON can back a pool (when TON data is down, show the catalog as before)
+  const onTon = assets.filter((a) => a.tonAddress);
+  const all = [...(onTon.length ? onTon : assets), ...creators];
   const jettonMasters = all.map((a) => a.tonAddress).filter((a): a is string => !!a && a !== TON_ASSETS.TON);
   const registered = await getRegisteredPairs(jettonMasters);
   const ready = registered.filter((r) => r.enabled && r.ready);

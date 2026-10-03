@@ -49,7 +49,13 @@ export interface PairAsset {
   lastDividend?: { amount: number; date: number };
   dividendsPerYear?: number;
   sector?: string;
+  /** Discovery theme on the Stocks page */
+  theme?: AssetTheme;
+  /** Extra tickers to look for on Solana (e.g. cbBTC for Bitcoin); defaults to the symbol */
+  solSymbols?: string[];
 }
+
+export type AssetTheme = "AI" | "Meme" | "Innovation" | "Popular" | "Index" | "Metals" | "Crypto-linked";
 
 export interface MarketToken {
   address: string;

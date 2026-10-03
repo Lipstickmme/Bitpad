@@ -1,6 +1,6 @@
 import "server-only";
 import { chainDexVolume, dexVolumes, matchProtocol, protocolFees, volumeHistory, type LlamaProtocol } from "./data/llama";
-import { newPools, trendingPools, type GeckoPoolRow } from "./data/gecko";
+import { dexPools, geckoDexes, newPools, trendingPools, type GeckoPoolRow } from "./data/gecko";
 import { dsTrending } from "./data/dexscreener";
 import { memo, safe } from "./data/http";
 import { DEXES, LAUNCHPADS, type Venue } from "./venues";
@@ -38,10 +38,35 @@ function empty(v: Venue): LaunchpadStat {
   return { id: v.id, name: v.name, chain: v.chain, kind: v.kind, mechanism: v.mechanism, color: v.color, volume24h: 0, volumeChange: 0, launches24h: 0, wins: 0, losses: 0, avgReturn24h: 0, medianReturn24h: 0, buySellRatio: 1, source: "unavailable" };
 }
 
+const normId = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+const isMine = (v: Venue, dexId: string) => v.geckoMatch.some((m) => normId(dexId).includes(normId(m)));
+
+/**
+ * Pools straight from each venue's own DEX listing on GeckoTerminal, so every
+ * launchpad gets a sample even when none of its tokens made the chain-wide
+ * new/trending feed. Venue ids are discovered from GeckoTerminal's DEX list.
+ */
+async function venuePools(venues: Venue[]): Promise<GeckoPoolRow[]> {
+  const chains = [...new Set(venues.map((v) => v.chain))];
+  const lists = await Promise.all(chains.map((c) => safe(geckoDexes(c), [], `gecko dexes ${c}`)));
+  const jobs: { chain: ChainId; id: string }[] = [];
+  chains.forEach((c, i) => {
+    for (const d of lists[i].value)
+      if (venues.some((v) => v.chain === c && v.geckoMatch.some((m) => normId(d.id).includes(normId(m)) || normId(d.name).includes(normId(m))))) jobs.push({ chain: c, id: d.id });
+  });
+  const out: GeckoPoolRow[] = [];
+  // GeckoTerminal's free tier is ~30 calls/min: a few at a time, cached 10 min
+  for (let i = 0; i < jobs.length; i += 3) {
+    const got = await Promise.all(jobs.slice(i, i + 3).map((j) => safe(dexPools(j.chain, j.id), [], `gecko dex pools ${j.id}`)));
+    for (const g of got) out.push(...g.value);
+  }
+  return out;
+}
+
 function venueStat(v: Venue, sampled: GeckoPoolRow[], dex: LlamaProtocol[], fees: LlamaProtocol[]): LaunchpadStat {
-  const mine = sampled.filter((p) => p.chain === v.chain && v.geckoMatch.some((m) => p.dexId.toLowerCase().includes(m)));
-  const vol = matchProtocol(dex, v.llamaMatch);
-  const fee = matchProtocol(fees, v.llamaMatch);
+  const mine = [...new Map(sampled.filter((p) => p.chain === v.chain && isMine(v, p.dexId)).map((p) => [p.id, p])).values()];
+  const vol = matchProtocol(dex, v.llamaMatch, LLAMA_CHAIN[v.chain]);
+  const fee = matchProtocol(fees, v.llamaMatch, LLAMA_CHAIN[v.chain]);
   if (!mine.length && !vol.length && !fee.length) return empty(v);
   const s = sampleStats(mine);
   const volume = vol.reduce((a, p) => a + (p.total24h ?? 0), 0);
@@ -76,11 +101,11 @@ function fomoScore(pools: GeckoPoolRow[], volChange: number) {
 }
 
 export function getAnalytics(): Promise<AnalyticsSnapshot> {
-  return memo("analytics", 90_000, build);
+  return memo("analytics", 5 * 60_000, build);
 }
 
 async function build(): Promise<AnalyticsSnapshot> {
-  const [samples, dex, fees, chainVols, bitpad] = await Promise.all([
+  const [samples, dex, fees, chainVols, bitpad, perVenue] = await Promise.all([
     Promise.all(SCAN_CHAINS.map(async (c) => {
       const [n, t] = await Promise.all([safe(newPools(c), [], `gecko new ${c}`), safe(trendingPools(c), [], `gecko trending ${c}`)]);
       return { chain: c, fresh: n.value, trending: t.value, ok: n.ok || t.ok };
@@ -89,6 +114,7 @@ async function build(): Promise<AnalyticsSnapshot> {
     safe(protocolFees(), [] as LlamaProtocol[], "llama fees"),
     Promise.all(SCAN_CHAINS.map((c) => safe(chainDexVolume(LLAMA_CHAIN[c]!), { total24h: 0, change1d: 0 }, `llama chain ${c}`))),
     safe(getBitpadTokens(), { tokens: [], count: 0, factory: null, ok: false }, "bitpad"),
+    venuePools(LAUNCHPADS.slice(1)).catch(() => [] as GeckoPoolRow[]),
   ]);
 
   // GeckoTerminal down → DexScreener boosted tokens as the pool sample
@@ -109,7 +135,7 @@ async function build(): Promise<AnalyticsSnapshot> {
     source: bitpad.value.factory && bitpad.value.ok ? "live" : "unavailable",
   };
 
-  const launchpads = [bitpadRow, ...LAUNCHPADS.slice(1).map((v) => venueStat(v, uniq, dex.value, fees.value))];
+  const launchpads = [bitpadRow, ...LAUNCHPADS.slice(1).map((v) => venueStat(v, [...uniq, ...perVenue], dex.value, fees.value))];
   const dexes = DEXES.map((v) => venueStat(v, uniq, dex.value, fees.value));
 
   const chains: ChainStat[] = SCAN_CHAINS.map((c, i) => {

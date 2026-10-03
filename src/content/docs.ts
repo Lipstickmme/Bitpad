@@ -247,10 +247,27 @@ On a token page you can compare routes, pick the pay asset, and buy or sell any 
   {
     slug: "stocks",
     group: "Trading",
-    title: "Stocks and gold",
-    description: "Tokenized equities on TON and other chains, price gaps and dividends.",
+    title: "Stocks, metals and Bitcoin",
+    description: "Verified tokenized stocks, metals and crypto majors on TON and other chains, price gaps and dividends.",
     body: `
-The [Stocks](/stocks) page lists tokenized shares and gold with:
+## What you can buy
+
+The [Stocks](/stocks) page has three tabs:
+
+| Tab | What's in it |
+| --- | --- |
+| **Stocks** | Tokenized US shares and ETFs, filtered by theme: **AI** (NVIDIA, Palantir, AMD, Broadcom, Oracle…), **Meme** (GameStop, Opendoor), **Innovation** (Eli Lilly, Novo Nordisk, Tesla…), **Popular**, **Index** (S&P 500, Nasdaq 100) and **Crypto-linked** (Strategy, Coinbase, Circle) |
+| **Metals** | Gold (Tether Gold, the SPDR Gold ETF) and other metals with a verified token |
+| **Bitcoin & majors** | BTC and ETH as verified tokens: tgBTC or jWBTC on TON, cbBTC or WBTC and WETH on Solana |
+
+An asset only appears when a verified token for it exists. On TON you pay in GRAM; on Solana you pay in SOL from Phantom. More names (CoreWeave, Rocket Lab, IonQ, Moderna, Kinesis Silver…) show up under **On other chains** wherever a verified xStocks, Ondo or metals token trades.
+
+> [!INFO]
+> Some popular companies can't be listed because no verified token exists for them yet. Dangote Refinery, for example, is listing on the Nigerian Exchange: its IPO took subscriptions on-chain, but the shares themselves aren't tokenized or tradable as tokens. Once a genuine token exists, it can be added.
+
+## The table
+
+Each row shows:
 
 - **Real price**: the Pyth oracle (Yahoo as a fallback), following the actual market.
 - **On TON**: what the jetton trades for on STON.fi right now.
@@ -276,7 +293,7 @@ Below that, tokenized stocks and gold on Solana and EVM chains (xStocks, Ondo, P
 ## Market tables
 
 - **Verified first.** In the TON, Ethereum and Solana markets, verified tokens (blue check) are listed above the rest.
-- **OG grade.** Tokens that have traded for a year or more get a gold **OG** badge: ★ 1+ year, ★★ 2+ years, ★★★ 3+ years, counted from their oldest pool.
+- **OG grade.** A token shows one badge, never two. Verified tokens get the blue check. Unverified tokens that have traded for a year or more get a gold **OG** badge instead, as a nod that they've survived: ★ 1+ year, ★★ 2+ years, ★★★ 3+ years, counted from their oldest pool.
 - **Holders.** The number of wallets holding each token, from TonAPI on TON, Jupiter on Solana, and Ethplorer or GeckoTerminal on EVM chains.
 - **Stock pairs first.** On Ethereum and Solana the first tab is tokenized stocks and the tokens paired with them, then trending and top pools.
 

@@ -60,7 +60,7 @@ export function ChainMarket({ chain }: { chain: MarketChain }) {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h2 className="flex items-center gap-1.5 text-base font-semibold tracking-tight">
           {n.name} market
-          <Hint>Live from GeckoTerminal and DexScreener. <b>Stock pairs</b> are tokenized stocks and gold on {n.name} (xStocks, Ondo, PAX Gold, Tether Gold), only the verified contract and one per asset, plus popular tokens traded against them. Verified tokens ({chain === "solana" ? "Jupiter-verified or CoinGecko-listed" : "CoinGecko-listed"}) are listed first in every tab. <b>OG</b> stars grade how long a token has traded: 1, 2 or 3+ years. The other tabs group {n.name}&apos;s trending and top pools by what they&apos;re paired with. ⚡ pays in {n.coin} from {chain === "solana" ? "Phantom" : "MetaMask"}, on LI.FI&apos;s best route.</Hint>
+          <Hint>Live from GeckoTerminal and DexScreener. <b>Stock pairs</b> are tokenized stocks and gold on {n.name} (xStocks, Ondo, PAX Gold, Tether Gold), only the verified contract and one per asset, plus popular tokens traded against them. Verified tokens ({chain === "solana" ? "Jupiter-verified or CoinGecko-listed" : "CoinGecko-listed"}) are listed first in every tab. Unverified tokens that have traded for years get a gold <b>OG</b> badge instead: 1, 2 or 3+ stars for 1, 2 or 3+ years. The other tabs group {n.name}&apos;s trending and top pools by what they&apos;re paired with. ⚡ pays in {n.coin} from {chain === "solana" ? "Phantom" : "MetaMask"}, on LI.FI&apos;s best route.</Hint>
         </h2>
         <div className="seg ml-auto max-w-full overflow-x-auto">
           {tabs.map(([k, label]) => <button key={k} data-on={active === k} onClick={() => { setTab(k); setPage(0); }}>{label}</button>)}
@@ -93,7 +93,7 @@ export function ChainMarket({ chain }: { chain: MarketChain }) {
 
 function Row({ p, holders }: { p: TrendingPool; holders: number | null }) {
   const mcap = p.marketCap || p.fdv || null;
-  const label = <>{p.base}{p.verified && <Verified className="ml-1 size-3.5 align-[-2px]" />}{p.ageHours > 0 && <OgBadge createdAt={Date.now() - p.ageHours * 3_600_000} className="ml-1 align-[1px]" />}{isHot(p) && <HotFlame size={14} className="ml-1 align-[-2px]" title={hotReason(p)} />}{p.quote && <span className="font-normal text-muted"> / {coin(p.quote)}</span>}</>;
+  const label = <>{p.base}{p.verified ? <Verified className="ml-1 size-3.5 align-[-2px]" /> : p.ageHours > 0 && <OgBadge createdAt={Date.now() - p.ageHours * 3_600_000} className="ml-1 align-[1px]" />}{isHot(p) && <HotFlame size={14} className="ml-1 align-[-2px]" title={hotReason(p)} />}{p.quote && <span className="font-normal text-muted"> / {coin(p.quote)}</span>}</>;
   return (
     <tr title={hotReason(p)} className={`border-b border-line/60 last:border-0 hover:bg-surface-2/60 ${isHot(p) ? "spike" : ""}`}>
       <td className="px-4 py-2.5 font-medium">

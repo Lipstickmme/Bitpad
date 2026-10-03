@@ -2,6 +2,8 @@
  * OG grade by age: tokens that have survived years of markets.
  *   ★★★  3+ years   ★★  2+ years   ★  1+ year   (younger: no badge)
  * Age is the token's oldest known pool, which tracks when it started trading.
+ * Shown only on unverified tokens: a verified token already carries the blue
+ * check, while for an unverified one, surviving years is the positive signal.
  */
 export function ogGrade(createdAtMs: number | null | undefined, now = Date.now()): 0 | 1 | 2 | 3 {
   if (!createdAtMs || !Number.isFinite(createdAtMs) || createdAtMs > now) return 0;

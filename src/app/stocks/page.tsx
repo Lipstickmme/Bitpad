@@ -4,7 +4,7 @@ import { StocksView } from "@/components/StocksView";
 import { XChainStocks } from "@/components/XChainStocks";
 import { getXChainStocks } from "@/lib/xchain-stocks";
 
-export const metadata: Metadata = { title: "Stocks & gold" };
+export const metadata: Metadata = { title: "Stocks, metals & Bitcoin" };
 export const dynamic = "force-dynamic";
 
 export default async function StocksPage() {

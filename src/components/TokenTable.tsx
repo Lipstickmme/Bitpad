@@ -40,7 +40,7 @@ export function TokenTable({ tokens }: { tokens: MarketToken[] }) {
                 <div className="flex items-center gap-2.5">
                   <TokenAvatar token={t} size={26} />
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 font-medium">{t.symbol}{t.verified && <Verified />}<OgBadge createdAt={t.createdAt} />{isHot(t) && <HotFlame size={14} title={hotReason(t)} />}{t.bitpad && <span className="chip">Bitpad</span>}</div>
+                    <div className="flex items-center gap-1.5 font-medium">{t.symbol}{t.verified ? <Verified /> : <OgBadge createdAt={t.createdAt} />}{isHot(t) && <HotFlame size={14} title={hotReason(t)} />}{t.bitpad && <span className="chip">Bitpad</span>}</div>
                     <div className="max-w-[160px] truncate text-xs text-muted">{t.name}</div>
                   </div>
                 </div>

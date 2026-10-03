@@ -225,3 +225,17 @@ export async function poolTrades(chain: ChainId, pool: string, dexLabel: string)
     };
   });
 }
+
+/** Every DEX / launchpad GeckoTerminal indexes on a chain (id + display name). Cached a day. */
+export async function geckoDexes(chain: ChainId): Promise<{ id: string; name: string }[]> {
+  const out: { id: string; name: string }[] = [];
+  for (let page = 1; page <= 4; page++) {
+    const res = await getJson<{ data: { id: string; attributes: { name: string } }[] }>(`${BASE}/networks/${net(chain)}/dexes?page=${page}`, { revalidate: 86_400 });
+    out.push(...res.data.map((d) => ({ id: d.id, name: d.attributes.name })));
+    if (res.data.length < 100) break;
+  }
+  return out;
+}
+
+/** The most active pools on one DEX / launchpad. */
+export const dexPools = (chain: ChainId, dexId: string) => pools(`/networks/${net(chain)}/dexes/${encodeURIComponent(dexId)}/pools?sort=h24_tx_count_desc`, chain, 600);

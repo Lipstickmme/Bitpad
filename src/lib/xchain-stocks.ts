@@ -15,7 +15,22 @@ import { cgListed } from "./data/coingecko";
  * one, which is the cheapest to buy (least price impact for the same route fee).
  * "Paired" tokens count only when they trade against that genuine token.
  */
-const TICKERS = ["TSLA", "NVDA", "AAPL", "SPY", "QQQ", "MSTR", "COIN", "GOOGL", "META", "AMZN", "MSFT", "HOOD", "CRCL"];
+const TICKERS = [
+  // big tech & index
+  "TSLA", "NVDA", "AAPL", "SPY", "QQQ", "GOOGL", "META", "AMZN", "MSFT", "NFLX",
+  // AI
+  "PLTR", "AMD", "AVGO", "ORCL", "CRWV", "SMCI", "ARM", "TSM", "MRVL", "CRWD", "INTC",
+  // meme favourites
+  "GME", "AMC", "OPEN",
+  // innovation: biotech, space, quantum, nuclear
+  "LLY", "NVO", "MRNA", "CRSP", "RKLB", "IONQ", "OKLO",
+  // crypto-linked
+  "MSTR", "COIN", "HOOD", "CRCL", "IBIT",
+  // popular
+  "KO", "MCD", "JPM", "V", "WMT",
+  // metals ETFs
+  "GLD", "SLV", "IAU",
+];
 const ISSUERS: { suffix: string; issuer: string }[] = [
   { suffix: "x", issuer: "xStocks" },
   { suffix: "on", issuer: "Ondo" },
@@ -24,6 +39,8 @@ const COMMODITIES: Record<string, { name: string; issuer: string; underlying: st
   PAXG: { name: "PAX Gold", issuer: "Paxos", underlying: "Gold" },
   XAUT: { name: "Tether Gold", issuer: "Tether", underlying: "Gold" },
   XAUT0: { name: "Tether Gold (OFT)", issuer: "Tether", underlying: "Gold" },
+  KAU: { name: "Kinesis Gold", issuer: "Kinesis", underlying: "Gold" },
+  KAG: { name: "Kinesis Silver", issuer: "Kinesis", underlying: "Silver" },
 };
 const CHAINS: ChainId[] = ["solana", "ethereum", "base", "bsc", "arbitrum", "polygon", "avalanche"];
 const MIN_LIQ_ASSET = 20_000;
@@ -78,7 +95,7 @@ function identify(symbol: string): { kind: "stock" | "commodity"; issuer: string
 }
 
 export async function getXChainStocks(): Promise<{ assets: XStock[]; paired: StockPaired[]; live: boolean }> {
-  return memo("xchain-stocks", 300_000, load);
+  return memo("xchain-stocks", 600_000, load);
 }
 
 async function load() {

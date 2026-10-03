@@ -36,10 +36,19 @@ export async function volumeHistory(slug: string, days = 14) {
   return (res.totalDataChart ?? []).slice(-days);
 }
 
-export function matchProtocol(list: LlamaProtocol[], needles: string[]): LlamaProtocol[] {
-  const n = needles.map((s) => s.toLowerCase());
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * Protocols matching a venue: needles and names compared without spaces or
+ * punctuation ("pump.fun" = "Pump Fun" = "pumpfun"). When the venue's chain is
+ * given, protocols DefiLlama lists only on other chains are skipped, so a short
+ * needle can't pick up an unrelated project elsewhere.
+ */
+export function matchProtocol(list: LlamaProtocol[], needles: string[], chain?: string): LlamaProtocol[] {
+  const n = needles.map(norm).filter((x) => x.length >= 3);
   return list.filter((p) => {
-    const hay = `${p.name} ${p.displayName ?? ""} ${p.slug ?? ""}`.toLowerCase();
+    if (chain && p.chains?.length && !p.chains.some((c) => c.toLowerCase() === chain.toLowerCase())) return false;
+    const hay = norm(`${p.name}|${p.displayName ?? ""}|${p.slug ?? ""}`);
     return n.some((x) => hay.includes(x));
   });
 }

@@ -30,7 +30,7 @@ async function load(): Promise<{ assets: PairAsset[]; live: boolean }> {
     safe(cgPrices(cgIds), {}, "coingecko"),
     // Verified contracts only: a stock, gold or major coin with no verified jetton on TON isn't sold on TON
     Promise.all(ASSET_DEFS.map((a) => (a.tonAddress || (!a.tonSymbols && a.kind !== "stock") ? undefined : resolveVerifiedTon(a.tonSymbols ?? [a.symbol]).catch(() => undefined)))),
-    Promise.all(ASSET_DEFS.map((a) => (a.kind === "stock" ? jupResolve(a.symbol).catch(() => undefined) : undefined))),
+    Promise.all(ASSET_DEFS.map((a) => (a.kind === "stock" || a.solSymbols ? jupResolve(a.solSymbols ?? [a.symbol]).catch(() => undefined) : undefined))),
     Promise.all(ASSET_DEFS.map((a) => (a.yahoo ? yahooQuote(a.yahoo).catch(() => null) : null))),
   ]);
 
@@ -39,7 +39,7 @@ async function load(): Promise<{ assets: PairAsset[]; live: boolean }> {
 
   let anyLive = false;
   const assets = ASSET_DEFS.map((def, i): PairAsset => {
-    const { tonSymbols: _t, ...base } = def;
+    const { tonSymbols: _t, solSymbols: _s, ...base } = def;
     const ston = tonResolved[i];
     const j = jup[i];
     const y = yahoo[i];
@@ -67,7 +67,7 @@ async function load(): Promise<{ assets: PairAsset[]; live: boolean }> {
       tonAddress,
       solanaMint: j?.id,
       // Genuine: native TON / pinned USDT, STON.fi's canonical token for the ticker, or a Jupiter-verified xStock mint
-      verified: !!((def.tonAddress && def.kind === "jetton") || (tonAddress && vset.value.has(rawAddr(tonAddress))) || (!tonAddress && j?.isVerified)),
+      verified: !!((def.tonAddress && def.kind === "jetton") || (tonAddress && vset.value.has(rawAddr(tonAddress))) || j?.isVerified),
       oraclePriceUsd: def.kind === "stock" || def.kind === "commodity" ? p?.price ?? y?.price ?? null : undefined,
       tonPriceUsd: tonAddress ? (ston?.dexPriceUsd ? Number(ston.dexPriceUsd) : tr?.prices?.USD ?? null) : null,
       nextDividendEst: y?.lastDividend && y.dividendsPerYear > 0 ? nextDividend(y.lastDividend.date * 1000, y.dividendsPerYear) : null,

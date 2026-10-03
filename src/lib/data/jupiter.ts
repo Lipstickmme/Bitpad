@@ -16,9 +16,13 @@ export async function jupSearch(query: string): Promise<JupToken[]> {
   return getJson<JupToken[]>(`https://lite-api.jup.ag/tokens/v2/search?query=${encodeURIComponent(query)}`, { revalidate: 600 });
 }
 
-export async function jupResolve(symbol: string): Promise<JupToken | undefined> {
-  const list = await jupSearch(symbol);
-  return list.filter((t) => t.symbol.toLowerCase() === symbol.toLowerCase()).sort((a, b) => Number(!!b.isVerified) - Number(!!a.isVerified))[0];
+/** The Jupiter-verified Solana token for one of these tickers (first ticker that has one). Never an unverified look-alike. */
+export async function jupResolve(symbol: string | string[]): Promise<JupToken | undefined> {
+  for (const s of Array.isArray(symbol) ? symbol : [symbol]) {
+    const hit = (await jupSearch(s)).filter((t) => t.isVerified && t.symbol.toLowerCase() === s.toLowerCase()).sort((a, b) => (b.holderCount ?? 0) - (a.holderCount ?? 0))[0];
+    if (hit) return hit;
+  }
+  return undefined;
 }
 
 /** Look up Solana mints in bulk (verified flag, holder count). Jupiter search takes up to 100 comma-separated mints. */
