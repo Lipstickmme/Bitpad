@@ -4,7 +4,7 @@ import { pythQuotes, type PythWant } from "./data/pyth";
 import { yahooQuote } from "./data/yahoo";
 import { cgPrices } from "./data/coingecko";
 import { jupResolve } from "./data/jupiter";
-import { rawAddr, resolveTonSymbol, verifiedTon } from "./data/stonfi";
+import { rawAddr, resolveVerifiedTon, verifiedTon } from "./data/stonfi";
 import { tokenRates } from "./data/tonapi";
 import { safe, memo } from "./data/http";
 import type { PairAsset } from "./types";
@@ -28,14 +28,8 @@ async function load(): Promise<{ assets: PairAsset[]; live: boolean }> {
   const [pyth, cg, tonResolved, jup, yahoo] = await Promise.all([
     safe(pythQuotes(wants), {}, "pyth"),
     safe(cgPrices(cgIds), {}, "coingecko"),
-    Promise.all(ASSET_DEFS.map(async (a) => {
-      if (a.tonAddress || (!a.tonSymbols && a.kind !== "stock")) return undefined;
-      for (const s of a.tonSymbols ?? [a.symbol]) {
-        const hit = await resolveTonSymbol(s).catch(() => undefined);
-        if (hit) return hit;
-      }
-      return undefined;
-    })),
+    // Verified contracts only: a stock, gold or major coin with no verified jetton on TON isn't sold on TON
+    Promise.all(ASSET_DEFS.map((a) => (a.tonAddress || (!a.tonSymbols && a.kind !== "stock") ? undefined : resolveVerifiedTon(a.tonSymbols ?? [a.symbol]).catch(() => undefined)))),
     Promise.all(ASSET_DEFS.map((a) => (a.kind === "stock" ? jupResolve(a.symbol).catch(() => undefined) : undefined))),
     Promise.all(ASSET_DEFS.map((a) => (a.yahoo ? yahooQuote(a.yahoo).catch(() => null) : null))),
   ]);

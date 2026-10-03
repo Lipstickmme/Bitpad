@@ -58,13 +58,16 @@ async function fromPool(p: GeckoPoolRow, source: string): Promise<MarketToken> {
 /** Keep the most liquid pool per base token; drop pools whose base is TON or a stablecoin. */
 function bestPerToken(rows: GeckoPoolRow[]) {
   const best = new Map<string, GeckoPoolRow>();
+  // a token's age = its oldest pool we've seen (the main pool may be a newer migration)
+  const first = new Map<string, number>();
+  for (const r of rows) if (Number.isFinite(r.createdAt) && r.createdAt < (first.get(r.baseAddress) ?? Infinity)) first.set(r.baseAddress, r.createdAt);
   for (const r of rows) {
     if (TON_LIKE.has(r.base.toUpperCase()) || r.quoteKind === "stable" && r.baseAddress === TON_ASSETS.USDT) continue;
     if (r.baseAddress === TON_ASSETS.USDT) continue;
     const cur = best.get(r.baseAddress);
     if (!cur || cur.liquidityUsd < r.liquidityUsd) best.set(r.baseAddress, r);
   }
-  return [...best.values()];
+  return [...best.values()].map((r) => ({ ...r, createdAt: first.get(r.baseAddress) ?? r.createdAt }));
 }
 
 /** STON.fi fallback: pools with 24h volume + asset list for prices/images. */

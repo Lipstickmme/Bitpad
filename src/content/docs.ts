@@ -257,9 +257,28 @@ The [Stocks](/stocks) page lists tokenized shares and gold with:
 - **Gap**: the difference. Gaps usually widen when the US market is closed, because TON trades 24/7.
 - **Dividend score and calendar**: who pays, how much, and estimated next payment dates. xStock holders don't receive cash: dividends are reinvested into the token. See [Dividends](/docs/dividends).
 
+## Verified versions only
+
+Tokenized stocks, gold and the majors (BTC, ETH, SOL and friends) attract copycats: tokens that borrow the ticker, sometimes with real liquidity behind them. Bitpad only lists and sells the genuine contract:
+
+| Chain | Counts as verified |
+| --- | --- |
+| TON | STON.fi's canonical token for that ticker (or marked essential), with no risk tags |
+| Solana | Verified on Jupiter, or listed on CoinGecko |
+| Ethereum and other EVM chains | Listed on CoinGecko under the same ticker |
+
+If an asset has no verified token on a chain, Bitpad doesn't sell it there. Where several verified tokens track the same asset on one chain (say xStocks and Ondo, or tgBTC and jWBTC on TON), only one is listed: the most liquid, which is the cheapest to buy.
+
 ## On other chains
 
-Below that, tokenized stocks and gold on Solana and EVM chains (xStocks, Ondo, PAX Gold, Tether Gold) are listed with liquidity and volume, plus popular tokens that trade against them. ⚡ buys them with that chain's coin.
+Below that, tokenized stocks and gold on Solana and EVM chains (xStocks, Ondo, PAX Gold, Tether Gold) are listed with liquidity and volume, plus popular tokens that trade against them (only tokens paired with the verified version). ⚡ buys them with that chain's coin.
+
+## Market tables
+
+- **Verified first.** In the TON, Ethereum and Solana markets, verified tokens (blue check) are listed above the rest.
+- **OG grade.** Tokens that have traded for a year or more get a gold **OG** badge: ★ 1+ year, ★★ 2+ years, ★★★ 3+ years, counted from their oldest pool.
+- **Holders.** The number of wallets holding each token, from TonAPI on TON, Jupiter on Solana, and Ethplorer or GeckoTerminal on EVM chains.
+- **Stock pairs first.** On Ethereum and Solana the first tab is tokenized stocks and the tokens paired with them, then trending and top pools.
 
 Every stock and pool opens a chart page.
 `,

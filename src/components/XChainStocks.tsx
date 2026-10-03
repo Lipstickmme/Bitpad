@@ -27,7 +27,7 @@ export function XChainStocks({ assets, paired, live }: { assets: XStock[]; paire
           <h2 className="flex items-center gap-1.5 text-sm font-semibold">
             On Solana &amp; EVM chains
             <Hint>
-              The same kind of tokenized shares and gold, issued on other chains: xStocks and Ondo Global Markets tokens (each backed by the real share), plus PAX Gold and Tether Gold. Found live on DexScreener. A token is listed only when its symbol matches exactly and its best pool holds at least $20k of liquidity, so look-alike fakes are left out. ⚡ buys it with that chain&apos;s coin from Phantom or MetaMask, through LI.FI.
+              The same kind of tokenized shares and gold, issued on other chains: xStocks and Ondo Global Markets tokens (each backed by the real share), plus PAX Gold and Tether Gold. Found live on DexScreener, then checked: only the genuine contract is listed (Jupiter-verified on Solana, CoinGecko-listed under the same ticker on EVM chains), so look-alike fakes are left out even when they have liquidity. Each asset appears once per chain, as the most liquid verified token, which is the cheapest to buy. ⚡ buys it with that chain&apos;s coin from Phantom or MetaMask, through LI.FI.
             </Hint>
           </h2>
           <div className="seg ml-auto">

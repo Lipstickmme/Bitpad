@@ -2,14 +2,18 @@ import "server-only";
 import type { ChainId } from "./types";
 import { dsChain, dsSearch, type DsPair } from "./data/dexscreener";
 import { memo, safe } from "./data/http";
-import { getPairAssets } from "./prices";
+import { verifiedOn } from "./verify";
+import { cgListed } from "./data/coingecko";
 
 /**
  * Tokenized stocks and commodities living on Solana and EVM chains, plus the
  * popular tokens that trade against them (e.g. launches paired with xStocks).
- * Found live through DexScreener search. A token counts only when its symbol
- * matches exactly and its best pool holds real liquidity, so copycats with a
- * look-alike symbol and an empty pool are dropped.
+ * Found live through DexScreener search, then checked: only the genuine
+ * contract counts (Jupiter-verified on Solana, CoinGecko-listed under the same
+ * ticker on EVM chains). Copycats with a borrowed ticker are dropped even when
+ * they have liquidity. One token per asset per chain is kept: the most liquid
+ * one, which is the cheapest to buy (least price impact for the same route fee).
+ * "Paired" tokens count only when they trade against that genuine token.
  */
 const TICKERS = ["TSLA", "NVDA", "AAPL", "SPY", "QQQ", "MSTR", "COIN", "GOOGL", "META", "AMZN", "MSFT", "HOOD", "CRCL"];
 const ISSUERS: { suffix: string; issuer: string }[] = [
@@ -40,8 +44,10 @@ export interface XStock {
   liquidityUsd: number;
   volume24h: number;
   url: string;
-  /** Same mint as the Jupiter-verified xStock in Bitpad's catalog */
+  /** Genuine contract (Jupiter-verified / CoinGecko-listed) */
   verified?: boolean;
+  /** When its oldest seen pool was created (ms) */
+  createdAt?: number;
 }
 
 export interface StockPaired {
@@ -59,6 +65,7 @@ export interface StockPaired {
   volume24h: number;
   marketCap: number | null;
   url: string;
+  createdAt?: number;
 }
 
 function identify(symbol: string): { kind: "stock" | "commodity"; issuer: string; underlying: string; name?: string } | null {
@@ -81,7 +88,7 @@ async function load() {
   for (const r of res) for (const p of r.value) pairs.set(`${p.chainId}:${p.pairAddress}`, p);
 
   const assets = new Map<string, XStock>();
-  const paired = new Map<string, StockPaired>();
+  const paired = new Map<string, StockPaired & { quoteAddress: string }>();
   for (const p of pairs.values()) {
     const chain = dsChain(p.chainId);
     if (!chain || !CHAINS.includes(chain)) continue;
@@ -97,9 +104,12 @@ async function load() {
           symbol: p.baseToken.symbol, name: base.name ?? p.baseToken.name, kind: base.kind, issuer: base.issuer, underlying: base.underlying,
           chain, address: p.baseToken.address, image: p.info?.imageUrl,
           priceUsd: p.priceUsd ? Number(p.priceUsd) : null, change24h: p.priceChange?.h24 ?? null,
-          liquidityUsd: liq, volume24h: vol, url: p.url,
+          liquidityUsd: liq, volume24h: vol, url: p.url, createdAt: Math.min(prev?.createdAt ?? Infinity, p.pairCreatedAt ?? Infinity),
         });
-      else prev.volume24h = vol;
+      else {
+        prev.volume24h = vol;
+        if (p.pairCreatedAt && (!prev.createdAt || p.pairCreatedAt < prev.createdAt)) prev.createdAt = p.pairCreatedAt;
+      }
       continue;
     }
     // A non-stock token quoted in a stock token: the "paired with stocks" launches
@@ -110,14 +120,41 @@ async function load() {
           chain, dex: p.dexId, base: p.baseToken.symbol, baseName: p.baseToken.name, baseAddress: p.baseToken.address, quote: p.quoteToken.symbol,
           pairAddress: p.pairAddress, image: p.info?.imageUrl, priceUsd: p.priceUsd ? Number(p.priceUsd) : null, change24h: p.priceChange?.h24 ?? null,
           liquidityUsd: liq, volume24h: p.volume?.h24 ?? 0, marketCap: p.marketCap ?? p.fdv ?? null, url: p.url,
+          createdAt: p.pairCreatedAt, quoteAddress: p.quoteToken.address,
         });
     }
   }
-  const mints = new Set((await getPairAssets().catch(() => ({ assets: [] as { solanaMint?: string; verified?: boolean }[] }))).assets.filter((a) => a.solanaMint && a.verified).map((a) => a.solanaMint!));
-  for (const a of assets.values()) if (a.chain === "solana" && mints.has(a.address)) a.verified = true;
+  // Keep only genuine contracts…
+  const genuine: XStock[] = [];
+  for (const chain of CHAINS) {
+    const list = [...assets.values()].filter((a) => a.chain === chain);
+    const ok = await verifiedOn(chain, list.map((a) => a.address));
+    for (const a of list) {
+      if (!ok.has(a.address)) continue;
+      // on EVM the CoinGecko listing must also carry this ticker (not a different coin at that address)
+      if (chain !== "solana") {
+        const cg = await cgListed(chain, a.address);
+        if (!cg || cg.symbol.toLowerCase() !== a.symbol.toLowerCase()) continue;
+      }
+      genuine.push({ ...a, verified: true, createdAt: Number.isFinite(a.createdAt) ? a.createdAt : undefined });
+    }
+  }
+  // …and one per asset per chain: the most liquid issuer's token
+  const best = new Map<string, XStock>();
+  for (const a of genuine) {
+    const k = `${a.chain}:${a.kind}:${a.underlying}`;
+    const cur = best.get(k);
+    if (!cur || cur.liquidityUsd < a.liquidityUsd) best.set(k, a);
+  }
+  const kept = [...best.values()];
+  const keptAddr = new Set(kept.map((a) => `${a.chain}:${a.address.toLowerCase()}`));
   return {
-    assets: [...assets.values()].sort((a, b) => b.liquidityUsd - a.liquidityUsd),
-    paired: [...paired.values()].sort((a, b) => b.volume24h - a.volume24h).slice(0, 30),
+    assets: kept.sort((a, b) => b.liquidityUsd - a.liquidityUsd),
+    paired: [...paired.values()]
+      .filter((p) => keptAddr.has(`${p.chain}:${p.quoteAddress.toLowerCase()}`))
+      .map(({ quoteAddress: _q, ...p }) => p)
+      .sort((a, b) => b.volume24h - a.volume24h)
+      .slice(0, 30),
     live: res.some((r) => r.ok),
   };
 }

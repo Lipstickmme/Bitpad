@@ -13,11 +13,17 @@ export const stonAssets = () => memo("ston:assets", 10 * 60_000, () => ston.getA
 const BAD = new Set(["asset:blacklisted", "asset:deprecated", "asset:fake", "asset:honeypot", "asset:suspicious", "asset:dmca_complaint"]);
 export const isSafe = (a: StonAsset) => !a.blacklisted && !a.deprecated && !a.tags.some((t) => BAD.has(t));
 
-/** Resolve a ticker (e.g. "GRAM", "SPYx") to its canonical TON jetton. */
-export async function resolveTonSymbol(symbol: string): Promise<StonAsset | undefined> {
-  const s = symbol.toLowerCase();
-  const matches = (await stonAssets()).filter((a) => a.symbol.toLowerCase() === s && isSafe(a));
-  return matches.sort((a, b) => Number(b.defaultSymbol) - Number(a.defaultSymbol) || (b.popularityIndex ?? 0) - (a.popularityIndex ?? 0))[0];
+/**
+ * The genuine TON jetton for an asset that may trade under several tickers
+ * (e.g. BTC as tgBTC or jWBTC): only STON.fi-verified candidates (canonical for
+ * their ticker or essential, no risk tags), and of those the most traded one,
+ * the cheapest to buy. Look-alikes with the same ticker never qualify.
+ */
+export async function resolveVerifiedTon(symbols: string[]): Promise<StonAsset | undefined> {
+  const want = new Set(symbols.map((s) => s.toLowerCase()));
+  const vset = await verifiedTon();
+  const hits = (await stonAssets()).filter((a) => want.has(a.symbol.toLowerCase()) && isSafe(a) && vset.has(rawAddr(a.contractAddress)));
+  return hits.sort((a, b) => (b.popularityIndex ?? 0) - (a.popularityIndex ?? 0))[0];
 }
 
 export async function stonAsset(address: string): Promise<StonAsset | undefined> {

@@ -23,8 +23,8 @@ export async function payInfo(symbol: string): Promise<PayInfo | null> {
   if (symbol === "USDT") return { symbol, address: TON_ASSETS.USDT, decimals: 6, priceUsd: 1 };
   const hit = assets.find((a) => a.symbol === symbol && a.tonAddress);
   if (hit?.tonAddress) return { symbol, address: hit.tonAddress, decimals: symbol === "USDC" ? 6 : 9, priceUsd: hit.priceUsd };
-  const { resolveTonSymbol } = await import("./data/stonfi");
-  const r = await resolveTonSymbol(symbol).catch(() => undefined);
+  const { resolveVerifiedTon } = await import("./data/stonfi");
+  const r = await resolveVerifiedTon([symbol]).catch(() => undefined);
   return r ? { symbol, address: r.contractAddress, decimals: r.decimals, priceUsd: r.dexPriceUsd ? Number(r.dexPriceUsd) : null } : null;
 }
 

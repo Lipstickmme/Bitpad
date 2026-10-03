@@ -44,7 +44,8 @@ export function MarketsView({ bitpad, ton, tonSource }: { bitpad: MarketToken[];
   const term = q.trim().toLowerCase();
   const val = (t: MarketToken) => (sort === "marketCap" ? t.marketCap ?? t.fdv ?? -1 : t[sort] ?? -Infinity);
   const hit = (t: MarketToken) => !term || t.symbol.toLowerCase().includes(term) || t.name.toLowerCase().includes(term) || t.address.toLowerCase() === term;
-  const sortList = (l: MarketToken[]) => l.filter((t) => match(t, filter) && hit(t)).sort((a, b) => val(b) - val(a));
+  // Verified tokens first, then the chosen sort ("Newest" stays purely by age)
+  const sortList = (l: MarketToken[]) => l.filter((t) => match(t, filter) && hit(t)).sort((a, b) => (sort === "createdAt" ? 0 : Number(!!b.verified) - Number(!!a.verified)) || val(b) - val(a));
   const bp = useMemo(() => sortList(bitpad), [bitpad, filter, sort, term]); // eslint-disable-line react-hooks/exhaustive-deps
   const mk = useMemo(() => sortList(ton), [ton, filter, sort, term]); // eslint-disable-line react-hooks/exhaustive-deps
   // Pagination (25 per page); back to page 1 whenever the list changes

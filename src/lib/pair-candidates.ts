@@ -1,6 +1,6 @@
 import "server-only";
 import starter from "../../scripts/pairs.starter.json";
-import { resolveTonSymbol, stonAsset } from "./data/stonfi";
+import { resolveVerifiedTon, stonAsset } from "./data/stonfi";
 import { getRegisteredPairs } from "./launches";
 import { getBitpadTokens } from "./market";
 import { creatorBoard } from "./creators";
@@ -31,7 +31,7 @@ const units = (usd: number, px: number | null, dec: number) => (px && usd ? BigI
 export async function getPairCandidates(): Promise<PairCandidate[]> {
   const rows = starter.pairs as { symbol: string; kind: string; master?: string; minUsd?: number }[];
   const fromStarter = await Promise.all(rows.map(async (r): Promise<PairCandidate> => {
-    const hit = r.master ? await stonAsset(r.master).catch(() => undefined) : await resolveTonSymbol(r.symbol).catch(() => undefined);
+    const hit = r.master ? await stonAsset(r.master).catch(() => undefined) : await resolveVerifiedTon([r.symbol]).catch(() => undefined);
     const master = r.master ?? hit?.contractAddress ?? null;
     const decimals = hit?.decimals ?? 9;
     const px = hit?.dexPriceUsd ? Number(hit.dexPriceUsd) : null;

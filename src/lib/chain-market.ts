@@ -3,6 +3,11 @@ import type { ChainId, TrendingPool } from "./types";
 import { topPools, trendingPools } from "./data/gecko";
 import { getXChainStocks } from "./xchain-stocks";
 import { memo, safe } from "./data/http";
+import { verifiedOn } from "./verify";
+
+const ageH = (ms?: number) => (ms ? (Date.now() - ms) / 3_600_000 : 0);
+/** Verified tokens first; otherwise keep the list's own order (trending rank, volume…). */
+const verifiedFirst = (rows: TrendingPool[]) => rows.map((r, i) => [r, i] as const).sort(([a, i], [b, j]) => Number(!!b.verified) - Number(!!a.verified) || i - j).map(([r]) => r);
 
 export type MarketChain = "ethereum" | "solana";
 
@@ -16,9 +21,10 @@ export interface ChainMarket {
 }
 
 /**
- * ETH and SOL markets for the home page: stock pairs first (xStocks, Ondo,
- * PAXG/XAUT and tokens quoted in them), then GeckoTerminal's trending and
- * top pools. The UI groups the rest by what each pool is paired against.
+ * ETH and SOL markets for the home page: stock pairs first (verified xStocks,
+ * Ondo, PAXG/XAUT, one per asset, and tokens quoted in them), then
+ * GeckoTerminal's trending and top pools with verified tokens listed first.
+ * The UI groups the rest by what each pool is paired against.
  */
 export function getChainMarket(chain: MarketChain): Promise<ChainMarket> {
   return memo(`chain-market:${chain}`, 120_000, async () => {
@@ -31,17 +37,19 @@ export function getChainMarket(chain: MarketChain): Promise<ChainMarket> {
     const stockAssets: TrendingPool[] = x.value.assets.filter((a) => a.chain === chain).map((a) => ({
       id: `asset:${a.chain}:${a.address}`, chain: a.chain as ChainId, dex: a.issuer, name: a.symbol, base: a.symbol, quote: a.underlying,
       quoteKind: "stock", priceUsd: a.priceUsd ?? 0, change1h: 0, change24h: a.change24h ?? 0, volume24h: a.volume24h, liquidityUsd: a.liquidityUsd,
-      fdv: 0, marketCap: null, txns24h: 0, ageHours: 0, url: a.url, baseAddress: a.address, baseImage: a.image, verified: a.verified,
+      fdv: 0, marketCap: null, txns24h: 0, ageHours: ageH(a.createdAt), url: a.url, baseAddress: a.address, baseImage: a.image, verified: a.verified,
     }));
     const stockPaired: TrendingPool[] = x.value.paired.filter((p) => p.chain === chain).map((p) => ({
       id: `pair:${p.chain}:${p.pairAddress}`, chain: p.chain as ChainId, dex: p.dex, name: `${p.base} / ${p.quote}`, base: p.base, quote: p.quote,
       quoteKind: "stock", priceUsd: p.priceUsd ?? 0, change1h: 0, change24h: p.change24h ?? 0, volume24h: p.volume24h, liquidityUsd: p.liquidityUsd,
-      fdv: 0, marketCap: p.marketCap, txns24h: 0, ageHours: 0, url: p.url, baseAddress: p.baseAddress, poolAddress: p.pairAddress, baseImage: p.image,
+      fdv: 0, marketCap: p.marketCap, txns24h: 0, ageHours: ageH(p.createdAt), url: p.url, baseAddress: p.baseAddress, poolAddress: p.pairAddress, baseImage: p.image,
     }));
     const seen = new Set<string>();
     const dedupe = (rows: TrendingPool[]) => rows.filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
     const trending = dedupe(trend.value);
     const top = dedupe([...top1.value, ...top2.value]).sort((a, b) => b.volume24h - a.volume24h);
-    return { chain, stocks: [...stockAssets, ...stockPaired], trending, top, live: trend.ok || top1.ok };
+    const ok = await verifiedOn(chain, [...new Set([...trending, ...top, ...stockPaired].map((p) => p.baseAddress).filter((a): a is string => !!a))]).catch(() => new Set<string>());
+    const mark = (rows: TrendingPool[]) => rows.map((p) => (p.baseAddress && ok.has(p.baseAddress) ? { ...p, verified: true } : p));
+    return { chain, stocks: [...stockAssets, ...verifiedFirst(mark(stockPaired))], trending: verifiedFirst(mark(trending)), top: verifiedFirst(mark(top)), live: trend.ok || top1.ok };
   });
 }

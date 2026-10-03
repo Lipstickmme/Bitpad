@@ -4,13 +4,15 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import type { TrendingPool } from "@/lib/types";
 import type { ChainMarket as Data, MarketChain } from "@/lib/chain-market";
-import { pct, price, usd } from "@/lib/format";
+import { num, pct, price, usd } from "@/lib/format";
 import { Hint, Verified } from "./ui";
 import { XBuyButton, xBuyable } from "./XBuy";
 import { Pager } from "./Pager";
 import { hotReason, isHot } from "@/lib/spike";
 import { HotFlame } from "./HotFlame";
 import { coin } from "@/lib/coin";
+import { useHolders } from "@/lib/useHolders";
+import { OgBadge } from "./OgBadge";
 
 const PAGE = 15;
 const NATIVE: Record<MarketChain, { name: string; coin: string; kind: TrendingPool["quoteKind"] }> = {
@@ -51,13 +53,14 @@ export function ChainMarket({ chain }: { chain: MarketChain }) {
   const active = data && !data.stocks.length && tab === "stocks" ? "trending" : tab;
   const shown = (active === tab ? rows : data?.trending ?? []).slice(page * PAGE, (page + 1) * PAGE);
   const total = (active === tab ? rows : data?.trending ?? []).length;
+  const holders = useHolders(chain, shown.map((p) => p.baseAddress));
 
   return (
     <div id={`${chain}-market`} className="scroll-mt-20">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h2 className="flex items-center gap-1.5 text-base font-semibold tracking-tight">
           {n.name} market
-          <Hint>Live from GeckoTerminal and DexScreener. <b>Stock pairs</b> are tokenized stocks and gold on {n.name} (xStocks, Ondo, PAX Gold, Tether Gold) and popular tokens traded against them. The other tabs group {n.name}&apos;s trending and top pools by what they&apos;re paired with. ⚡ pays in {n.coin} from {chain === "solana" ? "Phantom" : "MetaMask"}, on LI.FI&apos;s best route.</Hint>
+          <Hint>Live from GeckoTerminal and DexScreener. <b>Stock pairs</b> are tokenized stocks and gold on {n.name} (xStocks, Ondo, PAX Gold, Tether Gold), only the verified contract and one per asset, plus popular tokens traded against them. Verified tokens ({chain === "solana" ? "Jupiter-verified or CoinGecko-listed" : "CoinGecko-listed"}) are listed first in every tab. <b>OG</b> stars grade how long a token has traded: 1, 2 or 3+ years. The other tabs group {n.name}&apos;s trending and top pools by what they&apos;re paired with. ⚡ pays in {n.coin} from {chain === "solana" ? "Phantom" : "MetaMask"}, on LI.FI&apos;s best route.</Hint>
         </h2>
         <div className="seg ml-auto max-w-full overflow-x-auto">
           {tabs.map(([k, label]) => <button key={k} data-on={active === k} onClick={() => { setTab(k); setPage(0); }}>{label}</button>)}
@@ -65,20 +68,20 @@ export function ChainMarket({ chain }: { chain: MarketChain }) {
       </div>
       <div className="card overflow-hidden">
         <div className="scroll-x">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full min-w-[900px] text-sm">
             <thead className="text-left text-xs text-muted">
               <tr className="border-b border-line">
                 <th className="px-4 py-2 font-medium">Token</th><th className="font-medium">DEX</th>
                 <th className="text-right font-medium">Price</th><th className="text-right font-medium">24h</th>
-                <th className="text-right font-medium">Mcap</th><th className="text-right font-medium">Volume</th><th className="text-right font-medium">Liquidity</th>
+                <th className="text-right font-medium">Mcap</th><th className="text-right font-medium">Volume</th><th className="text-right font-medium">Liquidity</th><th className="text-right font-medium">Holders</th>
                 <th className="px-4 text-right font-medium">Buy</th>
               </tr>
             </thead>
             <tbody className="num">
-              {shown.map((p) => <Row key={p.id} p={p} />)}
-              {!data && !failed && Array.from({ length: 5 }, (_, i) => <tr key={i} className="border-b border-line/60"><td colSpan={8} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-surface-2" /></td></tr>)}
-              {data && !shown.length && <tr><td colSpan={8} className="py-8 text-center text-muted">{data.live ? "Nothing in this group right now." : "GeckoTerminal didn't respond. Try again in a minute."}</td></tr>}
-              {failed && <tr><td colSpan={8} className="py-8 text-center text-muted">Couldn&apos;t load the {n.name} market. Try again in a minute.</td></tr>}
+              {shown.map((p) => <Row key={p.id} p={p} holders={p.baseAddress ? holders[p.baseAddress] : null} />)}
+              {!data && !failed && Array.from({ length: 5 }, (_, i) => <tr key={i} className="border-b border-line/60"><td colSpan={9} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-surface-2" /></td></tr>)}
+              {data && !shown.length && <tr><td colSpan={9} className="py-8 text-center text-muted">{data.live ? "Nothing in this group right now." : "GeckoTerminal didn't respond. Try again in a minute."}</td></tr>}
+              {failed && <tr><td colSpan={9} className="py-8 text-center text-muted">Couldn&apos;t load the {n.name} market. Try again in a minute.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -88,9 +91,9 @@ export function ChainMarket({ chain }: { chain: MarketChain }) {
   );
 }
 
-function Row({ p }: { p: TrendingPool }) {
+function Row({ p, holders }: { p: TrendingPool; holders: number | null }) {
   const mcap = p.marketCap || p.fdv || null;
-  const label = <>{p.base}{p.verified && <Verified className="ml-1 size-3.5 align-[-2px]" />}{isHot(p) && <HotFlame size={14} className="ml-1 align-[-2px]" title={hotReason(p)} />}{p.quote && <span className="font-normal text-muted"> / {coin(p.quote)}</span>}</>;
+  const label = <>{p.base}{p.verified && <Verified className="ml-1 size-3.5 align-[-2px]" />}{p.ageHours > 0 && <OgBadge createdAt={Date.now() - p.ageHours * 3_600_000} className="ml-1 align-[1px]" />}{isHot(p) && <HotFlame size={14} className="ml-1 align-[-2px]" title={hotReason(p)} />}{p.quote && <span className="font-normal text-muted"> / {coin(p.quote)}</span>}</>;
   return (
     <tr title={hotReason(p)} className={`border-b border-line/60 last:border-0 hover:bg-surface-2/60 ${isHot(p) ? "spike" : ""}`}>
       <td className="px-4 py-2.5 font-medium">
@@ -106,6 +109,7 @@ function Row({ p }: { p: TrendingPool }) {
       <td className="text-right" title={!p.marketCap && p.fdv ? "Fully diluted value (market cap not reported)" : undefined}>{mcap ? usd(mcap, { compact: true }) : "—"}</td>
       <td className="text-right">{usd(p.volume24h, { compact: true })}</td>
       <td className="text-right">{usd(p.liquidityUsd, { compact: true })}</td>
+      <td className="text-right text-ink-2">{holders != null ? num(holders, 0) : "—"}</td>
       <td className="px-4 text-right">
         {p.baseAddress && xBuyable(p.chain) ? <XBuyButton chain={p.chain} token={p.baseAddress} symbol={p.base} /> : p.url ? <a href={p.url} target="_blank" rel="noreferrer" className="inline-flex text-muted hover:text-ink" aria-label="Open pool"><ExternalLink className="size-3.5" /></a> : null}
       </td>
