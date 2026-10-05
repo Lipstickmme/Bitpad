@@ -102,7 +102,7 @@ export function QuickBuyButton({ token, className = "" }: { token: QuickBuyTarge
     setBusy(true);
     try {
       const { messages, via, spent } = await buildQuickBuy(token, override?.amount ?? amount, (override?.asset as QuickAsset | "USDT") ?? asset, wallet, slippage);
-      await sendTx(tc, messages);
+      await sendTx(tc, messages, { kind: "buy", label: `⚡ Buy $${token.symbol}`, token: token.symbol, amount: spent, detail: `via ${via}` });
       haptic("success");
       toast.success(`Buying $${token.symbol}`, `${spent} via ${via}. If the price moves past ${slippage}% slippage the swap refunds.`);
       if (token.bitpadPool) refreshSoon(() => router.refresh());

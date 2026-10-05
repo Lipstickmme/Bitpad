@@ -79,7 +79,7 @@ export function BitpadTradePanel({ token, onTraded }: { token: MarketToken; onTr
       } else {
         message = buildPoolSwapTx({ pool: pool.address, userJettonWallet: await jettonWallet(token.address, wallet), user: wallet, amount: q.inU, minOut, referrer: linkValid ? ref! : undefined });
       }
-      await sendTx(tc, [message]);
+      await sendTx(tc, [message], { kind: side, label: `${side === "buy" ? "Buy" : "Sell"} $${token.symbol} (Bitpad pool)`, token: token.symbol, amount: `${amount} ${side === "buy" ? pairSym : `$${token.symbol}`}` });
       haptic("success");
       toast.success(side === "buy" ? `Buying $${token.symbol}` : `Selling $${token.symbol}`, "Sent. If the price moves past your slippage, the pool refunds you in full.");
       setAmount("");

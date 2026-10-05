@@ -65,7 +65,7 @@ export function PortfolioCharts({ alloc, chains, pnl }: { alloc: Slice[]; chains
 
       <section className="card p-4">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-          24h P&amp;L · jettons
+          24h P&amp;L · tokens
           <Hint>What each TON jetton you hold gained or lost in dollars over the last 24 hours, from its current value and 24h price change. Coins on other chains aren&apos;t included.</Hint>
           <span className={`num ml-auto text-xs ${net >= 0 ? "text-up" : "text-down"}`}>{pnl.length ? `${net >= 0 ? "+" : ""}${usd(net)}` : ""}</span>
         </h3>
@@ -82,7 +82,7 @@ export function PortfolioCharts({ alloc, chains, pnl }: { alloc: Slice[]; chains
             </ResponsiveContainer>
           </div>
         ) : (
-          <p className="grid h-[220px] place-items-center text-sm text-muted">No priced jettons with 24h data.</p>
+          <p className="grid h-[220px] place-items-center text-sm text-muted">No priced tokens with 24h data.</p>
         )}
       </section>
     </div>

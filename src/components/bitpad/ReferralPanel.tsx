@@ -36,7 +36,7 @@ export function ReferralPanel({ token }: { token: MarketToken }) {
     if (!wallet) return tc.openModal();
     setBusy(label);
     try {
-      await sendTx(tc, [await build()]);
+      await sendTx(tc, [await build()], { kind: /claim/i.test(label) ? "claim" : "referral", label: `Referral: ${label}` });
       toast.success(`${label} sent`, "Updates here in a few seconds.");
       refreshSoon(reload);
     } catch (e) {

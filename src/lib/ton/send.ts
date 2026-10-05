@@ -1,7 +1,9 @@
 "use client";
 import type { TonConnectUI } from "@tonconnect/ui-react";
 import type { TcMessage } from "./client";
+import { Address, Cell } from "@ton/core";
 import { toast } from "@/components/Toast";
+import { recordTx, type TxMeta } from "@/lib/txlog";
 
 const WAIT_HINT_MS = 25_000;
 const TTL_S = 300;
@@ -11,8 +13,10 @@ const TTL_S = 300;
  * after a while with no answer it tells the user to open the wallet app, with
  * a button to reopen it, and a reconnect option for stale wallet sessions
  * (the usual reason a request never shows up). Errors come back in plain words.
+ * Every sent transaction is recorded in the Bitpad transaction log (Portfolio →
+ * History); `meta` says what it was.
  */
-export async function sendTx(tc: TonConnectUI, messages: TcMessage[]) {
+export async function sendTx(tc: TonConnectUI, messages: TcMessage[], meta: TxMeta = { kind: "tx", label: "Transaction" }) {
   let redirect: (() => void) | undefined;
   let done = false;
   const hint = setTimeout(() => {
@@ -24,16 +28,26 @@ export async function sendTx(tc: TonConnectUI, messages: TcMessage[]) {
     );
   }, WAIT_HINT_MS);
   try {
-    return await tc.sendTransaction(
+    const res = await tc.sendTransaction(
       { validUntil: Math.floor(Date.now() / 1000) + TTL_S, messages },
       { onRequestSent: (r) => { redirect = r; } },
     );
+    log(tc, res.boc, meta);
+    return res;
   } catch (e) {
     throw new Error(explain(e));
   } finally {
     done = true;
     clearTimeout(hint);
   }
+}
+
+function log(tc: TonConnectUI, boc: string, meta: TxMeta) {
+  let hash: string | undefined;
+  let wallet = meta.wallet;
+  try { hash = Cell.fromBase64(boc).hash().toString("hex"); } catch { /* still record it */ }
+  try { if (!wallet && tc.account?.address) wallet = Address.parse(tc.account.address).toString({ bounceable: false }); } catch { /* ignore */ }
+  recordTx({ chain: "ton", status: "sent", hash, ...meta, wallet });
 }
 
 async function reconnect(tc: TonConnectUI) {

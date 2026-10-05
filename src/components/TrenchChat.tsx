@@ -134,7 +134,7 @@ export function TrenchChat() {
     }
     if (!room.address || !config.feeWallet) throw new Error("Chat room unavailable right now");
     const init = room.deployed ? undefined : beginCell().store(storeStateInit(chatInit(config.feeWallet))).endCell().toBoc().toString("base64");
-    await sendTx(tc, [{ address: room.address, amount: POST_VALUE.toString(), payload: encodePost(p).toBoc().toString("base64"), ...(init ? { stateInit: init } : {}) }]);
+    await sendTx(tc, [{ address: room.address, amount: POST_VALUE.toString(), payload: encodePost(p).toBoc().toString("base64"), ...(init ? { stateInit: init } : {}) }], { kind: "chat", label: "Trench chat post" });
     haptic("success");
     [4000, 9000, 16000].forEach((ms) => setTimeout(load, ms));
   }

@@ -92,7 +92,7 @@ export function TradePanel({ token, livePrice }: { token: MarketToken; livePrice
         if (d.error) throw new Error(d.error);
         messages = d.messages;
       }
-      await sendTx(tc, messages);
+      await sendTx(tc, messages, { kind: side, label: `${side === "buy" ? "Buy" : "Sell"} $${token.symbol}`, token: token.symbol, amount: side === "sell" ? `${amount} $${token.symbol}` : undefined });
       haptic("success");
       toast.success(`${side === "buy" ? "Buy" : "Sell"} submitted`, "Your wallet broadcast the transaction.");
       setAmount("");

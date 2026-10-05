@@ -78,7 +78,15 @@ export async function tokenRates(tokens: string[]) {
 export interface TonApiEvent {
   event_id: string;
   timestamp: number;
-  actions: { type: string; status: string; TonTransfer?: { sender: { address: string }; recipient: { address: string }; amount: number; comment?: string } }[];
+  is_scam?: boolean;
+  in_progress?: boolean;
+  actions: {
+    type: string;
+    status: string;
+    TonTransfer?: { sender: { address: string }; recipient: { address: string }; amount: number; comment?: string };
+    /** TonAPI's own one-line summary, e.g. "Swap tokens" / "Swapping 1 TON for 3.2 USD₮" */
+    simple_preview?: { name: string; description: string; value?: string };
+  }[];
 }
 
 export async function accountEvents(address: string, limit = 100) {

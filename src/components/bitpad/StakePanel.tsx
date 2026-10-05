@@ -63,7 +63,7 @@ export function StakePanel({ token }: { token: MarketToken }) {
     if (!wallet) return tc.openModal();
     setBusy(true);
     try {
-      await sendTx(tc, await build());
+      await sendTx(tc, await build(), { kind: /^Staking/.test(done) ? "stake" : /^Withdrawing/.test(done) ? "unstake" : "claim", label: done, token: token.symbol });
       haptic("success");
       toast.success(done, "Updates in a few seconds.");
       setAmount("");

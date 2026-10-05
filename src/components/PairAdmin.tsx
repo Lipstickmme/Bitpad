@@ -50,7 +50,7 @@ export function PairAdmin({ candidates, owner }: { candidates: PairCandidate[]; 
     try {
       for (let i = 0; i < msgs.length; i += size) {
         setBusy(`Signing ${i / size + 1} of ${Math.ceil(msgs.length / size)}…`);
-        await sendTx(tc, msgs.slice(i, i + size));
+        await sendTx(tc, msgs.slice(i, i + size), { kind: "admin", label: "Register pair assets", detail: `${msgs.slice(i, i + size).length} messages` });
       }
       toast.success("Pairs sent", `${msgs.length} registrations sent. Each becomes usable once the factory learns its jetton wallet (usually under a minute).`);
       setTimeout(() => router.refresh(), 30_000);

@@ -114,7 +114,7 @@ export function LaunchForm({ assets, factory, registeredPairs, initialPair }: { 
         const decimals = reg?.decimals ?? 9;
         message = buildJettonLaunchTx({ ...base, creatorPairWallet: myWallet, creator: wallet, pairUnits: BigInt(Math.floor(pairUnits! * 10 ** decimals)) });
       }
-      await sendTx(tc, [message]);
+      await sendTx(tc, [message], { kind: "launch", label: `Launch $${f.symbol || "token"}`, token: f.symbol, amount: `paired with ${pair.symbol}` });
       haptic("success");
       toast.success(`$${f.symbol} is launching`, `Token and ${f.symbol}/${coin(pair.symbol)} pool deploy in one go — liquidity is locked. Waiting for it to land on-chain…`);
       // Find the new launch in the factory registry, then open its page

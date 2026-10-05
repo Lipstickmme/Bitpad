@@ -499,6 +499,37 @@ Bitpad never sees your keys. Transactions are built in the app and signed in you
 `,
   },
   {
+    slug: "portfolio",
+    group: "Trading",
+    title: "Portfolio and history",
+    description: "Holdings on TON, Solana, Ethereum and Base, and every transaction you've made.",
+    body: `
+[Portfolio](/portfolio) shows every wallet you've connected: TON through TON Connect, Solana through Phantom (or Solflare, Backpack), and EVM through MetaMask (or Rabby, Coinbase Wallet).
+
+## Holdings
+
+| Tab | What's listed | Source |
+| --- | --- | --- |
+| TON | GRAM and every jetton | TonAPI |
+| Solana | SOL and every SPL / Token-2022 token, xStocks included | the Solana network, priced by Jupiter |
+| Ethereum & Base | ETH and every ERC-20 | Blockscout |
+
+Tokens with no market price are hidden by default (they're usually airdropped spam); tick the box under the table to show them. Net worth adds up all chains.
+
+## Transaction history
+
+The history merges two things:
+
+- **On-chain history** of each connected wallet: swaps, transfers and contract calls, with what came in (+) and went out (−), its status and a link to the explorer (Tonviewer, Solscan, Etherscan, Basescan).
+- **Bitpad's own log** of everything you sent from the app: ⚡ buys, sells, launches, staking, referral claims, chat posts, bundler trades and funding, and cross-chain buys on Solana or EVM. These rows carry a **Bitpad** tag and say what you did ("⚡ Buy $TSLAx"), even when the explorer only shows a contract call.
+
+Filter by chain or **Made on Bitpad**, and press **CSV** to download the list for your records or taxes.
+
+> [!INFO]
+> Bitpad's log is stored in this browser only, so it doesn't follow you to another device and clearing site data erases it. Export a CSV now and then to keep a copy. On-chain history is always re-read from the chain.
+`,
+  },
+  {
     slug: "faq",
     group: "Platform",
     title: "FAQ",

@@ -3,6 +3,7 @@ import { accountJettons, accountTon } from "@/lib/data/tonapi";
 import { solBalance, evmBalances } from "@/lib/data/rpc";
 import { safe } from "@/lib/data/http";
 import { getPairAssets } from "@/lib/prices";
+import { evmTokens, solTokens, type TokenHolding } from "@/lib/wallet-data";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +15,14 @@ export async function GET(req: NextRequest) {
   const { assets } = await getPairAssets();
   const px = (s: string) => assets.find((a) => a.symbol === s)?.priceUsd ?? null;
 
-  const [jettons, ton, solBal, evmBal] = await Promise.all([
+  const [jettons, ton, solBal, evmBal, solToks, ethToks, baseToks] = await Promise.all([
     address ? safe(accountJettons(address), [], "tonapi jettons") : null,
     address ? safe(accountTon(address), null as number | null, "tonapi account") : null,
     sol ? safe(solBalance(sol), null as number | null, "solana rpc") : null,
     evm ? safe(evmBalances(evm), {} as Record<string, number>, "evm rpc") : null,
+    sol ? safe(solTokens(sol), [] as TokenHolding[], "solana tokens") : null,
+    evm ? safe(evmTokens(evm, "ethereum"), [] as TokenHolding[], "blockscout eth tokens") : null,
+    evm ? safe(evmTokens(evm, "base"), [] as TokenHolding[], "blockscout base tokens") : null,
   ]);
   const holdings = (jettons?.value ?? [])
     .map((b) => {
@@ -33,7 +37,7 @@ export async function GET(req: NextRequest) {
     tonUsd: px("TON"),
     holdings,
     tonLive: !!jettons?.ok,
-    solana: sol ? { address: sol, sol: solBal?.value ?? null, usd: solBal?.value != null && px("SOL") ? solBal.value * px("SOL")! : null } : null,
-    evm: evm ? { address: evm, balances: evmBal?.value ?? {}, ethUsd: px("ETH") } : null,
+    solana: sol ? { address: sol, sol: solBal?.value ?? null, usd: solBal?.value != null && px("SOL") ? solBal.value * px("SOL")! : null, tokens: solToks?.value ?? [], tokensLive: !!solToks?.ok } : null,
+    evm: evm ? { address: evm, balances: evmBal?.value ?? {}, ethUsd: px("ETH"), tokens: [...(ethToks?.value ?? []), ...(baseToks?.value ?? [])], tokensLive: !!(ethToks?.ok || baseToks?.ok) } : null,
   });
 }

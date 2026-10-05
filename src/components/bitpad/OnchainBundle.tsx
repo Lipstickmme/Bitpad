@@ -59,7 +59,7 @@ export function OnchainBundle({ recipients, splits, slippage }: { recipients: { 
     try {
       const { buildBundleBuyTx } = await import("@/lib/ton/launch");
       const msg = buildBundleBuyTx({ pool: data.pool.address, referrer, legs: plan.filter((l) => l.amount > 0n), feeBps: data.bundlerFeeBps });
-      await sendTx(tc, [msg]);
+      await sendTx(tc, [msg], { kind: "buy", label: "Bundle buy (one transaction)", detail: `${plan.filter((l) => l.amount > 0n).length} legs` });
       toast.success("Bundle sent", `${plan.length} wallets buy $${token!.symbol} in one transaction. Legs that would slip are refunded to their wallet.`);
     } catch (e) {
       toast.error("Bundle not sent", (e as Error).message);

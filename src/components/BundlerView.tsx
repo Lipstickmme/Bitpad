@@ -8,6 +8,7 @@ import { toast } from "./Toast";
 import { CopyButton } from "./CopyButton";
 import { OnchainBundle } from "./bitpad/OnchainBundle";
 import { sendTx } from "@/lib/ton/send";
+import { recordTx } from "@/lib/txlog";
 import { humanError } from "@/lib/errors";
 import { BundleActivity, loadActivity, newEntry, saveActivity, type ActivityEntry } from "./BundleActivity";
 import { BundleTokenChart, readLastBuy, saveLastBuy, type LastBuy } from "./BundleTokenChart";
@@ -53,6 +54,11 @@ export function BundlerView() {
   useEffect(() => setActivity(loadActivity()), []);
   const log = useCallback((entries: ActivityEntry[]) => {
     if (!entries.length) return;
+    // Trade legs and sweeps are signed by the burner wallets themselves, so they're mirrored into
+    // the app-wide transaction log here (funding and gas go through sendTx, which logs them)
+    for (const e of entries)
+      if (e.kind === "buy" || e.kind === "sell" || e.kind === "sweep")
+        recordTx({ chain: "ton", kind: e.kind, label: `Bundler ${e.kind}${e.token ? ` $${e.token}` : ""}${e.wallet ? ` · ${e.wallet}` : ""}`, token: e.token, amount: e.amount, wallet: e.address, status: e.status === "error" ? "failed" : "sent", detail: e.detail });
     setActivity((prev) => {
       const next = [...entries.reverse(), ...prev];
       saveActivity(next);
@@ -137,7 +143,7 @@ export function BundlerView() {
     const amounts = lowGas.map((w) => Math.max(0.05, GAS_TARGET - (w.balance ?? 0)));
     try {
       const msgs = lib.fundingMessages(lowGas, amounts);
-      for (let i = 0; i < msgs.length; i += 4) await sendTx(tc, msgs.slice(i, i + 4));
+      for (let i = 0; i < msgs.length; i += 4) await sendTx(tc, msgs.slice(i, i + 4), { kind: "gas", label: "Bundler: top up gas", detail: `${msgs.slice(i, i + 4).length} wallets` });
       log(lowGas.map((w, i) => newEntry({ kind: "gas", wallet: w.label, address: w.address, amount: `${num(amounts[i], 3)} GRAM`, status: "sent", detail: "from your main wallet" })));
       toast.success("Gas topped up", `${lowGas.length} wallet${lowGas.length === 1 ? "" : "s"} topped up to ${GAS_TARGET} GRAM.`);
       setTimeout(refresh, 8000);
@@ -153,7 +159,7 @@ export function BundlerView() {
     try {
       // 4 messages per request keeps older wallet contracts (v4) compatible
       for (let i = 0; i < msgs.length; i += 4) {
-        await sendTx(tc, msgs.slice(i, i + 4));
+        await sendTx(tc, msgs.slice(i, i + 4), { kind: "fund", label: "Bundler: fund wallets", detail: `${msgs.slice(i, i + 4).length} wallets` });
       }
       log(active.map((w, i) => newEntry({ kind: "fund", wallet: w.label, address: w.address, amount: `${num(fundSplit[i] ?? 0, 3)} GRAM`, status: "sent", detail: "from your main wallet" })));
       toast.success("Funding sent", `${active.length} wallets funded from ${shortAddr(wallet)}`);

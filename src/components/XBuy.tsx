@@ -5,6 +5,7 @@ import type { ChainId } from "@/lib/types";
 import { useApp } from "@/lib/store";
 import { useQuickBuy } from "./QuickBuy";
 import { toast } from "./Toast";
+import { recordTx, updateTx } from "@/lib/txlog";
 import { haptic } from "./TelegramBridge";
 
 const useHydrated = () => useSyncExternalStore(() => () => {}, () => true, () => false);
@@ -63,6 +64,7 @@ export function XBuyButton({ chain, token, symbol, className = "" }: { chain: Ch
       const what = `≈${out.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${q.toSymbol} for ~$${q.fromAmountUsd.toFixed(2)} in ${NATIVE[chain]} via ${q.toolName}`;
       const spend = BigInt(q.fromAmount);
       let result: "confirmed" | "failed" | "pending";
+      let logId: string | undefined;
       if (isSol) {
         // Refuse up front if the wallet can't cover the buy + fees (~0.01 SOL for fees and token-account rent)
         const bal = await fetch(`/api/solana?op=balance&address=${from}`).then((r) => r.json());
@@ -73,6 +75,7 @@ export function XBuyButton({ chain, token, symbol, className = "" }: { chain: Ch
         const p = window.phantom?.solana ?? window.solana;
         if (!p?.signAndSendTransaction) throw new Error("This Solana wallet can't sign transactions here");
         const { signature } = await p.signAndSendTransaction(tx);
+        logId = recordTx({ chain: "solana", kind: "buy", label: `Buy $${symbol}`, token: symbol, amount: `~$${q.fromAmountUsd.toFixed(2)} in SOL`, hash: signature, wallet: from, status: "sent", detail: `via ${q.toolName}` });
         toast.info(`Buying $${symbol}`, "Sent. Waiting for Solana to confirm…");
         result = await waitFor(async () => (await fetch(`/api/solana?op=status&sig=${signature}`).then((r) => r.json())).status);
       } else {
@@ -85,12 +88,14 @@ export function XBuyButton({ chain, token, symbol, className = "" }: { chain: Ch
         const need = BigInt(q.tx.value ?? 0) + BigInt(q.tx.gasLimit ?? 300_000) * gasPrice;
         if (bal < need) throw new Error(`Not enough ${NATIVE[chain]}: you have ${(Number(bal) / 1e18).toFixed(5)}, this buy needs ~${(Number(need) / 1e18).toFixed(5)} incl. gas`);
         const hash = (await eth.request({ method: "eth_sendTransaction", params: [{ from, to: q.tx.to, data: q.tx.data, value: q.tx.value, ...(q.tx.gasLimit ? { gas: q.tx.gasLimit } : {}) }] })) as string;
+        logId = recordTx({ chain, kind: "buy", label: `Buy $${symbol}`, token: symbol, amount: `~$${q.fromAmountUsd.toFixed(2)} in ${NATIVE[chain]}`, hash, wallet: from, status: "sent", detail: `via ${q.toolName}` });
         toast.info(`Buying $${symbol}`, "Sent. Waiting for confirmation…");
         result = await waitFor(async () => {
           const r = (await eth.request({ method: "eth_getTransactionReceipt", params: [hash] })) as { status?: string } | null;
           return !r ? "pending" : r.status === "0x1" ? "confirmed" : "failed";
         });
       }
+      if (logId) updateTx(logId, { status: result === "confirmed" ? "confirmed" : result === "failed" ? "failed" : "sent" });
       if (result === "failed") throw new Error("The transaction failed on-chain (nothing was bought). Check your balance and slippage.");
       haptic("success");
       if (result === "confirmed") toast.success(`Bought $${symbol}`, `${what}.`);
