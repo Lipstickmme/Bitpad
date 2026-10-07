@@ -387,6 +387,23 @@ Trending pools on Solana, Ethereum, Base, BSC, Arbitrum, Polygon and Avalanche c
 The [Bundler](/bundler) buys a token into up to **100 wallets** in one transaction through the on-chain Bitpad bundler contract, so a launch can be spread across wallets from the first block.
 
 It's open to everyone, and every bundle is visible on-chain.
+
+## Multi-wallet bundler and your keys
+
+The multi-wallet bundler creates burner TON wallets (W5) in your browser and trades from all of them. Their keys are encrypted with your vault password and stored **only in this browser**. Bitpad has no copy and can't recover them.
+
+> [!WARN]
+> The wallets are tied to one browser, on one device, on one Bitpad link. They won't show up in another browser, on your phone, in the Telegram app if you made them on the website (or the other way round), on a preview link, or after site data is cleared. Without a backup, anything in them is lost.
+
+**Back up every wallet:**
+
+- When you create wallets, an **encrypted backup file** downloads automatically. It's useless without your vault password, so it's safe to keep in a cloud drive.
+- **Export 24-word phrases** gives the plain recovery phrases. Each one also opens in Tonkeeper or MyTonWallet (wallet version W5). Anyone with that file controls the wallets, so keep it offline.
+- A red banner stays on the bundler until every wallet is in a backup you downloaded.
+
+**Restore** on any browser or device: create or unlock a vault, press **Restore from backup**, pick the file and enter the vault password you had when it was made.
+
+**Lost wallets?** The bundler can list the W5 wallets your connected TON wallet funded, with what they hold now (funding transfers carry the comment "Bitpad bundle"). It can't move those funds: that still needs the key. Open Bitpad in the browser and on the link where you made them, back them up, then restore wherever you like.
 `,
   },
   {

@@ -9,6 +9,7 @@ import { CopyButton } from "./CopyButton";
 import { OnchainBundle } from "./bitpad/OnchainBundle";
 import { sendTx } from "@/lib/ton/send";
 import { recordTx } from "@/lib/txlog";
+import { BundleBackupBar, LostWallets, downloadBackup } from "./BundleBackup";
 import { humanError } from "@/lib/errors";
 import { BundleActivity, loadActivity, newEntry, saveActivity, type ActivityEntry } from "./BundleActivity";
 import { BundleTokenChart, readLastBuy, saveLastBuy, type LastBuy } from "./BundleTokenChart";
@@ -112,8 +113,15 @@ export function BundlerView() {
   async function generate() {
     if (!lib) return;
     const made = await lib.createWallets(genCount, password, wallets.length);
-    persist([...wallets, ...made]);
-    toast.success(`${made.length} wallets created`, "Encrypted and stored only in this browser.");
+    const all = [...wallets, ...made];
+    persist(all);
+    // The browser is the only copy of these keys: hand the user a backup file straight away
+    try {
+      await downloadBackup(lib, all, password);
+      toast.success(`${made.length} wallets created · backup downloaded`, "Keep the backup file safe. With it and your vault password you can restore these wallets in any browser.");
+    } catch {
+      toast.error(`${made.length} wallets created, NOT backed up`, "Press “Download encrypted backup” now. The keys exist only in this browser.");
+    }
   }
 
   async function doImport() {
@@ -243,11 +251,15 @@ export function BundlerView() {
           <div className="grid size-11 place-items-center rounded-xl bg-brand-soft text-brand"><KeyRound className="size-5" /></div>
           <h1 className="mt-3 text-xl font-semibold">Multi-wallet bundler</h1>
           <p className="mt-1 text-sm text-ink-2">
-            Trade from many TON wallets at once. Burner wallets are generated in your browser and encrypted with this password (PBKDF2 + AES-GCM). Keys never leave this device.
+            Trade from many TON wallets at once. Burner wallets are generated in your browser and encrypted with this password (PBKDF2 + AES-GCM).
+          </p>
+          <p className="mt-2 rounded-lg border border-down/30 bg-down-soft/40 p-2.5 text-xs leading-relaxed text-ink-2">
+            <b className="text-down">Keys exist only in this browser.</b> Bitpad keeps no copy. Clearing site data, another browser or device, the Telegram app vs the website, or a different Bitpad link all mean the wallets aren&apos;t there. A backup file downloads when you create wallets; keep it safe. Had wallets before and don&apos;t see them? Open Bitpad where you made them, or restore a backup after unlocking.
           </p>
           <input type="password" className="input mt-4" placeholder={wallets.length ? "Vault password" : "Create a vault password (8+ chars)"} value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && unlock()} />
           <button onClick={unlock} className="btn btn-primary mt-3 w-full"><ShieldCheck className="size-4" /> {wallets.length ? `Unlock ${wallets.length} wallets` : "Create vault"}</button>
         </div>
+        <LostWallets owner={wallet || undefined} known={wallets.map((w) => w.address)} />
       </div>
     );
   }
@@ -264,6 +276,8 @@ export function BundlerView() {
           <button onClick={sweep} disabled={!active.length} className="btn btn-ghost"><Undo2 className="size-4" /> Sweep to main</button>
         </div>
       </div>
+
+      {lib && <BundleBackupBar lib={lib} wallets={wallets} password={password} onRestore={(added) => added.length && persist([...wallets, ...added])} />}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-4">
@@ -320,7 +334,7 @@ export function BundlerView() {
                       </td>
                       <td className="pr-3 text-right whitespace-nowrap">
                         <button onClick={() => reveal(w)} className="p-1 text-muted hover:text-ink" aria-label="Copy mnemonic"><Eye className="size-4" /></button>
-                        <button onClick={() => confirm(`Delete ${w.label}? Export its mnemonic first if it holds funds.`) && persist(wallets.filter((x) => x.id !== w.id))} className="p-1 text-muted hover:text-down" aria-label="Delete"><Trash2 className="size-4" /></button>
+                        <button onClick={() => confirm(`Delete ${w.label} from this browser?\n\nIts key exists nowhere else unless you backed it up. Anything it holds (${Number.isFinite(w.balance) ? `${num(w.balance ?? 0, 3)} GRAM` : "GRAM and tokens"}) is lost for good without the key. Sweep it to your main wallet or download a backup first.`) && persist(wallets.filter((x) => x.id !== w.id))} className="p-1 text-muted hover:text-down" aria-label="Delete"><Trash2 className="size-4" /></button>
                       </td>
                     </tr>
                   );
@@ -334,6 +348,7 @@ export function BundlerView() {
             <button onClick={doImport} disabled={!importText} className="btn btn-ghost h-9"><Upload className="size-4" /> Import</button>
           </div>
         </section>
+        <LostWallets owner={wallet || undefined} known={wallets.map((w) => w.address)} />
         <BundleActivity list={activity} onClear={() => { setActivity([]); saveActivity([]); }} />
         </div>
 

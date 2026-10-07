@@ -1,12 +1,16 @@
 import { mnemonicNew, mnemonicToPrivateKey, mnemonicValidate } from "@ton/crypto";
 import { WalletContractV5R1, internal, SendMode, fromNano, toNano, Address } from "@ton/ton";
-import { Cell, loadStateInit, type SenderArguments } from "@ton/core";
+import { Cell, beginCell, loadStateInit, type SenderArguments } from "@ton/core";
 import { tonClient, type TcMessage } from "./client";
 
 /**
  * Multi-wallet trading ("bundles"). Burner W5 wallets are generated in the
  * browser, their mnemonics encrypted with a user password (PBKDF2 → AES-GCM)
- * and kept in localStorage. Nothing ever leaves the device.
+ * and kept in localStorage. Nothing ever leaves the device, which also means
+ * browser storage is the only copy: it's per browser and per site address, and
+ * clearing site data (or Safari's 7-day cleanup) deletes it. So every wallet must
+ * be backed up: an encrypted backup file (restorable on any device with the
+ * vault password) or the plain 24-word phrases. Backups are tracked per address.
  */
 
 export interface BundleWallet {
@@ -21,17 +25,24 @@ export interface BundleWallet {
 
 const STORE_KEY = "bitpad.bundle.v1";
 const SALT_KEY = "bitpad.bundle.salt";
+const BACKED_KEY = "bitpad.bundle.backedUp";
+const KDF_ITER = 210_000;
 
 // ── crypto ────────────────────────────────────────────────────────────────
-async function deriveKey(password: string): Promise<CryptoKey> {
+function localSalt(): string {
   let salt = localStorage.getItem(SALT_KEY);
   if (!salt) {
     salt = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
     localStorage.setItem(SALT_KEY, salt);
   }
+  return salt;
+}
+
+async function deriveKey(password: string, saltB64?: string): Promise<CryptoKey> {
+  const salt = saltB64 ?? localSalt();
   const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
   return crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt: Uint8Array.from(atob(salt), (c) => c.charCodeAt(0)), iterations: 210_000, hash: "SHA-256" },
+    { name: "PBKDF2", salt: Uint8Array.from(atob(salt), (c) => c.charCodeAt(0)), iterations: KDF_ITER, hash: "SHA-256" },
     base,
     { name: "AES-GCM", length: 256 },
     false,
@@ -48,10 +59,96 @@ async function encrypt(text: string, password: string) {
   return btoa(String.fromCharCode(...out));
 }
 
-async function decrypt(blob: string, password: string) {
+async function decrypt(blob: string, password: string, saltB64?: string) {
   const raw = Uint8Array.from(atob(blob), (c) => c.charCodeAt(0));
-  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: raw.slice(0, 12) }, await deriveKey(password), raw.slice(12));
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: raw.slice(0, 12) }, await deriveKey(password, saltB64), raw.slice(12));
   return new TextDecoder().decode(pt);
+}
+
+// ── backup & restore ──────────────────────────────────────────────────────
+export interface BundleBackup {
+  format: "bitpad-bundle-backup";
+  version: 1;
+  createdAt: string;
+  /** Site the wallets were created on (where their browser copy lives) */
+  origin: string;
+  kdf: { name: "PBKDF2"; hash: "SHA-256"; iterations: number; salt: string };
+  cipher: "AES-GCM-256";
+  wallets: { label: string; address: string; secret: string }[];
+}
+
+/** Encrypted backup of every wallet: restorable anywhere with the vault password. Checks the password first. */
+export async function exportBackup(wallets: BundleWallet[], password: string): Promise<BundleBackup> {
+  if (wallets[0]) await decrypt(wallets[0].secret, password); // throws on a wrong password
+  return {
+    format: "bitpad-bundle-backup", version: 1, createdAt: new Date().toISOString(), origin: location.origin,
+    kdf: { name: "PBKDF2", hash: "SHA-256", iterations: KDF_ITER, salt: localSalt() }, cipher: "AES-GCM-256",
+    wallets: wallets.map((w) => ({ label: w.label, address: w.address, secret: w.secret })),
+  };
+}
+
+/** Plain-text export: label, address and 24 words per wallet. Anyone with this file controls the wallets. */
+export async function exportPhrases(wallets: BundleWallet[], password: string): Promise<string> {
+  const lines = [
+    "BITPAD BUNDLER WALLETS: RECOVERY PHRASES",
+    "Anyone with these words controls the wallets. Keep this offline and private.",
+    "Each phrase also works in Tonkeeper / MyTonWallet (import, wallet version W5).",
+    `Exported ${new Date().toISOString()} from ${location.origin}`,
+    "",
+  ];
+  for (const w of wallets) lines.push(`${w.label}`, `Address: ${w.address}`, `Phrase: ${await decrypt(w.secret, password)}`, "");
+  return lines.join("\n");
+}
+
+/**
+ * Restore wallets from a backup file. Each one is decrypted with the backup's
+ * own salt and password, checked against its address, then re-encrypted for
+ * this browser's vault. Wallets already present are skipped.
+ */
+export async function restoreBackup(backup: BundleBackup, backupPassword: string, vaultPassword: string, existing: BundleWallet[]): Promise<BundleWallet[]> {
+  if (backup?.format !== "bitpad-bundle-backup" || !Array.isArray(backup.wallets) || !backup.kdf?.salt) throw new Error("This isn't a Bitpad bundler backup file");
+  const have = new Set(existing.map((w) => w.address));
+  const out: BundleWallet[] = [];
+  for (const b of backup.wallets) {
+    if (have.has(b.address)) continue;
+    let words: string;
+    try {
+      words = await decrypt(b.secret, backupPassword, backup.kdf.salt);
+    } catch {
+      throw new Error("Wrong password for this backup (use the vault password you had when it was made)");
+    }
+    const { contract } = await walletFromMnemonic(words.split(" "));
+    const address = contract.address.toString({ bounceable: false });
+    if (address !== b.address) throw new Error(`Backup entry ${b.label} doesn't match its address`);
+    out.push({ id: crypto.randomUUID(), label: b.label, address, secret: await encrypt(words, vaultPassword), enabled: true });
+    have.add(address);
+  }
+  return out;
+}
+
+/** Addresses included in a backup or phrase export the user downloaded from this browser. */
+export function backedUp(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(BACKED_KEY) ?? "[]"));
+  } catch {
+    return new Set();
+  }
+}
+export function markBackedUp(addresses: string[]) {
+  const s = backedUp();
+  for (const a of addresses) s.add(a);
+  try { localStorage.setItem(BACKED_KEY, JSON.stringify([...s])); } catch { /* storage blocked */ }
+  if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") window.dispatchEvent(new Event(BACKUP_EVENT));
+}
+export const BACKUP_EVENT = "bitpad:bundle-backup";
+
+/** Ask the browser not to evict this site's storage under pressure (and exempt it from some automatic cleanup). */
+export async function keepStorage(): Promise<boolean> {
+  try {
+    return (await navigator.storage?.persisted?.()) || (await navigator.storage?.persist?.()) || false;
+  } catch {
+    return false;
+  }
 }
 
 // ── storage ───────────────────────────────────────────────────────────────
@@ -125,8 +222,12 @@ export function splitAmount(total: number, n: number, mode: SplitMode, variance 
 }
 
 /** Messages for the main (TON Connect) wallet to fund every bundle wallet. */
+/** Comment on funding transfers, so burner wallets can be found again from the main wallet's history. */
+export const FUND_COMMENT = "Bitpad bundle";
+const fundPayload = () => beginCell().storeUint(0, 32).storeStringTail(FUND_COMMENT).endCell().toBoc().toString("base64");
+
 export function fundingMessages(wallets: BundleWallet[], amounts: number[]): TcMessage[] {
-  return wallets.map((w, i) => ({ address: w.address, amount: toNano(amounts[i].toFixed(9)).toString() }));
+  return wallets.map((w, i) => ({ address: w.address, amount: toNano(amounts[i].toFixed(9)).toString(), payload: fundPayload() }));
 }
 
 // The wallet's own fee for sending its message (a W5 external message costs ~0.003-0.006 GRAM).
